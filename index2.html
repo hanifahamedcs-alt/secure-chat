@@ -1,0 +1,273 @@
+<script>
+  let myPeerId = "";
+  let peer = null;
+  let activeConn = null;
+  let activeCall = null;
+  let localStream = null;
+
+  // Generate a clean, human-readable, unique ID: e.g. "node-94812"
+  function generateCleanId() {
+    return 'node-' + Math.floor(100000 + Math.random() * 900000);
+  }
+
+  // 1. REGISTER THE NODE
+  function registerPeer() {
+    const email = document.getElementById('userEmailInput').value.trim();
+    if (!email || !email.includes('@')) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    // Use a clean ID registered directly on the cloud server
+    myPeerId = generateCleanId();
+
+    const statusEl = document.getElementById('authStatus');
+    statusEl.textContent = 'Registering on WebRTC signaling broker...';
+    statusEl.classList.remove('hidden');
+
+    peer = new Peer(myPeerId, {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      }
+    });
+
+    peer.on('open', (id) => {
+      console.log('Online! My Peer ID is:', id);
+      document.getElementById('authOverlay').classList.add('hidden');
+      
+      // Show your Email and your exact shareable ID
+      document.getElementById('myEmailLabel').innerHTML = `
+        ${email} 
+        <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied ID: ${id}');" class="ml-1 text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded hover:bg-indigo-500 hover:text-white transition">
+          <i class="fa-regular fa-copy"></i> Copy ID
+        </button>
+      `;
+      document.getElementById('myAvatar').textContent = email[0].toUpperCase();
+
+      // Update placeholder so you know what to paste
+      document.getElementById('peerEmailInput').placeholder = "Paste friend's Peer ID (e.g. node-123456)";
+    });
+
+    // 2. RECEIVE INCOMING CONNECTION
+    peer.on('connection', (conn) => {
+      console.log('Incoming connection from:', conn.peer);
+      setupDataConnection(conn);
+    });
+
+    // 3. RECEIVE INCOMING CALL
+    peer.on('call', async (call) => {
+      const isVideo = call.metadata?.video !== false;
+      const caller = call.metadata?.callerEmail || call.peer;
+
+      if (confirm(`Incoming ${isVideo ? 'Video' : 'Audio'} call from ${caller}. Accept?`)) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+          document.getElementById('callOverlay').classList.remove('hidden');
+          document.getElementById('localVideo').srcObject = localStream;
+
+          if (!isVideo) {
+            document.getElementById('localVideo').classList.add('hidden');
+            document.getElementById('remoteVideo').classList.add('hidden');
+            document.getElementById('audioCallIndicator').classList.remove('hidden');
+          } else {
+            document.getElementById('localVideo').classList.remove('hidden');
+            document.getElementById('remoteVideo').classList.remove('hidden');
+            document.getElementById('audioCallIndicator').classList.add('hidden');
+          }
+
+          call.answer(localStream);
+          handleCallStream(call);
+        } catch (err) {
+          alert('Microphone/Camera permission error: ' + err.message);
+          call.close();
+        }
+      } else {
+        call.close();
+      }
+    });
+
+    peer.on('error', (err) => {
+      console.error('PeerJS error:', err);
+      if (err.type === 'peer-unavailable') {
+        alert('Target Peer is offline or the ID was entered incorrectly. Make sure the other user is online and you pasted their exact ID.');
+      } else {
+        alert('Network error: ' + err.type);
+      }
+    });
+  }
+
+  // 4. CONNECT TO PEER
+  function connectToPeerByEmail() {
+    const rawInput = document.getElementById('peerEmailInput').value.trim();
+    if (!rawInput) {
+      alert('Please enter your friend\'s ID.');
+      return;
+    }
+
+    if (rawInput === myPeerId) {
+      alert('You cannot connect to yourself.');
+      return;
+    }
+
+    document.getElementById('connBadge').textContent = 'Dialing peer...';
+    document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
+
+    const conn = peer.connect(rawInput, {
+      reliable: true,
+      metadata: { callerId: myPeerId }
+    });
+
+    setupDataConnection(conn);
+  }
+
+  // 5. HANDLE DATA STREAM
+  function setupDataConnection(conn) {
+    activeConn = conn;
+
+    conn.on('open', () => {
+      console.log('Connected to:', conn.peer);
+      setChatUIActive(conn.peer);
+      addContactToList(conn.peer);
+    });
+
+    conn.on('data', (data) => {
+      if (data.text) {
+        appendMessage(data.text, 'incoming', data.time);
+      }
+    });
+
+    conn.on('close', () => {
+      document.getElementById('connBadge').textContent = 'Disconnected';
+      document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
+      activeConn = null;
+    });
+  }
+
+  function setChatUIActive(id) {
+    document.getElementById('currentPeerEmail').textContent = id;
+    document.getElementById('currentPeerAvatar').textContent = id[0].toUpperCase();
+    document.getElementById('connBadge').textContent = 'WebRTC Connected • E2EE Direct';
+    document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
+  }
+
+  function addContactToList(id) {
+    const list = document.getElementById('contactList');
+    const emptyNotice = document.getElementById('emptyPeerNotice');
+    if (emptyNotice) emptyNotice.remove();
+
+    list.innerHTML = `
+      <div class="flex items-center gap-3 p-2 bg-[#1e293b]/60 rounded-xl border border-indigo-500/30">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center uppercase text-xs">
+          ${id[0]}
+        </div>
+        <div class="truncate flex-1">
+          <p class="text-xs font-semibold text-white truncate">${id}</p>
+          <p class="text-[10px] text-emerald-400">Direct Session Active</p>
+        </div>
+      </div>
+    `;
+  }
+
+  // 6. SEND MESSAGE
+  function handleSendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!activeConn || !activeConn.open) {
+      alert('Not connected yet. Please connect to a peer first.');
+      return;
+    }
+
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    activeConn.send({
+      text: text,
+      time: time
+    });
+
+    appendMessage(text, 'outgoing', time);
+    input.value = '';
+  }
+
+  function appendMessage(text, direction, time) {
+    const container = document.getElementById('messagesContainer');
+    const isOut = direction === 'outgoing';
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+    msgDiv.innerHTML = `
+      <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+        isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'
+      } shadow">
+        <p class="break-words">${text}</p>
+        <div class="flex items-center justify-end gap-1 text-[10px] opacity-75 mt-1">
+          <span>${time || 'Just now'}</span>
+          ${isOut ? '<i class="fa-solid fa-check-double text-[9px]"></i>' : ''}
+        </div>
+      </div>
+    `;
+
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // 7. AUDIO / VIDEO CALLS
+  function startVideoCall() { initiateCall(true); }
+  function startAudioCall() { initiateCall(false); }
+
+  async function initiateCall(isVideo) {
+    const targetId = document.getElementById('currentPeerEmail').textContent;
+    if (!targetId || targetId === 'No contact selected') {
+      alert('Connect to a contact first.');
+      return;
+    }
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+      document.getElementById('callOverlay').classList.remove('hidden');
+      document.getElementById('localVideo').srcObject = localStream;
+
+      if (!isVideo) {
+        document.getElementById('localVideo').classList.add('hidden');
+        document.getElementById('remoteVideo').classList.add('hidden');
+        document.getElementById('audioCallIndicator').classList.remove('hidden');
+      } else {
+        document.getElementById('localVideo').classList.remove('hidden');
+        document.getElementById('remoteVideo').classList.remove('hidden');
+        document.getElementById('audioCallIndicator').classList.add('hidden');
+      }
+
+      const call = peer.call(targetId, localStream, {
+        metadata: { video: isVideo, callerEmail: myPeerId }
+      });
+      handleCallStream(call);
+    } catch (err) {
+      alert('Camera/Microphone error: ' + err.message);
+    }
+  }
+
+  function handleCallStream(call) {
+    activeCall = call;
+    call.on('stream', (remoteStream) => {
+      document.getElementById('remoteVideo').srcObject = remoteStream;
+    });
+    call.on('close', () => endCall());
+  }
+
+  function endCall() {
+    if (activeCall) activeCall.close();
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+    }
+    document.getElementById('callOverlay').classList.add('hidden');
+    document.getElementById('localVideo').srcObject = null;
+    document.getElementById('remoteVideo').srcObject = null;
+  }
+</script>
