@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
+  <title>CypherLink — Live E2EE WebRTC Chat & Calls</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS WebRTC Library -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body { background-color: #0b0e14; color: #f3f4f6; }
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+  </style>
+</head>
+<body class="h-screen flex flex-col font-sans select-none overflow-hidden">
+
+  <!-- ==================== SCREEN 1: LOGIN MODAL ==================== -->
+  <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14] flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-gray-800 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-500/30">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">Initialize Encrypted Node</h2>
+      <p class="text-sm text-gray-400 mb-6">Enter your email or display name to connect to the dedicated TURN relay network.</p>
+      
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Identifier / Email</label>
+          <input id="userEmailInput" type="text" placeholder="alice@gmail.com" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+        </div>
+        <button onclick="registerPeer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-key"></i> Start Secure Node
+        </button>
+      </div>
+      <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 2: MESSENGER UI ==================== -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-80 bg-[#0f172a] border-r border-gray-800 flex flex-col">
+      <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white uppercase" id="myAvatar">?</div>
+          <div class="overflow-hidden">
+            <h3 class="text-sm font-semibold truncate text-white" id="myEmailLabel">Not connected</h3>
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TURN Relay Ready
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Peer Input -->
+      <div class="p-3 border-b border-gray-800 bg-[#131d35]">
+        <label class="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Connect to Peer</label>
+        <div class="flex gap-2">
+          <input id="peerEmailInput" type="text" placeholder="Paste friend's Peer ID..." class="flex-1 bg-[#1e293b] border border-gray-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
+          <button onclick="connectToPeer()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
+            <i class="fa-solid fa-link"></i> Connect
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Sessions list -->
+      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Active Session</div>
+      <div id="contactList" class="flex-1 overflow-y-auto px-2 space-y-1">
+        <div id="emptyPeerNotice" class="text-xs text-gray-500 p-4 text-center">
+          No peer connected. Share your ID or paste your friend's ID above.
+        </div>
+      </div>
+    </aside>
+
+    <!-- CHAT AREA -->
+    <main class="flex-1 flex flex-col bg-[#0b0e14]">
+      <!-- Header -->
+      <header class="h-16 border-b border-gray-800 px-6 flex items-center justify-between bg-[#0e131f]">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="currentPeerAvatar">#</div>
+          <div>
+            <h2 class="text-sm font-semibold text-white" id="currentPeerEmail">No peer selected</h2>
+            <div class="flex items-center gap-2">
+              <span id="connBadge" class="text-[10px] text-gray-500 font-mono">Disconnected</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="startAudioCall()" title="Audio Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+            <i class="fa-solid fa-phone"></i>
+          </button>
+          <button onclick="startVideoCall()" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+            <i class="fa-solid fa-video"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message History -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
+        <div class="text-center my-4">
+          <span class="text-[11px] bg-[#1e293b] text-gray-400 px-3 py-1 rounded-full border border-gray-800">
+            <i class="fa-solid fa-shield-alt text-emerald-400 mr-1"></i> Dedicated Metered TURN active. Cross-network enabled.
+          </span>
+        </div>
+      </div>
+
+      <!-- Message Input -->
+      <div class="p-4 border-t border-gray-800 bg-[#0e131f]">
+        <form onsubmit="handleSendMessage(event)" class="flex items-center gap-3">
+          <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#1a2333] border border-gray-700 text-sm rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2">
+            <span>Send</span>
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <div id="callOverlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-6">
+    <div class="relative w-full max-w-4xl h-[70vh] bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
+      <!-- Remote Video with iOS playsinline -->
+      <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
+      
+      <!-- Local Video -->
+      <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-4 right-4 w-32 h-24 md:w-48 md:h-36 object-cover rounded-xl border-2 border-indigo-500
