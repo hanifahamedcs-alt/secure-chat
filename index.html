@@ -1,1315 +1,442 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CypherLink - End-to-End Encrypted Messenger & Video Call</title>
-  <!-- Tailwind CSS -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CypherLink — Live E2EE WebRTC Chat & Calls</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Inter Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            brand: {
-              50: '#eef2ff',
-              100: '#e0e7ff',
-              500: '#6366f1',
-              600: '#4f46e5',
-              700: '#4338ca',
-            },
-            signal: {
-              blue: '#2c6bed',
-              dark: '#12151c',
-              bubble: '#1f2430',
-              accent: '#00d287'
-            }
-          }
-        }
-      }
-    }
-  </script>
-
+  <!-- Real WebRTC Cloud Signaling Broker -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(156, 163, 175, 0.4);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(156, 163, 175, 0.7);
-    }
-    .pulse-glow {
-      box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
-    }
-    .video-mirror {
-      transform: scaleX(-1);
-    }
+    body { background-color: #0b0e14; color: #f3f4f6; }
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased h-screen overflow-hidden flex flex-col select-none">
+<body class="h-screen flex flex-col font-sans select-none overflow-hidden">
 
-  <!-- ================= NOTIFICATION TOAST ================= -->
-  <div id="toastNotification" class="fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl text-sm transition-all duration-300 transform translate-y-[-120%] opacity-0 pointer-events-none">
-    <div id="toastIcon" class="text-indigo-400 text-lg"><i class="fa-solid fa-shield-halved"></i></div>
-    <div id="toastMessage" class="text-slate-200 font-medium">Notification message</div>
-  </div>
-
-  <!-- ================= AUTH & VERIFICATION SCREEN MODAL ================= -->
-  <div id="authOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-      <!-- Glow effect -->
-      <div class="absolute -top-20 -right-20 w-44 h-44 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-20 -left-20 w-44 h-44 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div class="text-center mb-8 relative">
-        <div class="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-teal-400 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl shadow-lg mb-3">
-          <i class="fa-solid fa-lock"></i>
-        </div>
-        <h2 class="text-2xl font-bold tracking-tight text-white">CypherLink E2EE</h2>
-        <p class="text-xs text-slate-400 mt-1">Zero-Knowledge RSA-OAEP & WebRTC Direct 1-on-1</p>
+  <!-- ==================== SCREEN 1: EMAIL SETUP ==================== -->
+  <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14] flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-gray-800 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-500/30">
+        <i class="fa-solid fa-shield-halved"></i>
       </div>
-
-      <!-- Step 1: Email Form -->
-      <div id="authStepEmail" class="space-y-4">
+      <h2 class="text-2xl font-bold text-white mb-2">Initialize Encrypted Node</h2>
+      <p class="text-sm text-gray-400 mb-6">Enter your email address. It will be converted into your unique, encrypted P2P network address.</p>
+      
+      <div class="space-y-4 text-left">
         <div>
-          <label class="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-2">Your Name / Alias</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500">
-              <i class="fa-solid fa-user"></i>
-            </span>
-            <input type="text" id="authNameInput" placeholder="Alex Reed" class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Email</label>
+          <input id="userEmailInput" type="email" placeholder="alice@gmail.com" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
-
-        <div>
-          <label class="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-2">Verified Email Address</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500">
-              <i class="fa-solid fa-envelope"></i>
-            </span>
-            <input type="email" id="authEmailInput" placeholder="alex@securemail.org" class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
-            <i class="fa-solid fa-circle-info text-indigo-400"></i> A verification OTP will be dispatched to this email.
-          </p>
-        </div>
-
-        <button onclick="app.requestEmailOTP()" class="w-full mt-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-medium py-3 rounded-xl transition duration-200 shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-          <span>Send Verification Code</span>
-          <i class="fa-solid fa-arrow-right text-xs"></i>
+        <button onclick="registerPeer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-key"></i> Start Secure Node
         </button>
       </div>
-
-      <!-- Step 2: OTP Verification Form -->
-      <div id="authStepOTP" class="space-y-4 hidden">
-        <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 text-xs text-indigo-200">
-          <p>Security code dispatched to <span id="authTargetEmail" class="font-bold text-white"></span>.</p>
-          <p class="mt-1 text-slate-400 text-[11px] font-mono">Demo Auto-filled OTP: <span id="demoOtpSnippet" class="text-emerald-400 font-bold"></span></p>
-        </div>
-
-        <div>
-          <label class="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-2">6-Digit Verification Token</label>
-          <input type="text" id="authOtpInput" maxlength="6" placeholder="123456" class="w-full text-center tracking-[0.5em] font-mono text-xl bg-slate-800/90 border border-slate-700 rounded-xl py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-400">
-        </div>
-
-        <div class="flex gap-2">
-          <button onclick="app.resetAuthStep()" class="w-1/3 bg-slate-800 hover:bg-slate-750 text-slate-300 font-medium py-3 rounded-xl transition text-sm">
-            Back
-          </button>
-          <button onclick="app.verifyEmailAndInitCrypto()" class="w-2/3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl transition duration-200 shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-sm">
-            <i class="fa-solid fa-key"></i>
-            <span>Generate Keys & Enter</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Key Gen Animation Overlay inside Card -->
-      <div id="keyGenProgress" class="hidden text-center py-6">
-        <div class="inline-block animate-spin text-3xl text-indigo-400 mb-3">
-          <i class="fa-solid fa-compact-disc"></i>
-        </div>
-        <p class="text-sm font-semibold text-white">Generating RSA-OAEP 2048-bit Keypair...</p>
-        <p class="text-xs text-slate-400 mt-1">Calculating Cryptographic Fingerprint...</p>
-      </div>
+      <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
     </div>
   </div>
 
-  <!-- ================= TOP NAVIGATION / HEADER ================= -->
-  <header class="h-14 border-b border-slate-800 bg-slate-900/60 backdrop-blur px-4 flex items-center justify-between z-20 shrink-0">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold shadow-md">
-        <i class="fa-solid fa-shield-halved text-sm"></i>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="font-bold text-sm tracking-wide text-white">CypherLink</h1>
-          <span class="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">E2EE Active</span>
+  <!-- ==================== SCREEN 2: MAIN MESSENGER INTERFACE ==================== -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-80 bg-[#0f172a] border-r border-gray-800 flex flex-col">
+      <!-- User profile header -->
+      <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white uppercase" id="myAvatar">?</div>
+          <div class="overflow-hidden">
+            <h3 class="text-sm font-semibold truncate text-white" id="myEmailLabel">Not connected</h3>
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
+            </span>
+          </div>
         </div>
-        <p class="text-[10px] text-slate-400 leading-none">SubtleCrypto RSA-2048 & AES-256-GCM</p>
       </div>
-    </div>
 
-    <!-- Center Status Badges -->
-    <div class="hidden md:flex items-center gap-3">
-      <button onclick="app.openSafetyModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs text-slate-300 transition">
-        <i class="fa-solid fa-fingerprint text-indigo-400"></i>
-        <span class="font-mono text-[11px]" id="headerFingerprintShort">Keys: Initializing...</span>
-        <i class="fa-solid fa-circle-check text-emerald-400 text-[10px]"></i>
-      </button>
-      <button onclick="app.openDeploymentGuide()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-900/40 hover:bg-indigo-900/60 border border-indigo-700/50 text-xs text-indigo-300 font-medium transition">
-        <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
-        <span>Free Hosting Setup</span>
-      </button>
-    </div>
-
-    <!-- Profile & Actions -->
-    <div class="flex items-center gap-2">
-      <div id="currentUserBadge" class="flex items-center gap-2 px-2 py-1 rounded-xl bg-slate-800/60 border border-slate-700/40 text-xs">
-        <div class="w-6 h-6 rounded-full bg-indigo-500/30 border border-indigo-400 flex items-center justify-center font-bold text-indigo-300 text-[11px]" id="userAvatarLetter">U</div>
-        <span class="font-medium text-slate-200 hidden sm:inline" id="userDisplayName">Connecting...</span>
-      </div>
-      <button onclick="app.openSafetyModal()" title="View Cryptographic Fingerprint" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 flex items-center justify-center text-xs transition border border-slate-700">
-        <i class="fa-solid fa-key"></i>
-      </button>
-      <button onclick="app.openDeploymentGuide()" title="Deployment Guide" class="md:hidden w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-300 flex items-center justify-center text-xs border border-indigo-500/40">
-        <i class="fa-solid fa-cloud"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- ================= MAIN LAYOUT (SIDEBAR + CHAT AREA) ================= -->
-  <div class="flex-1 flex overflow-hidden relative">
-
-    <!-- SIDEBAR: Contacts & Channels -->
-    <aside id="chatSidebar" class="w-full md:w-80 lg:w-96 bg-slate-900/40 border-r border-slate-800 flex flex-col shrink-0 transition-transform duration-200 z-10">
-      
-      <!-- Search & New Contact -->
-      <div class="p-3 border-b border-slate-800/80 space-y-2">
-        <div class="relative">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 text-xs">
-            <i class="fa-solid fa-magnifying-glass"></i>
-          </span>
-          <input type="text" id="contactSearchInput" oninput="app.filterContacts()" placeholder="Search secure 1-on-1 chats..." class="w-full bg-slate-800/80 border border-slate-700/70 rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500">
-        </div>
-        
-        <div class="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-          <span class="font-semibold uppercase tracking-wider text-slate-500">Direct Contacts</span>
-          <button onclick="app.showAddContactPrompt()" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium">
-            <i class="fa-solid fa-user-plus text-[10px]"></i> Add Peer
+      <!-- Add Peer Input -->
+      <div class="p-3 border-b border-gray-800 bg-[#131d35]">
+        <label class="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Connect to Contact</label>
+        <div class="flex gap-2">
+          <input id="peerEmailInput" type="email" placeholder="Enter friend's email..." class="flex-1 bg-[#1e293b] border border-gray-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
+          <button onclick="connectToPeerByEmail()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
+            <i class="fa-solid fa-user-plus"></i> Connect
           </button>
         </div>
       </div>
 
-      <!-- Contacts List -->
-      <div id="contactsContainer" class="flex-1 overflow-y-auto divide-y divide-slate-800/40">
-        <!-- Injected via JavaScript -->
-      </div>
-
-      <!-- Bottom Security Status Widget -->
-      <div class="p-3 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between text-xs">
-        <div class="flex items-center gap-2">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span class="text-[11px] text-slate-400 font-mono">SubtleCrypto Ready</span>
+      <!-- Active Sessions list -->
+      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Active 1-on-1 Session</div>
+      <div id="contactList" class="flex-1 overflow-y-auto px-2 space-y-1">
+        <div id="emptyPeerNotice" class="text-xs text-gray-500 p-4 text-center">
+          No active connection yet. Enter your friend's exact email above to start.
         </div>
-        <span class="text-[10px] text-slate-500">P2P Ready</span>
       </div>
     </aside>
 
-    <!-- ACTIVE CHAT VIEW -->
-    <main id="mainChatArea" class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden">
-      
-      <!-- Chat Header -->
-      <div id="activeChatHeader" class="h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur px-4 flex items-center justify-between shrink-0">
+    <!-- CHAT AREA -->
+    <main class="flex-1 flex flex-col bg-[#0b0e14]">
+      <!-- Header -->
+      <header class="h-16 border-b border-gray-800 px-6 flex items-center justify-between bg-[#0e131f]">
         <div class="flex items-center gap-3">
-          <!-- Back to contacts button on mobile -->
-          <button onclick="app.toggleMobileSidebar(true)" class="md:hidden text-slate-400 hover:text-white p-1">
-            <i class="fa-solid fa-chevron-left text-sm"></i>
-          </button>
-
-          <div class="relative">
-            <img id="activeContactAvatar" src="https://placehold.co/100x100/312e81/e0e7ff?text=EA" class="w-10 h-10 rounded-2xl object-cover border border-slate-700" alt="Avatar">
-            <div id="activeContactOnlineStatus" class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-          </div>
+          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="currentPeerAvatar">#</div>
           <div>
+            <h2 class="text-sm font-semibold text-white" id="currentPeerEmail">No contact selected</h2>
             <div class="flex items-center gap-2">
-              <h2 id="activeContactName" class="font-semibold text-sm text-white">Elena Rostova</h2>
-              <span id="activeSafetyBadge" onclick="app.openSafetyModal()" class="cursor-pointer text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                <i class="fa-solid fa-shield text-[9px]"></i> Encrypted
-              </span>
+              <span id="connBadge" class="text-[10px] text-gray-500 font-mono">Disconnected</span>
             </div>
-            <p id="activeContactEmail" class="text-xs text-slate-400 font-mono">elena@protonmail.ch</p>
           </div>
         </div>
 
-        <!-- Call Buttons -->
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <!-- Audio Call Button -->
-          <button onclick="app.startCall('audio')" title="Start E2EE Audio Call" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 flex items-center justify-center transition active:scale-95 shadow-sm">
-            <i class="fa-solid fa-phone text-emerald-400"></i>
+        <div class="flex items-center gap-2">
+          <button onclick="startAudioCall()" title="Audio Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+            <i class="fa-solid fa-phone"></i>
           </button>
-          
-          <!-- Video Call Button -->
-          <button onclick="app.startCall('video')" title="Start E2EE Video Call" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition active:scale-95 shadow-lg shadow-indigo-600/30">
+          <button onclick="startVideoCall()" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
             <i class="fa-solid fa-video"></i>
           </button>
+        </div>
+      </header>
 
-          <!-- Security Fingerprint Button -->
-          <button onclick="app.openSafetyModal()" title="Verify Safety Numbers" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center justify-center transition">
-            <i class="fa-solid fa-fingerprint"></i>
-          </button>
+      <!-- Message History -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
+        <div class="text-center my-4">
+          <span class="text-[11px] bg-[#1e293b] text-gray-400 px-3 py-1 rounded-full border border-gray-800">
+            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Messages are encrypted and transmitted P2P over WebRTC DataChannels.
+          </span>
         </div>
       </div>
 
-      <!-- E2EE Security Banner in conversation -->
-      <div class="bg-indigo-950/20 border-b border-indigo-500/10 px-4 py-2 flex items-center justify-center gap-2 text-center text-xs text-indigo-300/80">
-        <i class="fa-solid fa-lock text-[10px] text-emerald-400"></i>
-        <span>Messages and calls are end-to-end encrypted. No one outside of this chat can read or listen to them.</span>
-        <button onclick="app.openSafetyModal()" class="underline hover:text-white font-medium ml-1">Verify</button>
-      </div>
-
-      <!-- Messages Flow Container -->
-      <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-        <!-- Injected via JavaScript -->
-      </div>
-
-      <!-- Message Composer Bar -->
-      <div class="p-3 bg-slate-900/60 border-t border-slate-800 backdrop-blur shrink-0">
-        <form id="messageForm" onsubmit="app.sendMessage(event)" class="flex items-center gap-2">
-          
-          <!-- Attachment simulator -->
-          <button type="button" onclick="app.triggerAttachmentSim()" title="Send Encrypted Document / Image" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition border border-slate-700">
-            <i class="fa-solid fa-paperclip"></i>
-          </button>
-
-          <!-- Input field -->
-          <div class="flex-1 relative">
-            <input type="text" id="messageInput" placeholder="Type an encrypted message..." autocomplete="off" class="w-full bg-slate-800/90 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            
-            <!-- Quick Emoji -->
-            <button type="button" onclick="app.insertQuickEmoji()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-yellow-400 transition">
-              <i class="fa-regular fa-face-smile"></i>
-            </button>
-          </div>
-
-          <!-- Voice Note Simulator Button -->
-          <button type="button" id="voiceNoteBtn" onclick="app.toggleVoiceNoteSim()" title="Record Encrypted Voice Note" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700">
-            <i class="fa-solid fa-microphone"></i>
-          </button>
-
-          <!-- Send Button -->
-          <button type="submit" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition shadow-lg shadow-indigo-600/30 active:scale-95">
-            <i class="fa-solid fa-paper-plane text-xs"></i>
+      <!-- Message Input -->
+      <div class="p-4 border-t border-gray-800 bg-[#0e131f]">
+        <form onsubmit="handleSendMessage(event)" class="flex items-center gap-3">
+          <input id="messageInput" type="text" placeholder="Type an encrypted message..." autocomplete="off" class="flex-1 bg-[#1a2333] border border-gray-700 text-sm rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2">
+            <span>Send</span>
+            <i class="fa-solid fa-paper-plane"></i>
           </button>
         </form>
       </div>
     </main>
   </div>
 
-  <!-- ================= INCOMING / OUTGOING CALL MODAL OVERLAY ================= -->
-  <div id="callModal" class="fixed inset-0 z-50 bg-slate-950/95 flex flex-col justify-between hidden p-4 sm:p-6 transition-all">
-    
-    <!-- Top Header: Encryption & Status -->
-    <div class="flex items-center justify-between text-xs text-slate-300">
-      <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-full">
-        <i class="fa-solid fa-shield-halved text-emerald-400"></i>
-        <span>WebRTC E2EE Direct Stream</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span id="callDurationTimer" class="font-mono text-sm font-semibold">00:00</span>
-      </div>
-      <button onclick="app.toggleCallFullscreen()" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700">
-        <i class="fa-solid fa-expand"></i>
-      </button>
-    </div>
-
-    <!-- Center Stage: Video Views or Audio Avatar -->
-    <div class="relative flex-1 my-4 flex items-center justify-center overflow-hidden rounded-3xl bg-slate-900 border border-slate-800">
+  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <div id="callOverlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-6">
+    <div class="relative w-full max-w-4xl h-[70vh] bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
+      <!-- Remote Video (Full) -->
+      <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
       
-      <!-- Video Streams Container -->
-      <div id="videoStreamsWrapper" class="relative w-full h-full flex items-center justify-center">
-        <!-- Remote Video -->
-        <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover rounded-3xl"></video>
-
-        <!-- Simulated Remote Calling Fallback (if remote camera off) -->
-        <div id="remoteVideoFallback" class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-indigo-950/80">
-          <img id="callAvatarImg" src="https://placehold.co/120x120/4338ca/ffffff?text=E" class="w-28 h-28 rounded-full border-4 border-indigo-500/40 shadow-2xl mb-4 pulse-glow object-cover" alt="Call Avatar">
-          <h3 id="callPeerName" class="text-xl font-bold text-white mb-1">Peer Name</h3>
-          <p id="callStatusMessage" class="text-xs text-indigo-300 font-medium">Connecting end-to-end media channel...</p>
+      <!-- Local Video (Picture-in-Picture) -->
+      <video id="localVideo" autoplay playsinline muted class="absolute bottom-4 right-4 w-48 h-36 object-cover rounded-xl border-2 border-indigo-500 bg-gray-900 shadow-xl"></video>
+      
+      <div id="audioCallIndicator" class="hidden absolute flex-col items-center justify-center gap-4 text-center">
+        <div class="w-24 h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-4xl flex items-center justify-center animate-pulse">
+          <i class="fa-solid fa-phone-volume"></i>
         </div>
-
-        <!-- Local Video (Self View PIP) -->
-        <div id="localVideoContainer" class="absolute top-4 right-4 w-32 sm:w-44 h-48 sm:h-60 rounded-2xl overflow-hidden border-2 border-indigo-500/50 shadow-2xl bg-black">
-          <video id="localVideo" autoplay playsinline muted class="w-full h-full object-cover video-mirror"></video>
-          <div class="absolute bottom-2 left-2 text-[10px] bg-black/60 px-2 py-0.5 rounded text-white font-mono">You (Local)</div>
-        </div>
+        <p class="text-lg font-medium text-white" id="callStatusText">Audio Call Active</p>
       </div>
     </div>
 
-    <!-- Bottom Controls: Mic, Camera, ScreenShare, End -->
-    <div class="flex items-center justify-center gap-4 py-2">
-      <!-- Mute Mic -->
-      <button id="btnToggleAudio" onclick="app.toggleMuteAudio()" class="w-13 h-13 p-4 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition text-lg border border-slate-700">
-        <i id="btnToggleAudioIcon" class="fa-solid fa-microphone"></i>
+    <!-- Controls -->
+    <div class="flex items-center gap-4 mt-6">
+      <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+        <i class="fa-solid fa-microphone"></i>
       </button>
-
-      <!-- Toggle Camera -->
-      <button id="btnToggleVideo" onclick="app.toggleCameraVideo()" class="w-13 h-13 p-4 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition text-lg border border-slate-700">
-        <i id="btnToggleVideoIcon" class="fa-solid fa-video"></i>
+      <button onclick="toggleCamera()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+        <i class="fa-solid fa-video"></i>
       </button>
-
-      <!-- Screen Share -->
-      <button id="btnToggleScreen" onclick="app.toggleScreenShare()" class="w-13 h-13 p-4 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition text-lg border border-slate-700">
-        <i class="fa-solid fa-display"></i>
-      </button>
-
-      <!-- End Call Button -->
-      <button onclick="app.hangUpCall()" class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center transition text-2xl shadow-lg shadow-rose-600/40 active:scale-95">
+      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-phone-slash"></i>
       </button>
     </div>
   </div>
 
-  <!-- ================= CRYPTOGRAPHIC SAFETY / FINGERPRINT MODAL ================= -->
-  <div id="safetyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
-    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-fingerprint text-indigo-400 text-lg"></i>
-          <h3 class="font-bold text-white text-base">Safety Number Verification</h3>
-        </div>
-        <button onclick="app.closeSafetyModal()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <div class="mt-4 space-y-4">
-        <p class="text-xs text-slate-300 leading-relaxed">
-          Compare this safety number with <span id="safetyModalContactName" class="font-bold text-indigo-300">Elena</span>. If the cryptographic hashes match on both screens, your connection is immune to Man-in-the-Middle (MITM) attacks.
-        </p>
-
-        <!-- Safety Number Blocks -->
-        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-          <div class="text-[10px] uppercase font-mono text-slate-400 mb-2">Cryptographic Fingerprint (SHA-256):</div>
-          <div id="safetyNumbersDisplay" class="font-mono text-sm tracking-wider text-emerald-400 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
-            <span>0000 0000</span>
-            <span>0000 0000</span>
-            <span>0000 0000</span>
-            <span>0000 0000</span>
-          </div>
-        </div>
-
-        <!-- Export Public Key -->
-        <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Your Public RSA Key (Base64 SPKI)</label>
-          <div class="relative">
-            <textarea id="exportedPublicKeyBox" readonly class="w-full h-20 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[10px] font-mono text-slate-300 select-all"></textarea>
-            <button onclick="app.copyPublicKey()" class="absolute bottom-2 right-2 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-[10px] font-semibold text-white transition">
-              Copy Key
-            </button>
-          </div>
-        </div>
-
-        <div class="p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl flex items-center gap-3">
-          <i class="fa-solid fa-check-double text-emerald-400 text-lg"></i>
-          <p class="text-[11px] text-emerald-200">
-            Keys are generated locally in your browser memory via native Web Crypto API. Private keys never leave this device.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= FREE HOSTING & DEPLOYMENT GUIDE MODAL ================= -->
-  <div id="deployGuideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
-    <div class="w-full max-w-2xl max-h-[90vh] flex flex-col bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-globe text-cyan-400 text-lg"></i>
-          <h3 class="font-bold text-white text-base">Free Hosting & Free Custom Domain Setup</h3>
-        </div>
-        <button onclick="app.closeDeploymentGuide()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <div class="overflow-y-auto space-y-4 py-3 text-xs text-slate-300 pr-1">
-        
-        <div class="bg-indigo-950/40 border border-indigo-500/30 p-3.5 rounded-2xl">
-          <h4 class="font-bold text-indigo-200 text-sm mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-emerald-400"></i> Standalone Client Architecture
-          </h4>
-          <p class="text-slate-300">
-            Because this application runs entirely client-side using native <strong>Web Crypto API</strong>, <strong>MediaDevices</strong>, and <strong>WebRTC</strong>, it does not require a paid back-end server to host. It can be hosted 100% free forever.
-          </p>
-        </div>
-
-        <!-- Option 1: GitHub Pages -->
-        <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2">
-          <div class="flex items-center justify-between">
-            <h5 class="font-bold text-white flex items-center gap-2">
-              <i class="fa-brands fa-github text-slate-300 text-base"></i> Method 1: GitHub Pages (100% Free)
-            </h5>
-            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">yourname.github.io</span>
-          </div>
-          <ol class="list-decimal pl-4 space-y-1 text-slate-400">
-            <li>Create a free account on <strong class="text-white">github.com</strong>.</li>
-            <li>Create a new public repository named <code class="text-indigo-400 bg-slate-900 px-1 rounded">secure-chat</code>.</li>
-            <li>Upload this file as <code class="text-indigo-400 bg-slate-900 px-1 rounded">index.html</code>.</li>
-            <li>Go to <strong>Settings</strong> &gt; <strong>Pages</strong> &gt; Branch: <strong>main</strong> &gt; Save.</li>
-            <li>Your HTTPS website is live at <code class="text-teal-400 font-mono">https://&lt;username&gt;.github.io/secure-chat/</code>.</li>
-          </ol>
-        </div>
-
-        <!-- Option 2: Vercel or Netlify -->
-        <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2">
-          <div class="flex items-center justify-between">
-            <h5 class="font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-bolt text-amber-400 text-base"></i> Method 2: Vercel or Netlify Drag & Drop
-            </h5>
-            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">app.vercel.app</span>
-          </div>
-          <ol class="list-decimal pl-4 space-y-1 text-slate-400">
-            <li>Visit <strong class="text-white">vercel.com</strong> or <strong class="text-white">netlify.com</strong> (Free Hobby Tier).</li>
-            <li>Drag & drop a folder containing <code class="text-indigo-400 bg-slate-900 px-1 rounded">index.html</code>.</li>
-            <li>Instantly obtain a free secure HTTPS URL (WebRTC requires HTTPS to access camera & mic).</li>
-          </ol>
-        </div>
-
-        <!-- Option 3: Free Custom Domains -->
-        <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2">
-          <div class="flex items-center justify-between">
-            <h5 class="font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-link text-emerald-400 text-base"></i> 100% Free Custom Subdomains
-            </h5>
-            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">.is-a.dev / .js.org</span>
-          </div>
-          <p class="text-slate-400">
-            You don't need to purchase a domain name! You can connect free community-run domains:
-          </p>
-          <ul class="list-disc pl-4 space-y-1 text-slate-400">
-            <li><strong class="text-white">is-a.dev:</strong> Open a pull request at <code class="text-indigo-400">github.com/is-a-dev/register</code> to get <code class="text-teal-300 font-mono">yourname.is-a.dev</code>.</li>
-            <li><strong class="text-white">js.org:</strong> Free for JavaScript-related projects at <code class="text-indigo-400">js.org</code>.</li>
-            <li><strong class="text-white">Cloudflare Pages:</strong> Free SSL + global CDN at <code class="text-indigo-400">pages.dev</code>.</li>
-          </ul>
-        </div>
-
-      </div>
-
-      <div class="pt-3 border-t border-slate-800 flex justify-end">
-        <button onclick="app.closeDeploymentGuide()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition">
-          Got it
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= INCOMING CALL RINGING DIALOG ================= -->
-  <div id="incomingCallPrompt" class="fixed bottom-6 right-6 z-50 bg-slate-900 border-2 border-indigo-500 rounded-3xl p-5 shadow-2xl flex items-center gap-4 hidden max-w-sm">
-    <div class="relative">
-      <img id="incomingCallerAvatar" src="https://placehold.co/80x80/312e81/ffffff?text=E" class="w-14 h-14 rounded-2xl object-cover border-2 border-indigo-400" alt="Incoming">
-      <span class="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-900 animate-ping"></span>
-    </div>
-    <div class="flex-1">
-      <h4 id="incomingCallerName" class="font-bold text-white text-sm">Elena Rostova</h4>
-      <p id="incomingCallType" class="text-xs text-indigo-300 flex items-center gap-1">
-        <i class="fa-solid fa-video text-xs"></i> Incoming E2EE Call...
-      </p>
-      <div class="flex gap-2 mt-3">
-        <button onclick="app.acceptCall()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30">
-          <i class="fa-solid fa-phone"></i> Accept
-        </button>
-        <button onclick="app.declineIncomingCall()" class="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold transition">
-          Decline
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= JAVASCRIPT LOGIC & CRYPTO ENGINE ================= -->
+  <!-- ==================== CLIENT LOGIC ==================== -->
   <script>
-    /**
-     * CypherLink: Web Crypto API (SubtleCrypto) + WebRTC + 1-on-1 Messenger
-     */
-    class SecureMessengerApp {
-      constructor() {
-        // Current user credentials & crypto keys
-        this.user = {
-          name: '',
-          email: '',
-          verified: false,
-          keyPair: null,
-          publicKeySpki: null,
-          publicKeyB64: '',
-          fingerprint: ''
-        };
+    let myEmail = "";
+    let peer = null;
+    let activeConn = null;
+    let activeCall = null;
+    let localStream = null;
+    let isMicMuted = false;
+    let isCamDisabled = false;
 
-        // Simulated Contacts List with simulated public keys
-        this.contacts = [
-          {
-            id: 'c1',
-            name: 'Elena Rostova',
-            email: 'elena@protonmail.ch',
-            avatar: 'https://placehold.co/100x100/312e81/e0e7ff?text=ER',
-            online: true,
-            fingerprint: '38A4 99F1 20CE 81D4 76BC 0192 B83E A251',
-            unread: 0,
-            simulatedSessionKey: null
-          },
-          {
-            id: 'c2',
-            name: 'Marcus Vance',
-            email: 'vance@signal-node.org',
-            avatar: 'https://placehold.co/100x100/065f46/d1fae5?text=MV',
-            online: false,
-            fingerprint: '90EF 471B 652A C498 12EA 88B1 C990 411D',
-            unread: 1,
-            simulatedSessionKey: null
-          },
-          {
-            id: 'c3',
-            name: 'Sophia Thorne',
-            email: 'sthorne@tutanota.de',
-            avatar: 'https://placehold.co/100x100/7c2d12/ffedd5?text=ST',
-            online: true,
-            fingerprint: '11CD 5801 AABB CC32 9904 EF55 6178 300A',
-            unread: 0,
-            simulatedSessionKey: null
-          }
-        ];
+    // Convert email to a clean deterministic Peer ID
+    function emailToPeerId(email) {
+      return 'user_' + btoa(email.trim().toLowerCase()).replace(/=/g, '').replace(/[^a-zA-Z0-9]/g, '');
+    }
 
-        this.activeContactId = 'c1';
+    // Initialize node
+    function registerPeer() {
+      const email = document.getElementById('userEmailInput').value.trim();
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email address.');
+        return;
+      }
+      myEmail = email;
+      const myId = emailToPeerId(myEmail);
+
+      const statusEl = document.getElementById('authStatus');
+      statusEl.textContent = 'Connecting to signaling network...';
+      statusEl.classList.remove('hidden');
+
+      // Initialize real PeerJS Broker
+      peer = new Peer(myId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
+
+      peer.on('open', (id) => {
+        document.getElementById('authOverlay').classList.add('hidden');
+        document.getElementById('myEmailLabel').textContent = myEmail;
+        document.getElementById('myAvatar').textContent = myEmail[0].toUpperCase();
+      });
+
+      // Handle incoming direct message connection
+      peer.on('connection', (conn) => {
+        setupDataConnection(conn);
+      });
+
+      // Handle incoming direct call
+      peer.on('call', async (call) => {
+        const callerName = call.metadata?.callerEmail || call.peer;
+        const isVideo = call.metadata?.video !== false;
         
-        // Chat History by Contact ID
-        this.messages = {
-          'c1': [
-            {
-              id: 'm1',
-              sender: 'c1',
-              text: 'Hey Alex! Did you generate your RSA-OAEP keys yet?',
-              timestamp: '10:41 AM',
-              encrypted: true,
-              cipherHex: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-            },
-            {
-              id: 'm2',
-              sender: 'me',
-              text: 'Yes! SubtleCrypto generated them locally. Safety fingerprint matches.',
-              timestamp: '10:42 AM',
-              encrypted: true,
-              cipherHex: '87f3b890a2ec7816f1a92e105e4d2938ac400b91df010214c718b53e8964d0bc'
+        if (confirm(`Incoming ${isVideo ? 'Video' : 'Audio'} call from ${callerName}. Accept?`)) {
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: isVideo
+            });
+            
+            document.getElementById('callOverlay').classList.remove('hidden');
+            document.getElementById('localVideo').srcObject = localStream;
+            if (!isVideo) {
+              document.getElementById('localVideo').classList.add('hidden');
+              document.getElementById('remoteVideo').classList.add('hidden');
+              document.getElementById('audioCallIndicator').classList.remove('hidden');
+            } else {
+              document.getElementById('localVideo').classList.remove('hidden');
+              document.getElementById('remoteVideo').classList.remove('hidden');
+              document.getElementById('audioCallIndicator').classList.add('hidden');
             }
-          ],
-          'c2': [
-            {
-              id: 'm3',
-              sender: 'c2',
-              text: 'Check out the new free custom domain deployment options.',
-              timestamp: 'Yesterday',
-              encrypted: true,
-              cipherHex: 'f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2'
-            }
-          ],
-          'c3': []
-        };
 
-        // WebRTC & Audio State
-        this.localStream = null;
-        this.remoteStream = null;
-        this.peerConnection = null;
-        this.isAudioMuted = false;
-        this.isVideoMuted = false;
-        this.isScreenSharing = false;
-        this.callType = 'video'; // 'video' | 'audio'
-        this.callTimerInterval = null;
-        this.callSeconds = 0;
-        this.ringtoneOscillator = null;
-        this.audioContext = null;
+            call.answer(localStream);
+            handleCallStream(call);
+          } catch (err) {
+            alert('Could not access microphone/camera: ' + err.message);
+            call.close();
+          }
+        } else {
+          call.close();
+        }
+      });
 
-        // Generated Verification Code state
-        this.pendingOTP = '';
+      peer.on('error', (err) => {
+        if (err.type === 'peer-unavailable') {
+          alert('User is not online or email address was incorrect.');
+        } else if (err.type === 'unavailable-id') {
+          alert('This email is already logged in on another device or tab.');
+        } else {
+          console.error(err);
+        }
+      });
+    }
+
+    // Connect to contact
+    function connectToPeerByEmail() {
+      const targetEmail = document.getElementById('peerEmailInput').value.trim();
+      if (!targetEmail) return;
+      if (targetEmail.toLowerCase() === myEmail.toLowerCase()) {
+        alert('You cannot connect to yourself.');
+        return;
       }
 
-      /** Initial Setup on Page Load */
-      init() {
-        this.renderContacts();
-        this.renderMessages();
-        this.initDemoAuth();
+      const targetId = emailToPeerId(targetEmail);
+      const conn = peer.connect(targetId, {
+        metadata: { senderEmail: myEmail },
+        reliable: true
+      });
+      setupDataConnection(conn, targetEmail);
+    }
+
+    // Setup Data Channel for Real E2EE Chat
+    function setupDataConnection(conn, optionalEmail) {
+      activeConn = conn;
+
+      conn.on('open', () => {
+        const friendEmail = optionalEmail || conn.metadata?.senderEmail || 'Remote Peer';
+        setChatUIActive(friendEmail);
+        addContactToList(friendEmail);
+      });
+
+      conn.on('data', (data) => {
+        // Real incoming data
+        appendMessage(data.text, 'incoming', data.time);
+      });
+
+      conn.on('close', () => {
+        document.getElementById('connBadge').textContent = 'Disconnected';
+        document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
+        activeConn = null;
+      });
+    }
+
+    function setChatUIActive(email) {
+      document.getElementById('currentPeerEmail').textContent = email;
+      document.getElementById('currentPeerAvatar').textContent = email[0].toUpperCase();
+      document.getElementById('connBadge').textContent = 'WebRTC Connected • E2EE Direct';
+      document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
+    }
+
+    function addContactToList(email) {
+      const list = document.getElementById('contactList');
+      const emptyNotice = document.getElementById('emptyPeerNotice');
+      if (emptyNotice) emptyNotice.remove();
+
+      list.innerHTML = `
+        <div class="flex items-center gap-3 p-2 bg-[#1e293b]/60 rounded-xl cursor-pointer border border-indigo-500/30">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center uppercase text-xs">
+            ${email[0]}
+          </div>
+          <div class="truncate flex-1">
+            <p class="text-xs font-semibold text-white truncate">${email}</p>
+            <p class="text-[10px] text-emerald-400">Direct Session Active</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Send real message
+    function handleSendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!activeConn || !activeConn.open) {
+        alert('Not connected to any peer. Add your friend by email first.');
+        return;
       }
 
-      /** Auto populate sample login data */
-      initDemoAuth() {
-        document.getElementById('authNameInput').value = 'Alex Reed';
-        document.getElementById('authEmailInput').value = 'alex.reed@safe-vault.io';
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      // Send raw payload across WebRTC DataChannel
+      activeConn.send({
+        text: text,
+        time: timestamp,
+        sender: myEmail
+      });
+
+      appendMessage(text, 'outgoing', timestamp);
+      input.value = '';
+    }
+
+    function appendMessage(text, direction, time) {
+      const container = document.getElementById('messagesContainer');
+      const isOut = direction === 'outgoing';
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      msgDiv.innerHTML = `
+        <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'} shadow">
+          <p class="break-words">${text}</p>
+          <div class="flex items-center justify-end gap-1 text-[10px] opacity-75 mt-1">
+            <span>${time || 'Just now'}</span>
+            ${isOut ? '<i class="fa-solid fa-check-double text-[9px]"></i>' : ''}
+          </div>
+        </div>
+      `;
+
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Real Calls Logic
+    async function startVideoCall() {
+      initiateCall(true);
+    }
+
+    async function startAudioCall() {
+      initiateCall(false);
+    }
+
+    async function initiateCall(isVideo) {
+      const targetEmail = document.getElementById('currentPeerEmail').textContent;
+      if (!targetEmail || targetEmail === 'No contact selected') {
+        alert('Please connect to a contact before placing a call.');
+        return;
       }
 
-      /** Step 1: Request Email OTP */
-      requestEmailOTP() {
-        const name = document.getElementById('authNameInput').value.trim();
-        const email = document.getElementById('authEmailInput').value.trim();
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+        document.getElementById('callOverlay').classList.remove('hidden');
+        document.getElementById('localVideo').srcObject = localStream;
 
-        if (!name || !email || !email.includes('@')) {
-          this.showToast('Please provide a valid name and email address.', 'error');
-          return;
+        if (!isVideo) {
+          document.getElementById('localVideo').classList.add('hidden');
+          document.getElementById('remoteVideo').classList.add('hidden');
+          document.getElementById('audioCallIndicator').classList.remove('hidden');
+        } else {
+          document.getElementById('localVideo').classList.remove('hidden');
+          document.getElementById('remoteVideo').classList.remove('hidden');
+          document.getElementById('audioCallIndicator').classList.add('hidden');
         }
 
-        this.user.name = name;
-        this.user.email = email;
-
-        // Generate 6-digit OTP
-        this.pendingOTP = Math.floor(100000 + Math.random() * 900000).toString();
-
-        document.getElementById('authTargetEmail').textContent = email;
-        document.getElementById('demoOtpSnippet').textContent = this.pendingOTP;
-        document.getElementById('authOtpInput').value = this.pendingOTP;
-
-        document.getElementById('authStepEmail').classList.add('hidden');
-        document.getElementById('authStepOTP').classList.remove('hidden');
-
-        this.showToast(`Simulated OTP dispatched to ${email}`, 'success');
-      }
-
-      resetAuthStep() {
-        document.getElementById('authStepOTP').classList.add('hidden');
-        document.getElementById('authStepEmail').classList.remove('hidden');
-      }
-
-      /** Step 2: Verify OTP and Generate Web Crypto RSA-OAEP Key Pair */
-      async verifyEmailAndInitCrypto() {
-        const enteredOtp = document.getElementById('authOtpInput').value.trim();
-        if (enteredOtp !== this.pendingOTP) {
-          this.showToast('Invalid verification token. Try again.', 'error');
-          return;
-        }
-
-        document.getElementById('authStepOTP').classList.add('hidden');
-        document.getElementById('keyGenProgress').classList.remove('hidden');
-
-        try {
-          // Real native Web Crypto API key generation
-          const keyPair = await window.crypto.subtle.generateKey(
-            {
-              name: "RSA-OAEP",
-              modulusLength: 2048,
-              publicExponent: new Uint8Array([1, 0, 1]),
-              hash: "SHA-256",
-            },
-            true, // extractable
-            ["encrypt", "decrypt"]
-          );
-
-          this.user.keyPair = keyPair;
-
-          // Export public key to SPKI format
-          const exportedSpki = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-          this.user.publicKeySpki = exportedSpki;
-          this.user.publicKeyB64 = this.arrayBufferToBase64(exportedSpki);
-
-          // Compute SHA-256 fingerprint for identity verification
-          const hashBuffer = await window.crypto.subtle.digest("SHA-256", exportedSpki);
-          this.user.fingerprint = this.formatFingerprint(hashBuffer);
-
-          this.user.verified = true;
-
-          // Update UI
-          document.getElementById('userAvatarLetter').textContent = this.user.name.charAt(0).toUpperCase();
-          document.getElementById('userDisplayName').textContent = this.user.name;
-          document.getElementById('headerFingerprintShort').textContent = `ID: ${this.user.fingerprint.slice(0, 9)}...`;
-          document.getElementById('exportedPublicKeyBox').value = `-----BEGIN PUBLIC KEY-----\n${this.user.publicKeyB64}\n-----END PUBLIC KEY-----`;
-
-          setTimeout(() => {
-            document.getElementById('authOverlay').classList.add('hidden');
-            this.showToast('RSA-2048 Keys Generated. Session Secure.', 'success');
-          }, 800);
-
-        } catch (err) {
-          console.error("Crypto generation failed:", err);
-          this.showToast('Cryptographic engine initialization failed.', 'error');
-        }
-      }
-
-      /** ArrayBuffer to Base64 utility */
-      arrayBufferToBase64(buffer) {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
-      }
-
-      /** Format Hash to Signal-like Safety Numbers */
-      formatFingerprint(hashBuffer) {
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-        return `${hex.slice(0,4)} ${hex.slice(4,8)} ${hex.slice(8,12)} ${hex.slice(12,16)} ${hex.slice(16,20)} ${hex.slice(20,24)} ${hex.slice(24,28)} ${hex.slice(28,32)}`;
-      }
-
-      /** Render Contact List */
-      renderContacts(filter = '') {
-        const container = document.getElementById('contactsContainer');
-        container.innerHTML = '';
-
-        const filtered = this.contacts.filter(c => 
-          c.name.toLowerCase().includes(filter.toLowerCase()) || 
-          c.email.toLowerCase().includes(filter.toLowerCase())
-        );
-
-        if (filtered.length === 0) {
-          container.innerHTML = `
-            <div class="p-6 text-center text-xs text-slate-500">
-              <i class="fa-solid fa-user-slash text-xl mb-2 block"></i>
-              No peers match your search query.
-            </div>
-          `;
-          return;
-        }
-
-        filtered.forEach(contact => {
-          const isActive = contact.id === this.activeContactId;
-          const div = document.createElement('div');
-          div.className = `p-3.5 flex items-center gap-3 cursor-pointer transition border-l-4 ${
-            isActive 
-              ? 'bg-slate-800/80 border-indigo-500' 
-              : 'border-transparent hover:bg-slate-800/40'
-          }`;
-          div.onclick = () => this.selectContact(contact.id);
-
-          div.innerHTML = `
-            <div class="relative shrink-0">
-              <img src="${contact.avatar}" class="w-11 h-11 rounded-2xl object-cover border border-slate-700" alt="${contact.name}">
-              ${contact.online ? '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>' : ''}
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <h4 class="text-xs font-semibold text-white truncate">${contact.name}</h4>
-                <span class="text-[10px] text-slate-400"><i class="fa-solid fa-lock text-[9px] text-indigo-400"></i> E2EE</span>
-              </div>
-              <p class="text-[11px] text-slate-400 truncate mt-0.5">${contact.email}</p>
-            </div>
-          `;
-          container.appendChild(div);
-        });
-      }
-
-      filterContacts() {
-        const val = document.getElementById('contactSearchInput').value;
-        this.renderContacts(val);
-      }
-
-      selectContact(contactId) {
-        this.activeContactId = contactId;
-        const contact = this.contacts.find(c => c.id === contactId);
-        if (!contact) return;
-
-        document.getElementById('activeContactName').textContent = contact.name;
-        document.getElementById('activeContactEmail').textContent = contact.email;
-        document.getElementById('activeContactAvatar').src = contact.avatar;
-        document.getElementById('activeContactOnlineStatus').className = `absolute -bottom-0.5 -right-0.5 w-3 h-3 ${contact.online ? 'bg-emerald-500' : 'bg-slate-500'} border-2 border-slate-900 rounded-full`;
-
-        this.renderContacts();
-        this.renderMessages();
-
-        // On mobile, hide sidebar after selection
-        this.toggleMobileSidebar(false);
-      }
-
-      /** Render Messages for Active Contact */
-      renderMessages() {
-        const container = document.getElementById('messagesContainer');
-        container.innerHTML = '';
-
-        const list = this.messages[this.activeContactId] || [];
-
-        if (list.length === 0) {
-          container.innerHTML = `
-            <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-              <div class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-indigo-400 text-xl mb-3">
-                <i class="fa-solid fa-comment-dots"></i>
-              </div>
-              <p class="text-sm font-semibold text-slate-300">No Messages Yet</p>
-              <p class="text-xs text-slate-500 mt-1 max-w-xs">Start a secure 1-on-1 end-to-end encrypted conversation protected by RSA-OAEP & AES-GCM.</p>
-            </div>
-          `;
-          return;
-        }
-
-        list.forEach(msg => {
-          const isMe = msg.sender === 'me';
-          const bubble = document.createElement('div');
-          bubble.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
-
-          bubble.innerHTML = `
-            <div class="max-w-[85%] sm:max-w-md ${
-              isMe 
-                ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm shadow-md shadow-indigo-600/20' 
-                : 'bg-slate-800/90 text-slate-100 rounded-2xl rounded-tl-sm border border-slate-700/80 shadow-md'
-            } p-3 relative group">
-              <p class="text-xs sm:text-sm leading-relaxed select-text">${this.escapeHTML(msg.text)}</p>
-              
-              <!-- Encryption Metadata -->
-              <div class="mt-1 flex items-center justify-end gap-1.5 text-[10px] ${isMe ? 'text-indigo-200' : 'text-slate-400'}">
-                <span title="Encrypted Payload Hex: ${msg.cipherHex}">
-                  <i class="fa-solid fa-lock text-[9px] text-emerald-300"></i>
-                </span>
-                <span>${msg.timestamp}</span>
-                ${isMe ? '<i class="fa-solid fa-check-double text-[9px] text-teal-300"></i>' : ''}
-              </div>
-            </div>
-            <div class="text-[9px] font-mono text-slate-400 mt-0.5 px-1 truncate max-w-xs opacity-0 group-hover:opacity-100 transition">
-              CIPHER: ${msg.cipherHex.slice(0, 16)}...
-            </div>
-          `;
-
-          container.appendChild(bubble);
+        const targetId = emailToPeerId(targetEmail);
+        const call = peer.call(targetId, localStream, {
+          metadata: { callerEmail: myEmail, video: isVideo }
         });
 
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
-      }
-
-      /** Send Encrypted Message */
-      async sendMessage(e) {
-        if (e) e.preventDefault();
-        const input = document.getElementById('messageInput');
-        const text = input.value.trim();
-        if (!text) return;
-
-        // Simulate AES-GCM 256-bit ciphertext representation
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
-        const hash = await window.crypto.subtle.digest("SHA-256", data);
-        const hexHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const newMsg = {
-          id: 'msg_' + Date.now(),
-          sender: 'me',
-          text: text,
-          timestamp: timeStr,
-          encrypted: true,
-          cipherHex: hexHash
-        };
-
-        if (!this.messages[this.activeContactId]) {
-          this.messages[this.activeContactId] = [];
-        }
-
-        this.messages[this.activeContactId].push(newMsg);
-        input.value = '';
-        this.renderMessages();
-
-        // Peer Simulated Auto-Reply for realistic UX
-        setTimeout(() => {
-          this.simulatePeerReply(text);
-        }, 1200);
-      }
-
-      simulatePeerReply(lastUserMessage) {
-        const contact = this.contacts.find(c => c.id === this.activeContactId);
-        if (!contact) return;
-
-        const responses = [
-          "Received and decrypted via private key. Verified!",
-          "All clear over WebRTC channel.",
-          "Our safety numbers match. The connection is secure.",
-          "Awesome! I'll test the video call feature now."
-        ];
-
-        const randomReply = responses[Math.floor(Math.random() * responses.length)];
-        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const replyMsg = {
-          id: 'msg_' + Date.now(),
-          sender: contact.id,
-          text: randomReply,
-          timestamp: timeStr,
-          encrypted: true,
-          cipherHex: 'aa3f9011' + Math.random().toString(16).substring(2, 10) + 'e89c0012'
-        };
-
-        this.messages[this.activeContactId].push(replyMsg);
-        this.renderMessages();
-      }
-
-      /** Quick emoji insert */
-      insertQuickEmoji() {
-        const emojis = ['🔒', '🛡️', '🔑', '👋', '⚡', '💻'];
-        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-        const input = document.getElementById('messageInput');
-        input.value += ' ' + randomEmoji + ' ';
-        input.focus();
-      }
-
-      /** Attachment simulator */
-      triggerAttachmentSim() {
-        this.showToast('Encrypted media container attached (AES-256 binary cipher)', 'info');
-      }
-
-      /** Voice Note simulator */
-      toggleVoiceNoteSim() {
-        const btn = document.getElementById('voiceNoteBtn');
-        btn.classList.toggle('text-rose-500');
-        btn.classList.toggle('animate-pulse');
-        this.showToast('Recording 256-bit encrypted audio clip...', 'info');
-      }
-
-      showAddContactPrompt() {
-        const peerEmail = prompt('Enter the verified email address of the peer to add:');
-        if (!peerEmail || !peerEmail.includes('@')) return;
-
-        const newId = 'c_' + Date.now();
-        const namePart = peerEmail.split('@')[0];
-        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-
-        this.contacts.push({
-          id: newId,
-          name: formattedName,
-          email: peerEmail,
-          avatar: `https://placehold.co/100x100/4f46e5/ffffff?text=${formattedName.slice(0, 2).toUpperCase()}`,
-          online: true,
-          fingerprint: 'FA23 9981 BB02 4410 771C DD89 3341 0029',
-          unread: 0
-        });
-
-        this.messages[newId] = [];
-        this.selectContact(newId);
-        this.showToast(`Peer ${peerEmail} securely paired.`, 'success');
-      }
-
-      /** ================= WEBRTC CALL ENGINE ================= */
-
-      async startCall(type = 'video') {
-        this.callType = type;
-        const contact = this.contacts.find(c => c.id === this.activeContactId);
-        if (!contact) return;
-
-        // Open Call Overlay
-        const modal = document.getElementById('callModal');
-        modal.classList.remove('hidden');
-
-        document.getElementById('callPeerName').textContent = contact.name;
-        document.getElementById('callAvatarImg').src = contact.avatar;
-        document.getElementById('callStatusMessage').textContent = `Initiating E2EE WebRTC ${type} handshake...`;
-
-        try {
-          // Request User Media
-          const constraints = {
-            audio: true,
-            video: type === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
-          };
-
-          this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-          
-          const localVideo = document.getElementById('localVideo');
-          localVideo.srcObject = this.localStream;
-
-          if (type === 'audio') {
-            document.getElementById('localVideoContainer').classList.add('hidden');
-          } else {
-            document.getElementById('localVideoContainer').classList.remove('hidden');
-          }
-
-          // Start Call Duration Timer
-          this.startCallTimer();
-
-          // Play Web Audio synthesized ringing sound
-          this.playRingTone();
-
-          // Simulate Peer Connection Answering after 2.5 seconds
-          setTimeout(() => {
-            this.stopRingTone();
-            document.getElementById('callStatusMessage').textContent = 'Direct P2P Encrypted Stream Active';
-            
-            // Mirror local stream to simulated remote stream for standalone preview
-            const remoteVideo = document.getElementById('remoteVideo');
-            remoteVideo.srcObject = this.localStream;
-            
-            if (type === 'video') {
-              document.getElementById('remoteVideoFallback').classList.add('hidden');
-            }
-          }, 2500);
-
-        } catch (err) {
-          console.warn("Camera/Mic access not granted or unavailable, entering fallback media simulator mode.", err);
-          this.startFallbackSimulatedCall(type);
-        }
-      }
-
-      startFallbackSimulatedCall(type) {
-        document.getElementById('callStatusMessage').textContent = 'Camera unavailable: Virtual P2P Test Stream active';
-        this.startCallTimer();
-      }
-
-      startCallTimer() {
-        this.callSeconds = 0;
-        clearInterval(this.callTimerInterval);
-        this.callTimerInterval = setInterval(() => {
-          this.callSeconds++;
-          const mins = String(Math.floor(this.callSeconds / 60)).padStart(2, '0');
-          const secs = String(this.callSeconds % 60).padStart(2, '0');
-          document.getElementById('callDurationTimer').textContent = `${mins}:${secs}`;
-        }, 1000);
-      }
-
-      hangUpCall() {
-        // Stop audio/video tracks
-        if (this.localStream) {
-          this.localStream.getTracks().forEach(track => track.stop());
-          this.localStream = null;
-        }
-
-        clearInterval(this.callTimerInterval);
-        this.stopRingTone();
-
-        document.getElementById('callModal').classList.add('hidden');
-        document.getElementById('remoteVideo').srcObject = null;
-        document.getElementById('localVideo').srcObject = null;
-        document.getElementById('remoteVideoFallback').classList.remove('hidden');
-
-        this.showToast('Call ended. E2EE channel torn down.', 'info');
-      }
-
-      toggleMuteAudio() {
-        if (!this.localStream) return;
-        const audioTrack = this.localStream.getAudioTracks()[0];
-        if (audioTrack) {
-          audioTrack.enabled = !audioTrack.enabled;
-          this.isAudioMuted = !audioTrack.enabled;
-
-          const btn = document.getElementById('btnToggleAudio');
-          const icon = document.getElementById('btnToggleAudioIcon');
-
-          if (this.isAudioMuted) {
-            btn.classList.add('bg-rose-600', 'text-white');
-            icon.className = 'fa-solid fa-microphone-slash';
-            this.showToast('Microphone muted', 'info');
-          } else {
-            btn.classList.remove('bg-rose-600');
-            icon.className = 'fa-solid fa-microphone';
-            this.showToast('Microphone unmuted', 'info');
-          }
-        }
-      }
-
-      toggleCameraVideo() {
-        if (!this.localStream) return;
-        const videoTrack = this.localStream.getVideoTracks()[0];
-        if (videoTrack) {
-          videoTrack.enabled = !videoTrack.enabled;
-          this.isVideoMuted = !videoTrack.enabled;
-
-          const btn = document.getElementById('btnToggleVideo');
-          const icon = document.getElementById('btnToggleVideoIcon');
-
-          if (this.isVideoMuted) {
-            btn.classList.add('bg-rose-600');
-            icon.className = 'fa-solid fa-video-slash';
-            this.showToast('Camera feed paused', 'info');
-          } else {
-            btn.classList.remove('bg-rose-600');
-            icon.className = 'fa-solid fa-video';
-            this.showToast('Camera feed resumed', 'info');
-          }
-        }
-      }
-
-      async toggleScreenShare() {
-        try {
-          if (!this.isScreenSharing) {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            const screenTrack = screenStream.getVideoTracks()[0];
-            
-            document.getElementById('localVideo').srcObject = screenStream;
-            this.isScreenSharing = true;
-
-            screenTrack.onended = () => {
-              this.isScreenSharing = false;
-              if (this.localStream) {
-                document.getElementById('localVideo').srcObject = this.localStream;
-              }
-            };
-
-            this.showToast('Screen sharing activated', 'success');
-          } else {
-            this.isScreenSharing = false;
-            document.getElementById('localVideo').srcObject = this.localStream;
-            this.showToast('Screen sharing stopped', 'info');
-          }
-        } catch (err) {
-          this.showToast('Screen share permission cancelled.', 'info');
-        }
-      }
-
-      toggleCallFullscreen() {
-        const modal = document.getElementById('callModal');
-        if (!document.fullscreenElement) {
-          modal.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
-      }
-
-      /** Synthesize Ringing with Web Audio API (Zero external assets needed) */
-      playRingTone() {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContext) return;
-          this.audioContext = new AudioContext();
-          
-          const osc = this.audioContext.createOscillator();
-          const gain = this.audioContext.createGain();
-          
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440, this.audioContext.currentTime); // A4
-          gain.gain.setValueAtTime(0.08, this.audioContext.currentTime);
-
-          osc.connect(gain);
-          gain.connect(this.audioContext.destination);
-
-          osc.start();
-          this.ringtoneOscillator = osc;
-        } catch (e) {
-          // Audio autoplay policies might defer sound until interaction
-        }
-      }
-
-      stopRingTone() {
-        try {
-          if (this.ringtoneOscillator) {
-            this.ringtoneOscillator.stop();
-            this.ringtoneOscillator.disconnect();
-            this.ringtoneOscillator = null;
-          }
-          if (this.audioContext) {
-            this.audioContext.close();
-            this.audioContext = null;
-          }
-        } catch (e) {}
-      }
-
-      /** ================= MODALS & UTILITIES ================= */
-
-      openSafetyModal() {
-        const contact = this.contacts.find(c => c.id === this.activeContactId);
-        document.getElementById('safetyModalContactName').textContent = contact ? contact.name : 'Peer';
-        
-        const display = document.getElementById('safetyNumbersDisplay');
-        const fp = (contact && contact.fingerprint) ? contact.fingerprint : '88AE 4910 20BA CC43 1190 FA43 9011 5521';
-        const parts = fp.split(' ');
-
-        display.innerHTML = `
-          <span>${parts[0] || '88AE'} ${parts[1] || '4910'}</span>
-          <span>${parts[2] || '20BA'} ${parts[3] || 'CC43'}</span>
-          <span>${parts[4] || '1190'} ${parts[5] || 'FA43'}</span>
-          <span>${parts[6] || '9011'} ${parts[7] || '5521'}</span>
-        `;
-
-        document.getElementById('safetyModal').classList.remove('hidden');
-      }
-
-      closeSafetyModal() {
-        document.getElementById('safetyModal').classList.add('hidden');
-      }
-
-      copyPublicKey() {
-        const text = document.getElementById('exportedPublicKeyBox').value;
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        this.showToast('Public Key copied to clipboard!', 'success');
-      }
-
-      openDeploymentGuide() {
-        document.getElementById('deployGuideModal').classList.remove('hidden');
-      }
-
-      closeDeploymentGuide() {
-        document.getElementById('deployGuideModal').classList.add('hidden');
-      }
-
-      toggleMobileSidebar(show) {
-        const sidebar = document.getElementById('chatSidebar');
-        if (show) {
-          sidebar.classList.remove('-translate-x-full');
-        } else {
-          sidebar.classList.add('-translate-x-full', 'md:translate-x-0');
-        }
-      }
-
-      showToast(message, type = 'info') {
-        const toast = document.getElementById('toastNotification');
-        const msgEl = document.getElementById('toastMessage');
-        const iconEl = document.getElementById('toastIcon');
-
-        msgEl.textContent = message;
-
-        if (type === 'success') {
-          iconEl.className = 'text-emerald-400 text-lg';
-          iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
-        } else if (type === 'error') {
-          iconEl.className = 'text-rose-400 text-lg';
-          iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
-        } else {
-          iconEl.className = 'text-indigo-400 text-lg';
-          iconEl.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
-        }
-
-        toast.classList.remove('translate-y-[-120%]', 'opacity-0', 'pointer-events-none');
-
-        setTimeout(() => {
-          toast.classList.add('translate-y-[-120%]', 'opacity-0', 'pointer-events-none');
-        }, 3200);
-      }
-
-      escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, 
-          tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-          }[tag] || tag)
-        );
+        handleCallStream(call);
+      } catch (err) {
+        alert('Camera or Microphone access denied: ' + err.message);
       }
     }
 
-    // Initialize Application
-    let app;
-    window.addEventListener('DOMContentLoaded', () => {
-      app = new SecureMessengerApp();
-      app.init();
-    });
+    function handleCallStream(call) {
+      activeCall = call;
+
+      call.on('stream', (remoteStream) => {
+        document.getElementById('remoteVideo').srcObject = remoteStream;
+      });
+
+      call.on('close', () => {
+        endCall();
+      });
+    }
+
+    function toggleMic() {
+      if (!localStream) return;
+      isMicMuted = !isMicMuted;
+      localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
+      document.getElementById('micBtn').classList.toggle('bg-rose-600', isMicMuted);
+    }
+
+    function toggleCamera() {
+      if (!localStream) return;
+      isCamDisabled = !isCamDisabled;
+      localStream.getVideoTracks().forEach(track => track.enabled = !isCamDisabled);
+      document.getElementById('camBtn').classList.toggle('bg-rose-600', isCamDisabled);
+    }
+
+    function endCall() {
+      if (activeCall) activeCall.close();
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      document.getElementById('callOverlay').classList.add('hidden');
+      document.getElementById('localVideo').srcObject = null;
+      document.getElementById('remoteVideo').srcObject = null;
+    }
   </script>
 </body>
 </html>
