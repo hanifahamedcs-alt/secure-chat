@@ -1,273 +1,467 @@
-<script>
-  let myPeerId = "";
-  let peer = null;
-  let activeConn = null;
-  let activeCall = null;
-  let localStream = null;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
+  <title>CypherLink — Live E2EE WebRTC Chat & Calls</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS WebRTC Library -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body { background-color: #0b0e14; color: #f3f4f6; }
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+  </style>
+</head>
+<body class="h-screen flex flex-col font-sans select-none overflow-hidden">
 
-  // Generate a clean, human-readable, unique ID: e.g. "node-94812"
-  function generateCleanId() {
-    return 'node-' + Math.floor(100000 + Math.random() * 900000);
-  }
+  <!-- ==================== SCREEN 1: LOGIN MODAL ==================== -->
+  <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14] flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-gray-800 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-500/30">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">Initialize Encrypted Node</h2>
+      <p class="text-sm text-gray-400 mb-6">Enter your email or display name to connect to the dedicated TURN relay network.</p>
+      
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Identifier / Email</label>
+          <input id="userEmailInput" type="text" placeholder="alice@gmail.com" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+        </div>
+        <button onclick="registerPeer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-key"></i> Start Secure Node
+        </button>
+      </div>
+      <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
+    </div>
+  </div>
 
-  // 1. REGISTER THE NODE
-  function registerPeer() {
-    const email = document.getElementById('userEmailInput').value.trim();
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address.');
-      return;
+  <!-- ==================== SCREEN 2: MESSENGER UI ==================== -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-80 bg-[#0f172a] border-r border-gray-800 flex flex-col">
+      <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white uppercase" id="myAvatar">?</div>
+          <div class="overflow-hidden">
+            <h3 class="text-sm font-semibold truncate text-white" id="myEmailLabel">Not connected</h3>
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TURN Relay Ready
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Peer Input -->
+      <div class="p-3 border-b border-gray-800 bg-[#131d35]">
+        <label class="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Connect to Peer</label>
+        <div class="flex gap-2">
+          <input id="peerEmailInput" type="text" placeholder="Paste friend's Peer ID..." class="flex-1 bg-[#1e293b] border border-gray-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
+          <button onclick="connectToPeer()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
+            <i class="fa-solid fa-link"></i> Connect
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Sessions list -->
+      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Active Session</div>
+      <div id="contactList" class="flex-1 overflow-y-auto px-2 space-y-1">
+        <div id="emptyPeerNotice" class="text-xs text-gray-500 p-4 text-center">
+          No peer connected. Share your ID or paste your friend's ID above.
+        </div>
+      </div>
+    </aside>
+
+    <!-- CHAT AREA -->
+    <main class="flex-1 flex flex-col bg-[#0b0e14]">
+      <!-- Header -->
+      <header class="h-16 border-b border-gray-800 px-6 flex items-center justify-between bg-[#0e131f]">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="currentPeerAvatar">#</div>
+          <div>
+            <h2 class="text-sm font-semibold text-white" id="currentPeerEmail">No peer selected</h2>
+            <div class="flex items-center gap-2">
+              <span id="connBadge" class="text-[10px] text-gray-500 font-mono">Disconnected</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="startAudioCall()" title="Audio Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+            <i class="fa-solid fa-phone"></i>
+          </button>
+          <button onclick="startVideoCall()" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+            <i class="fa-solid fa-video"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message History -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
+        <div class="text-center my-4">
+          <span class="text-[11px] bg-[#1e293b] text-gray-400 px-3 py-1 rounded-full border border-gray-800">
+            <i class="fa-solid fa-shield-alt text-emerald-400 mr-1"></i> Dedicated Metered TURN active. Cross-network enabled.
+          </span>
+        </div>
+      </div>
+
+      <!-- Message Input -->
+      <div class="p-4 border-t border-gray-800 bg-[#0e131f]">
+        <form onsubmit="handleSendMessage(event)" class="flex items-center gap-3">
+          <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#1a2333] border border-gray-700 text-sm rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2">
+            <span>Send</span>
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <div id="callOverlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-6">
+    <div class="relative w-full max-w-4xl h-[70vh] bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
+      <!-- Remote Video with iOS playsinline -->
+      <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
+      
+      <!-- Local Video -->
+      <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-4 right-4 w-32 h-24 md:w-48 md:h-36 object-cover rounded-xl border-2 border-indigo-500 bg-gray-900 shadow-xl"></video>
+      
+      <div id="audioCallIndicator" class="hidden absolute flex flex-col items-center justify-center gap-4 text-center">
+        <div class="w-24 h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-4xl flex items-center justify-center animate-pulse">
+          <i class="fa-solid fa-phone-volume"></i>
+        </div>
+        <p class="text-lg font-medium text-white">Call Active</p>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex items-center gap-4 mt-6">
+      <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+        <i class="fa-solid fa-microphone"></i>
+      </button>
+      <button onclick="toggleCamera()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+        <i class="fa-solid fa-video"></i>
+      </button>
+      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center text-lg">
+        <i class="fa-solid fa-phone-slash"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== SCRIPT WITH YOUR METERED SERVERS ==================== -->
+  <script>
+    let myPeerId = "";
+    let peer = null;
+    let activeConn = null;
+    let activeCall = null;
+    let localStream = null;
+    let isMicMuted = false;
+    let isCamDisabled = false;
+
+    // YOUR DEDICATED METERED SERVERS CONFIGURATION
+    const dedicatedIceServers = [
+      {
+        urls: "stun:stun.relay.metered.ca:80"
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "8d48358ef1172e5a21330cc9",
+        credential: "3YwSHB1bbUMRfcnJ"
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "8d48358ef1172e5a21330cc9",
+        credential: "3YwSHB1bbUMRfcnJ"
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "8d48358ef1172e5a21330cc9",
+        credential: "3YwSHB1bbUMRfcnJ"
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "8d48358ef1172e5a21330cc9",
+        credential: "3YwSHB1bbUMRfcnJ"
+      }
+    ];
+
+    function generateId() {
+      return 'node-' + Math.floor(100000 + Math.random() * 900000);
     }
 
-    // Use a clean ID registered directly on the cloud server
-    myPeerId = generateCleanId();
-
-    const statusEl = document.getElementById('authStatus');
-    statusEl.textContent = 'Registering on WebRTC signaling broker...';
-    statusEl.classList.remove('hidden');
-
-    peer = new Peer(myPeerId, {
-      debug: 1,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+    function registerPeer() {
+      const userInput = document.getElementById('userEmailInput').value.trim();
+      if (!userInput) {
+        alert('Please enter your email or name.');
+        return;
       }
-    });
 
-    peer.on('open', (id) => {
-      console.log('Online! My Peer ID is:', id);
-      document.getElementById('authOverlay').classList.add('hidden');
-      
-      // Show your Email and your exact shareable ID
-      document.getElementById('myEmailLabel').innerHTML = `
-        ${email} 
-        <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied ID: ${id}');" class="ml-1 text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded hover:bg-indigo-500 hover:text-white transition">
-          <i class="fa-regular fa-copy"></i> Copy ID
-        </button>
-      `;
-      document.getElementById('myAvatar').textContent = email[0].toUpperCase();
+      myPeerId = generateId();
+      const statusEl = document.getElementById('authStatus');
+      statusEl.textContent = 'Connecting to dedicated TURN relay...';
+      statusEl.classList.remove('hidden');
 
-      // Update placeholder so you know what to paste
-      document.getElementById('peerEmailInput').placeholder = "Paste friend's Peer ID (e.g. node-123456)";
-    });
+      // Initialize PeerJS using your Metered TURN servers
+      peer = new Peer(myPeerId, {
+        debug: 1,
+        config: {
+          iceServers: dedicatedIceServers,
+          iceCandidatePoolSize: 10
+        }
+      });
 
-    // 2. RECEIVE INCOMING CONNECTION
-    peer.on('connection', (conn) => {
-      console.log('Incoming connection from:', conn.peer);
-      setupDataConnection(conn);
-    });
+      peer.on('open', (id) => {
+        document.getElementById('authOverlay').classList.add('hidden');
+        document.getElementById('myEmailLabel').innerHTML = `
+          ${userInput} 
+          <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied ID: ${id}');" class="ml-1 text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded hover:bg-indigo-500 hover:text-white transition">
+            <i class="fa-regular fa-copy"></i> Copy ID
+          </button>
+        `;
+        document.getElementById('myAvatar').textContent = userInput[0].toUpperCase();
+      });
 
-    // 3. RECEIVE INCOMING CALL
-    peer.on('call', async (call) => {
-      const isVideo = call.metadata?.video !== false;
-      const caller = call.metadata?.callerEmail || call.peer;
+      peer.on('connection', (conn) => {
+        setupDataConnection(conn);
+      });
 
-      if (confirm(`Incoming ${isVideo ? 'Video' : 'Audio'} call from ${caller}. Accept?`)) {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
-          document.getElementById('callOverlay').classList.remove('hidden');
-          document.getElementById('localVideo').srcObject = localStream;
+      peer.on('call', async (call) => {
+        const isVideo = call.metadata?.video !== false;
+        const caller = call.peer;
 
-          if (!isVideo) {
-            document.getElementById('localVideo').classList.add('hidden');
-            document.getElementById('remoteVideo').classList.add('hidden');
-            document.getElementById('audioCallIndicator').classList.remove('hidden');
-          } else {
-            document.getElementById('localVideo').classList.remove('hidden');
-            document.getElementById('remoteVideo').classList.remove('hidden');
-            document.getElementById('audioCallIndicator').classList.add('hidden');
+        if (confirm(`Incoming ${isVideo ? 'Video' : 'Audio'} call from ${caller}. Accept?`)) {
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+              video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
+            });
+
+            document.getElementById('callOverlay').classList.remove('hidden');
+            document.getElementById('localVideo').srcObject = localStream;
+
+            if (!isVideo) {
+              document.getElementById('localVideo').classList.add('hidden');
+              document.getElementById('remoteVideo').classList.add('hidden');
+              document.getElementById('audioCallIndicator').classList.remove('hidden');
+            } else {
+              document.getElementById('localVideo').classList.remove('hidden');
+              document.getElementById('remoteVideo').classList.remove('hidden');
+              document.getElementById('audioCallIndicator').classList.add('hidden');
+            }
+
+            call.answer(localStream);
+            handleCallStream(call);
+          } catch (err) {
+            alert('Camera/Microphone permission error: ' + err.message);
+            call.close();
           }
-
-          call.answer(localStream);
-          handleCallStream(call);
-        } catch (err) {
-          alert('Microphone/Camera permission error: ' + err.message);
+        } else {
           call.close();
         }
-      } else {
-        call.close();
-      }
-    });
-
-    peer.on('error', (err) => {
-      console.error('PeerJS error:', err);
-      if (err.type === 'peer-unavailable') {
-        alert('Target Peer is offline or the ID was entered incorrectly. Make sure the other user is online and you pasted their exact ID.');
-      } else {
-        alert('Network error: ' + err.type);
-      }
-    });
-  }
-
-  // 4. CONNECT TO PEER
-  function connectToPeerByEmail() {
-    const rawInput = document.getElementById('peerEmailInput').value.trim();
-    if (!rawInput) {
-      alert('Please enter your friend\'s ID.');
-      return;
-    }
-
-    if (rawInput === myPeerId) {
-      alert('You cannot connect to yourself.');
-      return;
-    }
-
-    document.getElementById('connBadge').textContent = 'Dialing peer...';
-    document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
-
-    const conn = peer.connect(rawInput, {
-      reliable: true,
-      metadata: { callerId: myPeerId }
-    });
-
-    setupDataConnection(conn);
-  }
-
-  // 5. HANDLE DATA STREAM
-  function setupDataConnection(conn) {
-    activeConn = conn;
-
-    conn.on('open', () => {
-      console.log('Connected to:', conn.peer);
-      setChatUIActive(conn.peer);
-      addContactToList(conn.peer);
-    });
-
-    conn.on('data', (data) => {
-      if (data.text) {
-        appendMessage(data.text, 'incoming', data.time);
-      }
-    });
-
-    conn.on('close', () => {
-      document.getElementById('connBadge').textContent = 'Disconnected';
-      document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
-      activeConn = null;
-    });
-  }
-
-  function setChatUIActive(id) {
-    document.getElementById('currentPeerEmail').textContent = id;
-    document.getElementById('currentPeerAvatar').textContent = id[0].toUpperCase();
-    document.getElementById('connBadge').textContent = 'WebRTC Connected • E2EE Direct';
-    document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
-  }
-
-  function addContactToList(id) {
-    const list = document.getElementById('contactList');
-    const emptyNotice = document.getElementById('emptyPeerNotice');
-    if (emptyNotice) emptyNotice.remove();
-
-    list.innerHTML = `
-      <div class="flex items-center gap-3 p-2 bg-[#1e293b]/60 rounded-xl border border-indigo-500/30">
-        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center uppercase text-xs">
-          ${id[0]}
-        </div>
-        <div class="truncate flex-1">
-          <p class="text-xs font-semibold text-white truncate">${id}</p>
-          <p class="text-[10px] text-emerald-400">Direct Session Active</p>
-        </div>
-      </div>
-    `;
-  }
-
-  // 6. SEND MESSAGE
-  function handleSendMessage(e) {
-    e.preventDefault();
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-    if (!text) return;
-
-    if (!activeConn || !activeConn.open) {
-      alert('Not connected yet. Please connect to a peer first.');
-      return;
-    }
-
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    activeConn.send({
-      text: text,
-      time: time
-    });
-
-    appendMessage(text, 'outgoing', time);
-    input.value = '';
-  }
-
-  function appendMessage(text, direction, time) {
-    const container = document.getElementById('messagesContainer');
-    const isOut = direction === 'outgoing';
-
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-    msgDiv.innerHTML = `
-      <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
-        isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'
-      } shadow">
-        <p class="break-words">${text}</p>
-        <div class="flex items-center justify-end gap-1 text-[10px] opacity-75 mt-1">
-          <span>${time || 'Just now'}</span>
-          ${isOut ? '<i class="fa-solid fa-check-double text-[9px]"></i>' : ''}
-        </div>
-      </div>
-    `;
-
-    container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  // 7. AUDIO / VIDEO CALLS
-  function startVideoCall() { initiateCall(true); }
-  function startAudioCall() { initiateCall(false); }
-
-  async function initiateCall(isVideo) {
-    const targetId = document.getElementById('currentPeerEmail').textContent;
-    if (!targetId || targetId === 'No contact selected') {
-      alert('Connect to a contact first.');
-      return;
-    }
-
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
-      document.getElementById('callOverlay').classList.remove('hidden');
-      document.getElementById('localVideo').srcObject = localStream;
-
-      if (!isVideo) {
-        document.getElementById('localVideo').classList.add('hidden');
-        document.getElementById('remoteVideo').classList.add('hidden');
-        document.getElementById('audioCallIndicator').classList.remove('hidden');
-      } else {
-        document.getElementById('localVideo').classList.remove('hidden');
-        document.getElementById('remoteVideo').classList.remove('hidden');
-        document.getElementById('audioCallIndicator').classList.add('hidden');
-      }
-
-      const call = peer.call(targetId, localStream, {
-        metadata: { video: isVideo, callerEmail: myPeerId }
       });
-      handleCallStream(call);
-    } catch (err) {
-      alert('Camera/Microphone error: ' + err.message);
-    }
-  }
 
-  function handleCallStream(call) {
-    activeCall = call;
-    call.on('stream', (remoteStream) => {
-      document.getElementById('remoteVideo').srcObject = remoteStream;
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        if (err.type === 'peer-unavailable') {
+          alert('Peer not found. Make sure the recipient has opened the link and entered their name.');
+        }
+      });
+    }
+
+    function connectToPeer() {
+      const rawTarget = document.getElementById('peerEmailInput').value.trim();
+      if (!rawTarget) {
+        alert('Please paste a Peer ID.');
+        return;
+      }
+      if (rawTarget === myPeerId) {
+        alert('You cannot connect to yourself.');
+        return;
+      }
+
+      document.getElementById('connBadge').textContent = 'Connecting via TURN relay...';
+      document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
+
+      const conn = peer.connect(rawTarget, {
+        reliable: true
+      });
+
+      setupDataConnection(conn);
+    }
+
+    function setupDataConnection(conn) {
+      activeConn = conn;
+
+      conn.on('open', () => {
+        setChatUIActive(conn.peer);
+        addContactToList(conn.peer);
+      });
+
+      conn.on('data', (data) => {
+        if (data.text) {
+          appendMessage(data.text, 'incoming', data.time);
+        }
+      });
+
+      conn.on('close', () => {
+        document.getElementById('connBadge').textContent = 'Disconnected';
+        document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
+        activeConn = null;
+      });
+    }
+
+    function setChatUIActive(id) {
+      document.getElementById('currentPeerEmail').textContent = id;
+      document.getElementById('currentPeerAvatar').textContent = id[0].toUpperCase();
+      document.getElementById('connBadge').textContent = 'Relay Active • Connected';
+      document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
+    }
+
+    function addContactToList(id) {
+      const list = document.getElementById('contactList');
+      const emptyNotice = document.getElementById('emptyPeerNotice');
+      if (emptyNotice) emptyNotice.remove();
+
+      list.innerHTML = `
+        <div class="flex items-center gap-3 p-2 bg-[#1e293b]/60 rounded-xl border border-indigo-500/30">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center uppercase text-xs">
+            ${id[0]}
+          </div>
+          <div class="truncate flex-1">
+            <p class="text-xs font-semibold text-white truncate">${id}</p>
+            <p class="text-[10px] text-emerald-400">Direct TURN Tunnel</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleSendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!activeConn || !activeConn.open) {
+        alert('Not connected to any peer.');
+        return;
+      }
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      activeConn.send({ text, time });
+      appendMessage(text, 'outgoing', time);
+      input.value = '';
+    }
+
+    function appendMessage(text, direction, time) {
+      const container = document.getElementById('messagesContainer');
+      const isOut = direction === 'outgoing';
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      msgDiv.innerHTML = `
+        <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+          isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'
+        } shadow">
+          <p class="break-words">${text}</p>
+          <div class="flex items-center justify-end gap-1 text-[10px] opacity-75 mt-1">
+            <span>${time || 'Just now'}</span>
+            ${isOut ? '<i class="fa-solid fa-check-double text-[9px]"></i>' : ''}
+          </div>
+        </div>
+      `;
+
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function startVideoCall() { initiateCall(true); }
+    function startAudioCall() { initiateCall(false); }
+
+    async function initiateCall(isVideo) {
+      const targetId = document.getElementById('currentPeerEmail').textContent;
+      if (!targetId || targetId === 'No peer selected') {
+        alert('Connect to a peer first.');
+        return;
+      }
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
+        });
+
+        document.getElementById('callOverlay').classList.remove('hidden');
+        document.getElementById('localVideo').srcObject = localStream;
+
+        if (!isVideo) {
+          document.getElementById('localVideo').classList.add('hidden');
+          document.getElementById('remoteVideo').classList.add('hidden');
+          document.getElementById('audioCallIndicator').classList.remove('hidden');
+        } else {
+          document.getElementById('localVideo').classList.remove('hidden');
+          document.getElementById('remoteVideo').classList.remove('hidden');
+          document.getElementById('audioCallIndicator').classList.add('hidden');
+        }
+
+        const call = peer.call(targetId, localStream, {
+          metadata: { video: isVideo }
+        });
+        handleCallStream(call);
+      } catch (err) {
+        alert('Permission error: ' + err.message);
+      }
+    }
+
+    function handleCallStream(call) {
+      activeCall = call;
+      call.on('stream', async (remoteStream) => {
+        const remoteVideo = document.getElementById('remoteVideo');
+        remoteVideo.srcObject = remoteStream;
+        try {
+          await remoteVideo.play();
+        } catch (e) {
+          console.warn('Playback error:', e);
+        }
+      });
+      call.on('close', () => endCall());
+    }
+
+    function toggleMic() {
+      if (!localStream) return;
+      isMicMuted = !isMicMuted;
+      localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted);
+      document.getElementById('micBtn').classList.toggle('bg-rose-600', isMicMuted);
+    }
+
+    function toggleCamera() {
+      if (!localStream) return;
+      isCamDisabled = !isCamDisabled;
+      localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled);
+      document.getElementById('camBtn').classList.toggle('bg-rose-600', isCamDisabled);
+    }
+
+    function endCall() {
+      if (activeCall) activeCall.close();
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      document.getElementById('callOverlay').classList.add('hidden');
+      document.getElementById('localVideo').srcObject = null;
+      document.getElementById('remoteVideo').srcObject = null;
+    }
+
+    // Wake-lock reconnect for mobile screen sleep
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && peer && peer.disconnected) {
+        peer.reconnect();
+      }
     });
-    call.on('close', () => endCall());
-  }
-
-  function endCall() {
-    if (activeCall) activeCall.close();
-    if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
-      localStream = null;
-    }
-    document.getElementById('callOverlay').classList.add('hidden');
-    document.getElementById('localVideo').srcObject = null;
-    document.getElementById('remoteVideo').srcObject = null;
-  }
-</script>
+  </script>
+</body>
+</html>
+Add dedicated Metered TURN servers
