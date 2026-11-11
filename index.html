@@ -272,27 +272,44 @@
       });
     }
 
-    function connectToPeer() {
-      const rawTarget = document.getElementById('peerEmailInput').value.trim();
-      if (!rawTarget) {
-        alert('Please paste a Peer ID.');
-        return;
-      }
-      if (rawTarget === myPeerId) {
-        alert('You cannot connect to yourself.');
-        return;
-      }
+ function connectToPeer() {
+  const inputEl = document.getElementById('peerEmailInput');
+  const rawTarget = inputEl.value.trim(); // Removes accidental copy-paste whitespace
+  
+  if (!rawTarget) {
+    alert('Please paste a Peer ID.');
+    return;
+  }
+  if (rawTarget === myPeerId) {
+    alert('You cannot connect to yourself.');
+    return;
+  }
 
-      document.getElementById('connBadge').textContent = 'Connecting via TURN relay...';
-      document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
+  document.getElementById('connBadge').textContent = 'Connecting via TURN relay...';
+  document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
 
-      const conn = peer.connect(rawTarget, {
-        reliable: true
-      });
+  const conn = peer.connect(rawTarget, {
+    reliable: true
+  });
 
-      setupDataConnection(conn);
+  setupDataConnection(conn);
+}
+// 2. Add an aggressive Keep-Alive Heartbeat for Mobile:
+let heartbeatTimer = null;
+
+function startHeartbeat(peerInstance) {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    if (peerInstance && !peerInstance.destroyed && peerInstance.socket && peerInstance.socket._open) {
+      peerInstance.socket.send({ type: 'HEARTBEAT' });
     }
-
+  }, 10000); // Sends ping every 10 seconds to prevent mobile carrier timeout
+}
+    peer.on('open', (id) => {
+  startHeartbeat(peer);
+  document.getElementById('authOverlay').classList.add('hidden');
+  // ... rest of your UI update code
+});
     function setupDataConnection(conn) {
       activeConn = conn;
 
