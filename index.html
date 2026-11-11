@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink — Live E2EE WebRTC Chat & Calls</title>
+  <title>CypherLink — 1-on-1 Encrypted WebRTC</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- PeerJS WebRTC Library -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -16,101 +15,87 @@
 </head>
 <body class="h-screen flex flex-col font-sans select-none overflow-hidden">
 
-  <!-- ==================== SCREEN 1: LOGIN MODAL ==================== -->
+  <!-- ==================== JOIN ROOM MODAL ==================== -->
   <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14] flex items-center justify-center p-4">
     <div class="bg-[#111827] border border-gray-800 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
       <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-500/30">
-        <i class="fa-solid fa-shield-halved"></i>
+        <i class="fa-solid fa-lock"></i>
       </div>
-      <h2 class="text-2xl font-bold text-white mb-2">Initialize Encrypted Node</h2>
-      <p class="text-sm text-gray-400 mb-6">Enter your email or display name to connect to the dedicated TURN relay network.</p>
+      <h2 class="text-2xl font-bold text-white mb-2">Join Secure 1-on-1 Room</h2>
+      <p class="text-xs text-gray-400 mb-6">Enter your name and any shared room keyword. Both you and your friend just enter the same room name.</p>
       
       <div class="space-y-4 text-left">
         <div>
-          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Identifier / Email</label>
-          <input id="userEmailInput" type="text" placeholder="alice@gmail.com" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Name</label>
+          <input id="userNameInput" type="text" placeholder="e.g. Hanif" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
-        <button onclick="registerPeer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-          <i class="fa-solid fa-key"></i> Start Secure Node
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Shared Room Name / Password</label>
+          <input id="roomNameInput" type="text" placeholder="e.g. secretroom77" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+        </div>
+        <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> Connect to Room
         </button>
       </div>
       <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
     </div>
   </div>
 
-  <!-- ==================== SCREEN 2: MESSENGER UI ==================== -->
+  <!-- ==================== MESSENGER UI ==================== -->
   <div class="flex-1 flex overflow-hidden">
-    
-    <!-- SIDEBAR -->
-    <aside class="w-80 bg-[#0f172a] border-r border-gray-800 flex flex-col">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-[#0f172a] border-r border-gray-800 flex flex-col">
       <div class="p-4 border-b border-gray-800 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white uppercase" id="myAvatar">?</div>
           <div class="overflow-hidden">
-            <h3 class="text-sm font-semibold truncate text-white" id="myEmailLabel">Not connected</h3>
-            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TURN Relay Ready
+            <h3 class="text-sm font-semibold truncate text-white" id="myNameLabel">Disconnected</h3>
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1" id="networkStatus">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Standby
             </span>
           </div>
         </div>
       </div>
-
-      <!-- Add Peer Input -->
-      <div class="p-3 border-b border-gray-800 bg-[#131d35]">
-        <label class="block text-[10px] font-semibold tracking-wider uppercase text-gray-400 mb-1">Connect to Peer</label>
-        <div class="flex gap-2">
-          <input id="peerEmailInput" type="text" placeholder="Paste friend's Peer ID..." class="flex-1 bg-[#1e293b] border border-gray-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500" />
-          <button onclick="connectToPeer()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
-            <i class="fa-solid fa-link"></i> Connect
-          </button>
-        </div>
-      </div>
-
-      <!-- Active Sessions list -->
-      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Active Session</div>
-      <div id="contactList" class="flex-1 overflow-y-auto px-2 space-y-1">
-        <div id="emptyPeerNotice" class="text-xs text-gray-500 p-4 text-center">
-          No peer connected. Share your ID or paste your friend's ID above.
-        </div>
+      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Room Details</div>
+      <div class="px-4 py-2 space-y-2 text-xs text-gray-400">
+        <div>Room: <span id="roomLabel" class="text-white font-mono">None</span></div>
+        <div>Role: <span id="roleLabel" class="text-indigo-400 font-semibold">None</span></div>
       </div>
     </aside>
 
-    <!-- CHAT AREA -->
+    <!-- Main Chat Window -->
     <main class="flex-1 flex flex-col bg-[#0b0e14]">
-      <!-- Header -->
+      <!-- Chat Header -->
       <header class="h-16 border-b border-gray-800 px-6 flex items-center justify-between bg-[#0e131f]">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="currentPeerAvatar">#</div>
+          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="peerAvatar">?</div>
           <div>
-            <h2 class="text-sm font-semibold text-white" id="currentPeerEmail">No peer selected</h2>
-            <div class="flex items-center gap-2">
-              <span id="connBadge" class="text-[10px] text-gray-500 font-mono">Disconnected</span>
-            </div>
+            <h2 class="text-sm font-semibold text-white" id="peerName">Waiting for partner...</h2>
+            <span id="connBadge" class="text-[10px] text-amber-400 font-mono">Searching room...</span>
           </div>
         </div>
-
         <div class="flex items-center gap-2">
-          <button onclick="startAudioCall()" title="Audio Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+          <button onclick="startCall(false)" title="Voice Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
             <i class="fa-solid fa-phone"></i>
           </button>
-          <button onclick="startVideoCall()" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
+          <button onclick="startCall(true)" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
             <i class="fa-solid fa-video"></i>
           </button>
         </div>
       </header>
 
-      <!-- Message History -->
+      <!-- Messages Window -->
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
         <div class="text-center my-4">
           <span class="text-[11px] bg-[#1e293b] text-gray-400 px-3 py-1 rounded-full border border-gray-800">
-            <i class="fa-solid fa-shield-alt text-emerald-400 mr-1"></i> Dedicated Metered TURN active. Cross-network enabled.
+            <i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> End-to-End TURN Tunnel Active.
           </span>
         </div>
       </div>
 
-      <!-- Message Input -->
+      <!-- Input Bar -->
       <div class="p-4 border-t border-gray-800 bg-[#0e131f]">
-        <form onsubmit="handleSendMessage(event)" class="flex items-center gap-3">
+        <form onsubmit="sendMessage(event)" class="flex items-center gap-3">
           <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#1a2333] border border-gray-700 text-sm rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
           <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2">
             <span>Send</span>
@@ -121,40 +106,35 @@
     </main>
   </div>
 
-  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <!-- ==================== CALL MODAL ==================== -->
   <div id="callOverlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-6">
     <div class="relative w-full max-w-4xl h-[70vh] bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
-      <!-- Remote Video with iOS playsinline -->
       <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
-      
-      <!-- Local Video -->
       <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-4 right-4 w-32 h-24 md:w-48 md:h-36 object-cover rounded-xl border-2 border-indigo-500 bg-gray-900 shadow-xl"></video>
-      
-      <div id="audioCallIndicator" class="hidden absolute flex flex-col items-center justify-center gap-4 text-center">
+      <div id="audioIndicator" class="hidden absolute flex flex-col items-center justify-center gap-4 text-center">
         <div class="w-24 h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-4xl flex items-center justify-center animate-pulse">
           <i class="fa-solid fa-phone-volume"></i>
         </div>
-        <p class="text-lg font-medium text-white">Call Active</p>
+        <p class="text-lg font-medium text-white">Voice Call Connected</p>
       </div>
     </div>
-
-    <!-- Controls -->
     <div class="flex items-center gap-4 mt-6">
-      <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+      <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-microphone"></i>
       </button>
-      <button onclick="toggleCamera()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center text-lg">
+      <button onclick="toggleCam()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-video"></i>
       </button>
-      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center text-lg">
+      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-phone-slash"></i>
       </button>
     </div>
   </div>
 
-  <!-- ==================== SCRIPT WITH YOUR METERED SERVERS ==================== -->
+  <!-- ==================== PEER & RELAY SCRIPT ==================== -->
   <script>
-    let myPeerId = "";
+    let myName = "";
+    let room = "";
     let peer = null;
     let activeConn = null;
     let activeCall = null;
@@ -162,11 +142,9 @@
     let isMicMuted = false;
     let isCamDisabled = false;
 
-    // YOUR DEDICATED METERED SERVERS CONFIGURATION
-    const dedicatedIceServers = [
-      {
-        urls: "stun:stun.relay.metered.ca:80"
-      },
+    // Dedicated Metered TURN Servers
+    const iceServersConfig = [
+      { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
         username: "8d48358ef1172e5a21330cc9",
@@ -189,181 +167,123 @@
       }
     ];
 
-    function generateId() {
-      return 'node-' + Math.floor(100000 + Math.random() * 900000);
+    function sanitize(str) {
+      return str.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     }
 
-    function registerPeer() {
-      const userInput = document.getElementById('userEmailInput').value.trim();
-      if (!userInput) {
-        alert('Please enter your email or name.');
+    function enterRoom() {
+      myName = document.getElementById('userNameInput').value.trim();
+      const rawRoom = document.getElementById('roomNameInput').value.trim();
+
+      if (!myName || !rawRoom) {
+        alert('Please fill out both your name and the shared room name.');
         return;
       }
 
-      myPeerId = generateId();
-      const statusEl = document.getElementById('authStatus');
-      statusEl.textContent = 'Connecting to dedicated TURN relay...';
-      statusEl.classList.remove('hidden');
+      room = sanitize(rawRoom);
+      document.getElementById('authStatus').textContent = 'Connecting to signaling network...';
+      document.getElementById('authStatus').classList.remove('hidden');
 
-      // Initialize PeerJS using your Metered TURN servers
-      peer = new Peer(myPeerId, {
+      // First device tries to claim host: [room]-host
+      tryHostRole();
+    }
+
+    function tryHostRole() {
+      const hostId = room + '-host';
+      peer = new Peer(hostId, {
         debug: 1,
-        config: {
-          iceServers: dedicatedIceServers,
-          iceCandidatePoolSize: 10
-        }
+        config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 }
       });
 
-      peer.on('open', (id) => {
-        document.getElementById('authOverlay').classList.add('hidden');
-        document.getElementById('myEmailLabel').innerHTML = `
-          ${userInput} 
-          <button onclick="navigator.clipboard.writeText('${id}'); alert('Copied ID: ${id}');" class="ml-1 text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded hover:bg-indigo-500 hover:text-white transition">
-            <i class="fa-regular fa-copy"></i> Copy ID
-          </button>
-        `;
-        document.getElementById('myAvatar').textContent = userInput[0].toUpperCase();
-      });
-
-      peer.on('connection', (conn) => {
-        setupDataConnection(conn);
-      });
-
-      peer.on('call', async (call) => {
-        const isVideo = call.metadata?.video !== false;
-        const caller = call.peer;
-
-        if (confirm(`Incoming ${isVideo ? 'Video' : 'Audio'} call from ${caller}. Accept?`)) {
-          try {
-            localStream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true },
-              video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
-            });
-
-            document.getElementById('callOverlay').classList.remove('hidden');
-            document.getElementById('localVideo').srcObject = localStream;
-
-            if (!isVideo) {
-              document.getElementById('localVideo').classList.add('hidden');
-              document.getElementById('remoteVideo').classList.add('hidden');
-              document.getElementById('audioCallIndicator').classList.remove('hidden');
-            } else {
-              document.getElementById('localVideo').classList.remove('hidden');
-              document.getElementById('remoteVideo').classList.remove('hidden');
-              document.getElementById('audioCallIndicator').classList.add('hidden');
-            }
-
-            call.answer(localStream);
-            handleCallStream(call);
-          } catch (err) {
-            alert('Camera/Microphone permission error: ' + err.message);
-            call.close();
-          }
-        } else {
-          call.close();
-        }
+      peer.on('open', () => {
+        setupInterface('Host (Waiting for partner)');
+        // Listen for the second user joining
+        peer.on('connection', (conn) => {
+          setupConnection(conn);
+        });
       });
 
       peer.on('error', (err) => {
-        console.error('Peer error:', err);
-        if (err.type === 'peer-unavailable') {
-          alert('Peer not found. Make sure the recipient has opened the link and entered their name.');
+        // If the host is already taken, this device is the Client/Guest
+        if (err.type === 'unavailable-id') {
+          peer.destroy();
+          joinAsClient();
+        } else {
+          console.error(err);
         }
       });
+
+      setupCallHandler();
     }
 
- function connectToPeer() {
-  const inputEl = document.getElementById('peerEmailInput');
-  const rawTarget = inputEl.value.trim(); // Removes accidental copy-paste whitespace
-  
-  if (!rawTarget) {
-    alert('Please paste a Peer ID.');
-    return;
-  }
-  if (rawTarget === myPeerId) {
-    alert('You cannot connect to yourself.');
-    return;
-  }
+    function joinAsClient() {
+      const clientId = room + '-guest-' + Math.floor(Math.random() * 1000);
+      peer = new Peer(clientId, {
+        debug: 1,
+        config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 }
+      });
 
-  document.getElementById('connBadge').textContent = 'Connecting via TURN relay...';
-  document.getElementById('connBadge').className = 'text-[10px] text-amber-400 font-mono';
+      peer.on('open', () => {
+        setupInterface('Guest (Connecting to Host...)');
+        const hostId = room + '-host';
+        const conn = peer.connect(hostId, {
+          reliable: true,
+          metadata: { name: myName }
+        });
+        setupConnection(conn);
+      });
 
-  const conn = peer.connect(rawTarget, {
-    reliable: true
-  });
+      peer.on('connection', (conn) => {
+        setupConnection(conn);
+      });
 
-  setupDataConnection(conn);
-}
-// 2. Add an aggressive Keep-Alive Heartbeat for Mobile:
-let heartbeatTimer = null;
-
-function startHeartbeat(peerInstance) {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  heartbeatTimer = setInterval(() => {
-    if (peerInstance && !peerInstance.destroyed && peerInstance.socket && peerInstance.socket._open) {
-      peerInstance.socket.send({ type: 'HEARTBEAT' });
+      setupCallHandler();
     }
-  }, 10000); // Sends ping every 10 seconds to prevent mobile carrier timeout
-}
-    peer.on('open', (id) => {
-  startHeartbeat(peer);
-  document.getElementById('authOverlay').classList.add('hidden');
-  // ... rest of your UI update code
-});
-    function setupDataConnection(conn) {
+
+    function setupInterface(roleText) {
+      document.getElementById('authOverlay').classList.add('hidden');
+      document.getElementById('myNameLabel').textContent = myName;
+      document.getElementById('myAvatar').textContent = myName[0].toUpperCase();
+      document.getElementById('roomLabel').textContent = room;
+      document.getElementById('roleLabel').textContent = roleText;
+    }
+
+    function setupConnection(conn) {
       activeConn = conn;
 
       conn.on('open', () => {
-        setChatUIActive(conn.peer);
-        addContactToList(conn.peer);
+        // Exchange names
+        conn.send({ type: 'HANDSHAKE', name: myName });
+        document.getElementById('connBadge').textContent = 'WebRTC Relay Active';
+        document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
       });
 
       conn.on('data', (data) => {
-        if (data.text) {
+        if (data.type === 'HANDSHAKE') {
+          document.getElementById('peerName').textContent = data.name;
+          document.getElementById('peerAvatar').textContent = data.name[0].toUpperCase();
+          document.getElementById('connBadge').textContent = 'Connected • Direct Tunnel';
+          document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
+        } else if (data.text) {
           appendMessage(data.text, 'incoming', data.time);
         }
       });
 
       conn.on('close', () => {
-        document.getElementById('connBadge').textContent = 'Disconnected';
+        document.getElementById('connBadge').textContent = 'Partner Disconnected';
         document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
         activeConn = null;
       });
     }
 
-    function setChatUIActive(id) {
-      document.getElementById('currentPeerEmail').textContent = id;
-      document.getElementById('currentPeerAvatar').textContent = id[0].toUpperCase();
-      document.getElementById('connBadge').textContent = 'Relay Active • Connected';
-      document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
-    }
-
-    function addContactToList(id) {
-      const list = document.getElementById('contactList');
-      const emptyNotice = document.getElementById('emptyPeerNotice');
-      if (emptyNotice) emptyNotice.remove();
-
-      list.innerHTML = `
-        <div class="flex items-center gap-3 p-2 bg-[#1e293b]/60 rounded-xl border border-indigo-500/30">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center uppercase text-xs">
-            ${id[0]}
-          </div>
-          <div class="truncate flex-1">
-            <p class="text-xs font-semibold text-white truncate">${id}</p>
-            <p class="text-[10px] text-emerald-400">Direct TURN Tunnel</p>
-          </div>
-        </div>
-      `;
-    }
-
-    function handleSendMessage(e) {
+    function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
       if (!text) return;
 
       if (!activeConn || !activeConn.open) {
-        alert('Not connected to any peer.');
+        alert('Waiting for your partner to enter the same room name...');
         return;
       }
 
@@ -380,7 +300,7 @@ function startHeartbeat(peerInstance) {
       const msgDiv = document.createElement('div');
       msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
       msgDiv.innerHTML = `
-        <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+        <div class="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
           isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'
         } shadow">
           <p class="break-words">${text}</p>
@@ -395,13 +315,45 @@ function startHeartbeat(peerInstance) {
       container.scrollTop = container.scrollHeight;
     }
 
-    function startVideoCall() { initiateCall(true); }
-    function startAudioCall() { initiateCall(false); }
+    // Call Handlers
+    function setupCallHandler() {
+      peer.on('call', async (call) => {
+        const isVideo = call.metadata?.video !== false;
+        if (confirm(`Incoming ${isVideo ? 'Video' : 'Voice'} call. Accept?`)) {
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+              video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
+            });
 
-    async function initiateCall(isVideo) {
-      const targetId = document.getElementById('currentPeerEmail').textContent;
-      if (!targetId || targetId === 'No peer selected') {
-        alert('Connect to a peer first.');
+            document.getElementById('callOverlay').classList.remove('hidden');
+            document.getElementById('localVideo').srcObject = localStream;
+
+            if (!isVideo) {
+              document.getElementById('localVideo').classList.add('hidden');
+              document.getElementById('remoteVideo').classList.add('hidden');
+              document.getElementById('audioIndicator').classList.remove('hidden');
+            } else {
+              document.getElementById('localVideo').classList.remove('hidden');
+              document.getElementById('remoteVideo').classList.remove('hidden');
+              document.getElementById('audioIndicator').classList.add('hidden');
+            }
+
+            call.answer(localStream);
+            handleStream(call);
+          } catch (e) {
+            alert('Media permission denied: ' + e.message);
+            call.close();
+          }
+        } else {
+          call.close();
+        }
+      });
+    }
+
+    async function startCall(isVideo) {
+      if (!activeConn || !activeConn.peer) {
+        alert('Partner not connected in room yet.');
         return;
       }
 
@@ -417,32 +369,26 @@ function startHeartbeat(peerInstance) {
         if (!isVideo) {
           document.getElementById('localVideo').classList.add('hidden');
           document.getElementById('remoteVideo').classList.add('hidden');
-          document.getElementById('audioCallIndicator').classList.remove('hidden');
+          document.getElementById('audioIndicator').classList.remove('hidden');
         } else {
           document.getElementById('localVideo').classList.remove('hidden');
           document.getElementById('remoteVideo').classList.remove('hidden');
-          document.getElementById('audioCallIndicator').classList.add('hidden');
+          document.getElementById('audioIndicator').classList.add('hidden');
         }
 
-        const call = peer.call(targetId, localStream, {
-          metadata: { video: isVideo }
-        });
-        handleCallStream(call);
+        const call = peer.call(activeConn.peer, localStream, { metadata: { video: isVideo } });
+        handleStream(call);
       } catch (err) {
-        alert('Permission error: ' + err.message);
+        alert('Media device access error: ' + err.message);
       }
     }
 
-    function handleCallStream(call) {
+    function handleStream(call) {
       activeCall = call;
-      call.on('stream', async (remoteStream) => {
+      call.on('stream', async (stream) => {
         const remoteVideo = document.getElementById('remoteVideo');
-        remoteVideo.srcObject = remoteStream;
-        try {
-          await remoteVideo.play();
-        } catch (e) {
-          console.warn('Playback error:', e);
-        }
+        remoteVideo.srcObject = stream;
+        try { await remoteVideo.play(); } catch (err) {}
       });
       call.on('close', () => endCall());
     }
@@ -454,7 +400,7 @@ function startHeartbeat(peerInstance) {
       document.getElementById('micBtn').classList.toggle('bg-rose-600', isMicMuted);
     }
 
-    function toggleCamera() {
+    function toggleCam() {
       if (!localStream) return;
       isCamDisabled = !isCamDisabled;
       localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled);
@@ -471,14 +417,6 @@ function startHeartbeat(peerInstance) {
       document.getElementById('localVideo').srcObject = null;
       document.getElementById('remoteVideo').srcObject = null;
     }
-
-    // Wake-lock reconnect for mobile screen sleep
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && peer && peer.disconnected) {
-        peer.reconnect();
-      }
-    });
   </script>
 </body>
 </html>
-Add dedicated Metered TURN servers
