@@ -3,37 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink — 1-on-1 Encrypted WebRTC</title>
+  <title>CypherLink — Multi-Peer Encrypted Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    body { background-color: #0b0e14; color: #f3f4f6; }
-    .chat-scroll::-webkit-scrollbar { width: 6px; }
-    .chat-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+    :root {
+      --bg-main: #0b0e14;
+      --bg-panel: #0f172a;
+      --bg-header: #0e131f;
+      --bg-input: #1a2333;
+      --bg-bubble-in: #1e293b;
+      --border-color: #1f2937;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .theme-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
+    .theme-header { background-color: var(--bg-header); border-color: var(--border-color); }
+    .theme-input { background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-main); }
+    .theme-bubble-in { background-color: var(--bg-bubble-in); border-color: var(--border-color); color: var(--text-main); }
+    .theme-accent { background-color: var(--accent); color: #ffffff; }
+    .theme-accent:hover { background-color: var(--accent-hover); }
+    .theme-border { border-color: var(--border-color); }
+    .theme-muted { color: var(--text-muted); }
+
+    .chat-scroll::-webkit-scrollbar { width: 4px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); border-radius: 4px; }
+    * { -webkit-tap-highlight-color: transparent; }
+
+    @keyframes popIn {
+      0% { transform: scale(0.6); opacity: 0; }
+      80% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .sticker-anim {
+      display: inline-block;
+      font-size: 3.25rem;
+      line-height: 1.1;
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
   </style>
 </head>
-<body class="h-screen flex flex-col font-sans select-none overflow-hidden">
+<body class="flex flex-col font-sans select-none overflow-hidden">
 
   <!-- ==================== JOIN ROOM MODAL ==================== -->
-  <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14] flex items-center justify-center p-4">
-    <div class="bg-[#111827] border border-gray-800 p-8 rounded-2xl max-w-md w-full shadow-2xl text-center">
-      <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-500/30">
-        <i class="fa-solid fa-lock"></i>
+  <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-gray-800 p-6 md:p-8 rounded-2xl max-w-sm md:max-w-md w-full shadow-2xl text-center">
+      <div class="w-14 h-14 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-indigo-500/30">
+        <i class="fa-solid fa-users-viewfinder"></i>
       </div>
-      <h2 class="text-2xl font-bold text-white mb-2">Join Secure 1-on-1 Room</h2>
-      <p class="text-xs text-gray-400 mb-6">Enter your name and any shared room keyword. Both you and your friend just enter the same room name.</p>
+      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Join Encrypted Room</h2>
+      <p class="text-xs text-gray-400 mb-5">Supports 1-on-1 or multi-user group rooms across Mobile (4G/5G) & Desktop.</p>
       
-      <div class="space-y-4 text-left">
+      <div class="space-y-3 text-left">
         <div>
-          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Your Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. Hanif" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
+          <input id="userNameInput" type="text" placeholder="e.g. Hanif" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
-          <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Shared Room Name / Password</label>
-          <input id="roomNameInput" type="text" placeholder="e.g. secretroom77" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
+          <input id="roomNameInput" type="text" placeholder="e.g. squad2026" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
-        <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+        <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 active:bg-indigo-700 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 mt-2">
           <i class="fa-solid fa-right-to-bracket"></i> Connect to Room
         </button>
       </div>
@@ -41,108 +84,196 @@
     </div>
   </div>
 
-  <!-- ==================== MESSENGER UI ==================== -->
-  <div class="flex-1 flex overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-72 bg-[#0f172a] border-r border-gray-800 flex flex-col">
-      <div class="p-4 border-b border-gray-800 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white uppercase" id="myAvatar">?</div>
+  <!-- ==================== MAIN MESSENGER INTERFACE ==================== -->
+  <div class="flex-1 flex overflow-hidden relative">
+    
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-72 theme-panel border-r flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
+      <!-- Profile Header -->
+      <div class="p-4 border-b theme-border flex items-center justify-between">
+        <div class="flex items-center gap-3 overflow-hidden">
+          <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0" id="myAvatar">?</div>
           <div class="overflow-hidden">
-            <h3 class="text-sm font-semibold truncate text-white" id="myNameLabel">Disconnected</h3>
-            <span class="text-[11px] text-emerald-400 flex items-center gap-1" id="networkStatus">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Standby
+            <h3 class="text-sm font-semibold truncate" id="myNameLabel">Disconnected</h3>
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TURN Tunnel Ready
             </span>
           </div>
         </div>
+        <button onclick="toggleMobileSidebar()" class="md:hidden theme-muted p-2">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
-      <div class="p-3 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Room Details</div>
-      <div class="px-4 py-2 space-y-2 text-xs text-gray-400">
-        <div>Room: <span id="roomLabel" class="text-white font-mono">None</span></div>
-        <div>Role: <span id="roleLabel" class="text-indigo-400 font-semibold">None</span></div>
+
+      <!-- Theme Switcher -->
+      <div class="p-3.5 border-b theme-border">
+        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Color Theme</div>
+        <div class="flex items-center justify-between gap-2">
+          <button onclick="applyTheme('indigo')" title="Midnight Indigo" class="w-8 h-8 rounded-full bg-[#4f46e5] border-2 border-white/40 hover:scale-110 transition"></button>
+          <button onclick="applyTheme('emerald')" title="Emerald Matrix" class="w-8 h-8 rounded-full bg-[#059669] border-2 border-white/40 hover:scale-110 transition"></button>
+          <button onclick="applyTheme('rose')" title="Crimson Rose" class="w-8 h-8 rounded-full bg-[#e11d48] border-2 border-white/40 hover:scale-110 transition"></button>
+          <button onclick="applyTheme('amber')" title="Cyber Amber" class="w-8 h-8 rounded-full bg-[#d97706] border-2 border-white/40 hover:scale-110 transition"></button>
+          <button onclick="applyTheme('light')" title="Clean Light" class="w-8 h-8 rounded-full bg-[#f8fafc] border-2 border-gray-400 hover:scale-110 transition"></button>
+        </div>
+      </div>
+
+      <!-- Room Info & Participants -->
+      <div class="p-3.5 border-b theme-border text-xs space-y-1">
+        <div class="flex justify-between">
+          <span class="theme-muted">Room Code:</span>
+          <span id="roomLabel" class="font-mono font-bold text-indigo-400">None</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="theme-muted">Node Role:</span>
+          <span id="roleLabel" class="font-medium">Standby</span>
+        </div>
+      </div>
+
+      <div class="px-3.5 pt-3 pb-1 text-[10px] font-bold tracking-wider theme-muted uppercase flex justify-between items-center">
+        <span>Active Participants</span>
+        <span id="participantCount" class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">1</span>
+      </div>
+      
+      <div id="participantsList" class="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 chat-scroll">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Sidebar Actions (Clear Chat & Logout) -->
+      <div class="p-3 border-t theme-border space-y-2">
+        <button onclick="clearChat()" class="w-full py-2 px-3 rounded-xl border theme-border hover:bg-white/5 text-xs font-medium flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-broom text-amber-400"></i> Clear Chat History
+        </button>
+        <button onclick="logoutRoom()" class="w-full py-2 px-3 rounded-xl bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-medium flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-right-from-bracket"></i> Leave & Logout
+        </button>
       </div>
     </aside>
 
-    <!-- Main Chat Window -->
-    <main class="flex-1 flex flex-col bg-[#0b0e14]">
-      <!-- Chat Header -->
-      <header class="h-16 border-b border-gray-800 px-6 flex items-center justify-between bg-[#0e131f]">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold uppercase" id="peerAvatar">?</div>
-          <div>
-            <h2 class="text-sm font-semibold text-white" id="peerName">Waiting for partner...</h2>
-            <span id="connBadge" class="text-[10px] text-amber-400 font-mono">Searching room...</span>
+    <!-- CHAT AREA -->
+    <main class="flex-1 flex flex-col w-full relative">
+      <!-- Header -->
+      <header class="h-14 md:h-16 border-b theme-header px-3 md:px-6 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5 overflow-hidden">
+          <button onclick="toggleMobileSidebar()" class="md:hidden w-9 h-9 rounded-lg theme-input border flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-bars text-sm"></i>
+          </button>
+          
+          <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0">
+            <i class="fa-solid fa-comments"></i>
+          </div>
+          <div class="leading-tight overflow-hidden">
+            <h2 class="text-xs md:text-sm font-semibold truncate" id="headerRoomTitle">Encrypted Room</h2>
+            <span id="connBadge" class="text-[10px] text-amber-400 font-mono block truncate">Waiting for peers...</span>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="startCall(false)" title="Voice Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-emerald-600/20 hover:text-emerald-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
-            <i class="fa-solid fa-phone"></i>
+
+        <!-- Header Action Buttons -->
+        <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
+          <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
+            <i class="fa-solid fa-phone text-xs"></i>
           </button>
-          <button onclick="startCall(true)" title="Video Call" class="w-10 h-10 rounded-xl bg-[#1e293b] hover:bg-indigo-600/20 hover:text-indigo-400 text-gray-300 flex items-center justify-center transition border border-gray-700/50">
-            <i class="fa-solid fa-video"></i>
+          <button onclick="startCall(true)" title="Video Call" class="w-9 h-9 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center transition">
+            <i class="fa-solid fa-video text-xs"></i>
+          </button>
+          <button onclick="clearChat()" title="Clear Chat" class="w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center transition">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </button>
+          <button onclick="logoutRoom()" title="Logout" class="w-9 h-9 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/30 flex items-center justify-center transition">
+            <i class="fa-solid fa-power-off text-xs"></i>
           </button>
         </div>
       </header>
 
-      <!-- Messages Window -->
-      <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
-        <div class="text-center my-4">
-          <span class="text-[11px] bg-[#1e293b] text-gray-400 px-3 py-1 rounded-full border border-gray-800">
-            <i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> End-to-End TURN Tunnel Active.
+      <!-- Message History -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
+        <div class="text-center my-2">
+          <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
+            <i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> Multi-Peer Mobile & Desktop TURN Tunnel Active
           </span>
         </div>
       </div>
 
-      <!-- Input Bar -->
-      <div class="p-4 border-t border-gray-800 bg-[#0e131f]">
-        <form onsubmit="sendMessage(event)" class="flex items-center gap-3">
-          <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#1a2333] border border-gray-700 text-sm rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500" />
-          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2">
-            <span>Send</span>
-            <i class="fa-solid fa-paper-plane"></i>
+      <!-- EMOJI & STICKER PICKER POPOVER -->
+      <div id="pickerPopover" class="hidden absolute bottom-16 md:bottom-20 left-3 right-3 md:left-6 md:right-auto md:w-80 theme-panel border rounded-2xl shadow-2xl p-3 z-30">
+        <div class="flex border-b theme-border pb-2 mb-2 gap-2">
+          <button onclick="switchPickerTab('emojis')" id="tabEmojis" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-accent">Emojis</button>
+          <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
+        </div>
+
+        <!-- Emojis Grid -->
+        <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Stickers Grid -->
+        <div id="stickersGrid" class="hidden grid grid-cols-4 gap-2 max-h-44 overflow-y-auto chat-scroll text-3xl text-center">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Message Input -->
+      <div class="p-2.5 md:p-4 border-t theme-header shrink-0">
+        <form onsubmit="sendMessage(event)" class="flex items-center gap-2">
+          <button type="button" onclick="togglePicker()" class="w-10 h-10 rounded-xl theme-input border flex items-center justify-center text-lg hover:scale-105 transition shrink-0" title="Emojis & Stickers">
+            😊
+          </button>
+          <input id="messageInput" type="text" placeholder="Type a message or send sticker..." autocomplete="off" class="flex-1 theme-input border text-sm rounded-xl px-3.5 py-2.5 focus:outline-none" />
+          <button type="submit" class="theme-accent px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-1.5 shrink-0">
+            <span class="hidden sm:inline">Send</span>
+            <i class="fa-solid fa-paper-plane text-xs"></i>
           </button>
         </form>
       </div>
     </main>
   </div>
 
-  <!-- ==================== CALL MODAL ==================== -->
-  <div id="callOverlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-6">
-    <div class="relative w-full max-w-4xl h-[70vh] bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
+  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <div id="callOverlay" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col items-center justify-between p-4 md:p-6">
+    <div class="relative w-full max-w-4xl flex-1 bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
       <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
-      <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-4 right-4 w-32 h-24 md:w-48 md:h-36 object-cover rounded-xl border-2 border-indigo-500 bg-gray-900 shadow-xl"></video>
-      <div id="audioIndicator" class="hidden absolute flex flex-col items-center justify-center gap-4 text-center">
-        <div class="w-24 h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-4xl flex items-center justify-center animate-pulse">
+      <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-3 right-3 w-28 h-20 md:w-44 md:h-32 object-cover rounded-xl border border-indigo-500 bg-gray-900 shadow-xl"></video>
+      
+      <div id="audioIndicator" class="hidden absolute flex flex-col items-center justify-center gap-3 text-center">
+        <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-3xl md:text-4xl flex items-center justify-center animate-pulse">
           <i class="fa-solid fa-phone-volume"></i>
         </div>
-        <p class="text-lg font-medium text-white">Voice Call Connected</p>
+        <p class="text-base md:text-lg font-medium text-white">Voice Call Active</p>
       </div>
     </div>
-    <div class="flex items-center gap-4 mt-6">
+
+    <div class="flex items-center gap-4 py-4">
       <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-microphone"></i>
       </button>
       <button onclick="toggleCam()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-video"></i>
       </button>
-      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center text-lg">
+      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center text-lg shadow-lg">
         <i class="fa-solid fa-phone-slash"></i>
       </button>
     </div>
   </div>
 
-  <!-- ==================== PEER & RELAY SCRIPT ==================== -->
+  <!-- ==================== MULTI-PEER & MOBILE SCRIPT ==================== -->
   <script>
     let myName = "";
+    let myPeerId = "";
     let room = "";
+    let isHost = false;
     let peer = null;
-    let activeConn = null;
+
+    // Multi-peer connections map: peerId -> { conn, name }
+    let connections = {};
     let activeCall = null;
     let localStream = null;
     let isMicMuted = false;
     let isCamDisabled = false;
+    let heartbeatInterval = null;
 
-    // Dedicated Metered TURN Servers
+    // Dedicated Metered TURN Servers (Forces TCP/TLS relay support for Mobile-to-Mobile 4G/5G)
     const iceServersConfig = [
       { urls: "stun:stun.relay.metered.ca:80" },
       {
@@ -167,8 +298,164 @@
       }
     ];
 
+    // ==================== THEMES ENGINE ====================
+    const themes = {
+      indigo: {
+        '--bg-main': '#0b0e14',
+        '--bg-panel': '#0f172a',
+        '--bg-header': '#0e131f',
+        '--bg-input': '#1a2333',
+        '--bg-bubble-in': '#1e293b',
+        '--border-color': '#1f2937',
+        '--text-main': '#f3f4f6',
+        '--text-muted': '#9ca3af',
+        '--accent': '#4f46e5',
+        '--accent-hover': '#4338ca'
+      },
+      emerald: {
+        '--bg-main': '#06110d',
+        '--bg-panel': '#0a1c16',
+        '--bg-header': '#081712',
+        '--bg-input': '#112921',
+        '--bg-bubble-in': '#133127',
+        '--border-color': '#1b4335',
+        '--text-main': '#ecfdf5',
+        '--text-muted': '#6ee7b7',
+        '--accent': '#059669',
+        '--accent-hover': '#047857'
+      },
+      rose: {
+        '--bg-main': '#13080c',
+        '--bg-panel': '#1f0d14',
+        '--bg-header': '#190a10',
+        '--bg-input': '#2d131d',
+        '--bg-bubble-in': '#361723',
+        '--border-color': '#4c1d2e',
+        '--text-main': '#fff1f2',
+        '--text-muted': '#fda4af',
+        '--accent': '#e11d48',
+        '--accent-hover': '#be123c'
+      },
+      amber: {
+        '--bg-main': '#120e06',
+        '--bg-panel': '#1c160a',
+        '--bg-header': '#171208',
+        '--bg-input': '#29200e',
+        '--bg-bubble-in': '#332712',
+        '--border-color': '#453518',
+        '--text-main': '#fffbeb',
+        '--text-muted': '#fcd34d',
+        '--accent': '#d97706',
+        '--accent-hover': '#b45309'
+      },
+      light: {
+        '--bg-main': '#f1f5f9',
+        '--bg-panel': '#ffffff',
+        '--bg-header': '#ffffff',
+        '--bg-input': '#f8fafc',
+        '--bg-bubble-in': '#e2e8f0',
+        '--border-color': '#cbd5e1',
+        '--text-main': '#0f172a',
+        '--text-muted': '#475569',
+        '--accent': '#2563eb',
+        '--accent-hover': '#1d4ed8'
+      }
+    };
+
+    function applyTheme(themeKey) {
+      const t = themes[themeKey];
+      if (!t) return;
+      for (const [prop, val] of Object.entries(t)) {
+        document.documentElement.style.setProperty(prop, val);
+      }
+      localStorage.setItem('cypher_theme', themeKey);
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('cypher_theme');
+    if (savedTheme && themes[savedTheme]) applyTheme(savedTheme);
+
+    // ==================== EMOJIS & STICKERS ====================
+    const emojiList = [
+      '😀','😂','🥰','😎','🤩','🥳','😭','😡','🤯','🥶',
+      '👍','👎','👏','🙌','🙏','🤝','✌️','🤞','🔥','💯',
+      '❤️','💔','💖','✨','🎉','🚀','⚡','💡','🛡️','🔒',
+      '👀','💀','🤡','👻','🤖','👽','🐶','🐱','🍕','☕'
+    ];
+
+    const stickerList = [
+      '🚀','🔥','🎉','❤️','😂','🥳','😎','👑',
+      '💎','⚡','🦄','🐶','🐱','🍕','🏆','🎯',
+      '💯','🙌','🤝','🛡️','👾','🤖','🌟','🌈'
+    ];
+
+    function initPickers() {
+      const eGrid = document.getElementById('emojisGrid');
+      const sGrid = document.getElementById('stickersGrid');
+
+      eGrid.innerHTML = emojiList.map(e => 
+        `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded-lg transition">${e}</button>`
+      ).join('');
+
+      sGrid.innerHTML = stickerList.map(s => 
+        `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded-xl transition hover:scale-110">${s}</button>`
+      ).join('');
+    }
+    initPickers();
+
+    function togglePicker() {
+      document.getElementById('pickerPopover').classList.toggle('hidden');
+    }
+
+    function switchPickerTab(tab) {
+      const eGrid = document.getElementById('emojisGrid');
+      const sGrid = document.getElementById('stickersGrid');
+      const tEmojis = document.getElementById('tabEmojis');
+      const tStickers = document.getElementById('tabStickers');
+
+      if (tab === 'emojis') {
+        eGrid.classList.remove('hidden');
+        sGrid.classList.add('hidden');
+        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
+        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
+      } else {
+        sGrid.classList.remove('hidden');
+        eGrid.classList.add('hidden');
+        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
+        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
+      }
+    }
+
+    function insertEmoji(emoji) {
+      const input = document.getElementById('messageInput');
+      input.value += emoji;
+      input.focus();
+    }
+
+    function sendSticker(sticker) {
+      document.getElementById('pickerPopover').classList.add('hidden');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const payload = {
+        type: 'CHAT',
+        isSticker: true,
+        senderId: myPeerId,
+        senderName: myName,
+        content: sticker,
+        time: time
+      };
+
+      broadcastData(payload);
+      appendMessage(myName, sticker, 'outgoing', time, true);
+    }
+
+    // ==================== ROOM & MULTI-PEER ENGINE ====================
     function sanitize(str) {
       return str.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function toggleMobileSidebar() {
+      document.getElementById('sidebar').classList.toggle('-translate-x-full');
+      document.getElementById('sidebarBackdrop').classList.toggle('hidden');
     }
 
     function enterRoom() {
@@ -176,18 +463,28 @@
       const rawRoom = document.getElementById('roomNameInput').value.trim();
 
       if (!myName || !rawRoom) {
-        alert('Please fill out both your name and the shared room name.');
+        alert('Please enter both your name and a shared room code.');
         return;
       }
 
       room = sanitize(rawRoom);
-      document.getElementById('authStatus').textContent = 'Connecting to signaling network...';
-      document.getElementById('authStatus').classList.remove('hidden');
+      const statusEl = document.getElementById('authStatus');
+      statusEl.textContent = 'Negotiating Mobile/Desktop TURN Relay...';
+      statusEl.classList.remove('hidden');
 
-      // First device tries to claim host: [room]-host
       tryHostRole();
     }
 
+    function startMobileHeartbeat(peerInstance) {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      heartbeatInterval = setInterval(() => {
+        if (peerInstance && !peerInstance.destroyed && peerInstance.socket && peerInstance.socket._open) {
+          peerInstance.socket.send({ type: 'HEARTBEAT' });
+        }
+      }, 8000); // 8s keep-alive for mobile 4G/5G NAT tables
+    }
+
+    // First user claims [room]-host and acts as relay hub for unlimited peers
     function tryHostRole() {
       const hostId = room + '-host';
       peer = new Peer(hostId, {
@@ -195,46 +492,55 @@
         config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 }
       });
 
-      peer.on('open', () => {
-        setupInterface('Host (Waiting for partner)');
-        // Listen for the second user joining
+      peer.on('open', (id) => {
+        isHost = true;
+        myPeerId = id;
+        startMobileHeartbeat(peer);
+        setupInterface('Room Host (Relay Hub)');
+        updateParticipantsUI();
+
         peer.on('connection', (conn) => {
-          setupConnection(conn);
+          registerPeerConnection(conn);
         });
       });
 
       peer.on('error', (err) => {
-        // If the host is already taken, this device is the Client/Guest
         if (err.type === 'unavailable-id') {
           peer.destroy();
-          joinAsClient();
+          joinAsGuest();
         } else {
-          console.error(err);
+          console.error('Peer error:', err);
         }
       });
 
       setupCallHandler();
     }
 
-    function joinAsClient() {
-      const clientId = room + '-guest-' + Math.floor(Math.random() * 1000);
-      peer = new Peer(clientId, {
+    // Subsequent users join as guests and connect to the Host Hub
+    function joinAsGuest() {
+      const guestId = room + '-guest-' + Math.floor(1000 + Math.random() * 9000);
+      peer = new Peer(guestId, {
         debug: 1,
         config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 }
       });
 
-      peer.on('open', () => {
-        setupInterface('Guest (Connecting to Host...)');
+      peer.on('open', (id) => {
+        isHost = false;
+        myPeerId = id;
+        startMobileHeartbeat(peer);
+        setupInterface('Participant');
+        updateParticipantsUI();
+
         const hostId = room + '-host';
         const conn = peer.connect(hostId, {
           reliable: true,
           metadata: { name: myName }
         });
-        setupConnection(conn);
+        registerPeerConnection(conn);
       });
 
       peer.on('connection', (conn) => {
-        setupConnection(conn);
+        registerPeerConnection(conn);
       });
 
       setupCallHandler();
@@ -246,80 +552,253 @@
       document.getElementById('myAvatar').textContent = myName[0].toUpperCase();
       document.getElementById('roomLabel').textContent = room;
       document.getElementById('roleLabel').textContent = roleText;
+      document.getElementById('headerRoomTitle').textContent = `Room: #${room}`;
     }
 
-    function setupConnection(conn) {
-      activeConn = conn;
-
+    function registerPeerConnection(conn) {
       conn.on('open', () => {
-        // Exchange names
-        conn.send({ type: 'HANDSHAKE', name: myName });
-        document.getElementById('connBadge').textContent = 'WebRTC Relay Active';
-        document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
+        const remoteName = conn.metadata?.name || 'Host';
+        connections[conn.peer] = { conn: conn, name: remoteName };
+
+        // Introduce self
+        conn.send({
+          type: 'JOIN',
+          peerId: myPeerId,
+          name: myName
+        });
+
+        updateParticipantsUI();
       });
 
       conn.on('data', (data) => {
-        if (data.type === 'HANDSHAKE') {
-          document.getElementById('peerName').textContent = data.name;
-          document.getElementById('peerAvatar').textContent = data.name[0].toUpperCase();
-          document.getElementById('connBadge').textContent = 'Connected • Direct Tunnel';
-          document.getElementById('connBadge').className = 'text-[10px] text-emerald-400 font-mono';
-        } else if (data.text) {
-          appendMessage(data.text, 'incoming', data.time);
+        // 1. Handshake / Join Notification
+        if (data.type === 'JOIN') {
+          connections[conn.peer] = { conn: conn, name: data.name };
+          appendSystemNotice(`${data.name} joined the room`);
+          updateParticipantsUI();
+
+          // If Host, sync full peer roster to everyone
+          if (isHost) {
+            syncRosterToGuests();
+          }
+        }
+
+        // 2. Host Roster Sync for Multi-User Display
+        else if (data.type === 'ROSTER') {
+          renderGuestRoster(data.members);
+        }
+
+        // 3. Chat or Sticker Message
+        else if (data.type === 'CHAT') {
+          appendMessage(data.senderName, data.content, 'incoming', data.time, data.isSticker);
+
+          // If Host, relay message to all OTHER connected guests
+          if (isHost) {
+            for (const [id, peerObj] of Object.entries(connections)) {
+              if (id !== conn.peer && peerObj.conn.open) {
+                peerObj.conn.send(data);
+              }
+            }
+          }
         }
       });
 
       conn.on('close', () => {
-        document.getElementById('connBadge').textContent = 'Partner Disconnected';
-        document.getElementById('connBadge').className = 'text-[10px] text-rose-500 font-mono';
-        activeConn = null;
+        const leftName = connections[conn.peer]?.name || 'A peer';
+        delete connections[conn.peer];
+        appendSystemNotice(`${leftName} left the room`);
+        updateParticipantsUI();
+        if (isHost) syncRosterToGuests();
       });
     }
 
+    function syncRosterToGuests() {
+      const members = [{ id: myPeerId, name: myName + ' (Host)' }];
+      for (const [id, peerObj] of Object.entries(connections)) {
+        members.push({ id: id, name: peerObj.name });
+      }
+      for (const peerObj of Object.values(connections)) {
+        if (peerObj.conn.open) {
+          peerObj.conn.send({ type: 'ROSTER', members: members });
+        }
+      }
+      renderGuestRoster(members);
+    }
+
+    function updateParticipantsUI() {
+      const list = document.getElementById('participantsList');
+      const badge = document.getElementById('connBadge');
+      const countEl = document.getElementById('participantCount');
+
+      const peers = Object.values(connections);
+      const total = peers.length + 1;
+      countEl.textContent = total;
+
+      if (peers.length === 0) {
+        badge.textContent = 'Waiting for others to join...';
+        badge.className = 'text-[10px] text-amber-400 font-mono block truncate';
+      } else {
+        badge.textContent = `${total} Active in Room • TURN Relay`;
+        badge.className = 'text-[10px] text-emerald-400 font-mono block truncate';
+      }
+
+      if (isHost) {
+        syncRosterToGuests();
+      } else {
+        let html = `
+          <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
+            <div class="w-7 h-7 rounded-lg theme-accent flex items-center justify-center font-bold text-xs uppercase">${myName[0]}</div>
+            <span class="text-xs font-medium truncate">${myName} (You)</span>
+          </div>
+        `;
+        peers.forEach(p => {
+          html += `
+            <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
+              <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs uppercase">${p.name[0]}</div>
+              <span class="text-xs font-medium truncate">${p.name}</span>
+            </div>
+          `;
+        });
+        list.innerHTML = html;
+      }
+    }
+
+    function renderGuestRoster(members) {
+      const list = document.getElementById('participantsList');
+      document.getElementById('participantCount').textContent = members.length;
+
+      list.innerHTML = members.map(m => `
+        <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
+          <div class="w-7 h-7 rounded-lg ${m.id === myPeerId ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase">
+            ${m.name[0]}
+          </div>
+          <span class="text-xs font-medium truncate">${m.name} ${m.id === myPeerId ? '(You)' : ''}</span>
+        </div>
+      `).join('');
+    }
+
+    function broadcastData(payload) {
+      for (const peerObj of Object.values(connections)) {
+        if (peerObj.conn && peerObj.conn.open) {
+          peerObj.conn.send(payload);
+        }
+      }
+    }
+
+    // ==================== MESSAGING, CLEAR CHAT & LOGOUT ====================
     function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
       if (!text) return;
 
-      if (!activeConn || !activeConn.open) {
-        alert('Waiting for your partner to enter the same room name...');
-        return;
-      }
-
+      document.getElementById('pickerPopover').classList.add('hidden');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      activeConn.send({ text, time });
-      appendMessage(text, 'outgoing', time);
+
+      const payload = {
+        type: 'CHAT',
+        isSticker: false,
+        senderId: myPeerId,
+        senderName: myName,
+        content: text,
+        time: time
+      };
+
+      broadcastData(payload);
+      appendMessage(myName, text, 'outgoing', time, false);
       input.value = '';
     }
 
-    function appendMessage(text, direction, time) {
+    function appendMessage(sender, content, direction, time, isSticker) {
       const container = document.getElementById('messagesContainer');
       const isOut = direction === 'outgoing';
 
       const msgDiv = document.createElement('div');
       msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-      msgDiv.innerHTML = `
-        <div class="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
-          isOut ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-[#1e293b] text-gray-200 rounded-bl-none border border-gray-700/60'
-        } shadow">
-          <p class="break-words">${text}</p>
-          <div class="flex items-center justify-end gap-1 text-[10px] opacity-75 mt-1">
-            <span>${time || 'Just now'}</span>
-            ${isOut ? '<i class="fa-solid fa-check-double text-[9px]"></i>' : ''}
+
+      const senderTag = !isOut ? `<span class="text-[10px] font-semibold theme-muted mb-1 ml-1">${sender}</span>` : '';
+
+      if (isSticker) {
+        msgDiv.innerHTML = `
+          ${senderTag}
+          <div class="px-2 py-1">
+            <span class="sticker-anim">${content}</span>
+            <div class="text-[9px] theme-muted ${isOut ? 'text-right' : 'text-left'} mt-0.5">${time}</div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        msgDiv.innerHTML = `
+          ${senderTag}
+          <div class="max-w-[85%] md:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-xs md:text-sm ${
+            isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'
+          } shadow">
+            <p class="break-words leading-relaxed">${escapeHTML(content)}</p>
+            <div class="flex items-center justify-end gap-1 text-[9px] opacity-75 mt-1">
+              <span>${time}</span>
+              ${isOut ? '<i class="fa-solid fa-check-double text-[8px]"></i>' : ''}
+            </div>
+          </div>
+        `;
+      }
 
       container.appendChild(msgDiv);
       container.scrollTop = container.scrollHeight;
     }
 
-    // Call Handlers
+    function appendSystemNotice(text) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = 'text-center my-1.5';
+      div.innerHTML = `<span class="text-[10px] theme-muted bg-white/5 px-2.5 py-0.5 rounded-full">${text}</span>`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag]));
+    }
+
+    function clearChat() {
+      const container = document.getElementById('messagesContainer');
+      container.innerHTML = `
+        <div class="text-center my-2">
+          <span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">
+            Chat history cleared locally
+          </span>
+        </div>
+      `;
+    }
+
+    function logoutRoom() {
+      endCall();
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      
+      for (const peerObj of Object.values(connections)) {
+        if (peerObj.conn) peerObj.conn.close();
+      }
+      connections = {};
+
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+
+      clearChat();
+      document.getElementById('authStatus').classList.add('hidden');
+      document.getElementById('authOverlay').classList.remove('hidden');
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebarBackdrop').classList.add('hidden');
+    }
+
+    // ==================== AUDIO & VIDEO CALLING ====================
     function setupCallHandler() {
       peer.on('call', async (call) => {
         const isVideo = call.metadata?.video !== false;
-        if (confirm(`Incoming ${isVideo ? 'Video' : 'Voice'} call. Accept?`)) {
+        const callerName = call.metadata?.callerName || 'Room Peer';
+
+        if (confirm(`Incoming ${isVideo ? 'Video' : 'Voice'} call from ${callerName}. Accept?`)) {
           try {
             localStream = await navigator.mediaDevices.getUserMedia({
               audio: { echoCancellation: true, noiseSuppression: true },
@@ -342,7 +821,7 @@
             call.answer(localStream);
             handleStream(call);
           } catch (e) {
-            alert('Media permission denied: ' + e.message);
+            alert('Camera/Mic access denied: ' + e.message);
             call.close();
           }
         } else {
@@ -352,10 +831,14 @@
     }
 
     async function startCall(isVideo) {
-      if (!activeConn || !activeConn.peer) {
-        alert('Partner not connected in room yet.');
+      const peerIds = Object.keys(connections);
+      if (peerIds.length === 0) {
+        alert('No other participants in the room to call yet.');
         return;
       }
+
+      // Calls the first connected peer (or host if guest)
+      const targetPeerId = peerIds[0];
 
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
@@ -376,10 +859,12 @@
           document.getElementById('audioIndicator').classList.add('hidden');
         }
 
-        const call = peer.call(activeConn.peer, localStream, { metadata: { video: isVideo } });
+        const call = peer.call(targetPeerId, localStream, {
+          metadata: { video: isVideo, callerName: myName }
+        });
         handleStream(call);
       } catch (err) {
-        alert('Media device access error: ' + err.message);
+        alert('Media device error: ' + err.message);
       }
     }
 
@@ -417,6 +902,13 @@
       document.getElementById('localVideo').srcObject = null;
       document.getElementById('remoteVideo').srcObject = null;
     }
+
+    // Reconnect signaling socket automatically when mobile screen wakes up
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && peer && peer.disconnected && !peer.destroyed) {
+        peer.reconnect();
+      }
+    });
   </script>
 </body>
 </html>
