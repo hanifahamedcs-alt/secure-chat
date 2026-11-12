@@ -84,10 +84,41 @@
     </div>
   </div>
 
+  <!-- ==================== INCOMING CALL MODAL ==================== -->
+  <div id="incomingCallModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-3xl p-7 max-w-xs w-full text-center shadow-2xl">
+      <div class="w-20 h-20 rounded-full theme-accent flex items-center justify-center text-3xl font-bold mx-auto mb-4 animate-bounce shadow-lg">
+        <i id="incomingCallIcon" class="fa-solid fa-video"></i>
+      </div>
+      <h3 class="text-lg font-bold mb-1" id="incomingCallerName">Incoming Call</h3>
+      <p class="text-xs theme-muted mb-6" id="incomingCallType">Encrypted Video Call...</p>
+      
+      <div class="flex items-center justify-center gap-6">
+        <button onclick="rejectIncomingCall()" class="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white flex items-center justify-center text-xl shadow-lg shadow-rose-600/40 transition">
+          <i class="fa-solid fa-phone-slash"></i>
+        </button>
+        <button onclick="acceptIncomingCall()" class="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-600/40 transition animate-pulse">
+          <i class="fa-solid fa-phone"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== IN-APP TOAST NOTIFICATION ==================== -->
+  <div id="toastBanner" onclick="this.classList.add('hidden')" class="hidden fixed top-16 right-4 z-40 max-w-xs theme-panel border rounded-2xl p-3.5 shadow-2xl cursor-pointer flex items-center gap-3 transition-all">
+    <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center text-sm shrink-0">
+      <i class="fa-solid fa-bell"></i>
+    </div>
+    <div class="overflow-hidden">
+      <p class="text-xs font-bold truncate" id="toastTitle">New Message</p>
+      <p class="text-[11px] theme-muted truncate" id="toastBody">Message preview...</p>
+    </div>
+  </div>
+
   <!-- ==================== MAIN MESSENGER INTERFACE ==================== -->
   <div class="flex-1 flex overflow-hidden relative">
     
-    <!-- Mobile Sidebar Backdrop -->
+    <!-- Mobile Sidebar Drawer Backdrop -->
     <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
 
     <!-- SIDEBAR -->
@@ -108,16 +139,35 @@
         </button>
       </div>
 
-      <!-- Theme Switcher -->
+      <!-- Expanded Screen Theme & Color Picker -->
       <div class="p-3.5 border-b theme-border">
-        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Color Theme</div>
-        <div class="flex items-center justify-between gap-2">
-          <button onclick="applyTheme('indigo')" title="Midnight Indigo" class="w-8 h-8 rounded-full bg-[#4f46e5] border-2 border-white/40 hover:scale-110 transition"></button>
-          <button onclick="applyTheme('emerald')" title="Emerald Matrix" class="w-8 h-8 rounded-full bg-[#059669] border-2 border-white/40 hover:scale-110 transition"></button>
-          <button onclick="applyTheme('rose')" title="Crimson Rose" class="w-8 h-8 rounded-full bg-[#e11d48] border-2 border-white/40 hover:scale-110 transition"></button>
-          <button onclick="applyTheme('amber')" title="Cyber Amber" class="w-8 h-8 rounded-full bg-[#d97706] border-2 border-white/40 hover:scale-110 transition"></button>
-          <button onclick="applyTheme('light')" title="Clean Light" class="w-8 h-8 rounded-full bg-[#f8fafc] border-2 border-gray-400 hover:scale-110 transition"></button>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-bold tracking-wider theme-muted uppercase">Screen Theme & Color</span>
+          <label class="text-[10px] font-semibold text-indigo-400 cursor-pointer flex items-center gap-1 hover:underline" title="Pick Custom Accent Color">
+            <i class="fa-solid fa-palette"></i> Custom
+            <input type="color" id="customAccentInput" onchange="applyCustomAccent(this.value)" class="w-0 h-0 opacity-0 absolute" />
+          </label>
         </div>
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="applyTheme('indigo')" title="Midnight Indigo" class="h-7 rounded-lg bg-[#4f46e5] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('emerald')" title="Emerald Matrix" class="h-7 rounded-lg bg-[#059669] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('rose')" title="Crimson Rose" class="h-7 rounded-lg bg-[#e11d48] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('amber')" title="Cyber Amber" class="h-7 rounded-lg bg-[#d97706] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('violet')" title="Royal Violet" class="h-7 rounded-lg bg-[#7c3aed] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('cyan')" title="Ocean Cyan" class="h-7 rounded-lg bg-[#0891b2] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('obsidian')" title="Obsidian Dark" class="h-7 rounded-lg bg-[#334155] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('light')" title="Clean Light" class="h-7 rounded-lg bg-[#f8fafc] border border-gray-400 hover:scale-105 transition"></button>
+        </div>
+      </div>
+
+      <!-- Notification & Sound Toggle -->
+      <div class="p-3.5 border-b theme-border flex items-center justify-between text-xs">
+        <span class="font-medium flex items-center gap-2">
+          <i class="fa-solid fa-volume-high text-indigo-400"></i> Sound & Alerts
+        </span>
+        <button id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-1 rounded-lg theme-accent text-[11px] font-semibold">
+          ON
+        </button>
       </div>
 
       <!-- Room Info & Participants -->
@@ -203,15 +253,8 @@
           <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
         </div>
 
-        <!-- Emojis Grid -->
-        <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center">
-          <!-- Populated by JS -->
-        </div>
-
-        <!-- Stickers Grid -->
-        <div id="stickersGrid" class="hidden grid grid-cols-4 gap-2 max-h-44 overflow-y-auto chat-scroll text-3xl text-center">
-          <!-- Populated by JS -->
-        </div>
+        <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center"></div>
+        <div id="stickersGrid" class="hidden grid grid-cols-4 gap-2 max-h-44 overflow-y-auto chat-scroll text-3xl text-center"></div>
       </div>
 
       <!-- Message Input -->
@@ -230,7 +273,7 @@
     </main>
   </div>
 
-  <!-- ==================== CALL MODAL (AUDIO & VIDEO) ==================== -->
+  <!-- ==================== ACTIVE CALL OVERLAY ==================== -->
   <div id="callOverlay" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col items-center justify-between p-4 md:p-6">
     <div class="relative w-full max-w-4xl flex-1 bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
       <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
@@ -257,7 +300,7 @@
     </div>
   </div>
 
-  <!-- ==================== MULTI-PEER & MOBILE SCRIPT ==================== -->
+  <!-- ==================== SCRIPT ==================== -->
   <script>
     let myName = "";
     let myPeerId = "";
@@ -265,15 +308,19 @@
     let isHost = false;
     let peer = null;
 
-    // Multi-peer connections map: peerId -> { conn, name }
     let connections = {};
     let activeCall = null;
+    let pendingIncomingCall = null;
     let localStream = null;
     let isMicMuted = false;
     let isCamDisabled = false;
     let heartbeatInterval = null;
+    let soundEnabled = true;
+    let ringtoneInterval = null;
+    let unreadCount = 0;
+    const originalTitle = document.title;
 
-    // Dedicated Metered TURN Servers (Forces TCP/TLS relay support for Mobile-to-Mobile 4G/5G)
+    // Dedicated Metered TURN Servers
     const iceServersConfig = [
       { urls: "stun:stun.relay.metered.ca:80" },
       {
@@ -298,67 +345,182 @@
       }
     ];
 
-    // ==================== THEMES ENGINE ====================
+    // ==================== NOTIFICATION & RINGTONE AUDIO ENGINE ====================
+    let audioCtx = null;
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playMessageTone() {
+      if (!soundEnabled) return;
+      try {
+        initAudioContext();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+        
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.26);
+      } catch (e) {}
+    }
+
+    function startRingtone() {
+      stopRingtone();
+      if (navigator.vibrate) {
+        navigator.vibrate([400, 200, 400, 1000]);
+      }
+      const playRingPulse = () => {
+        if (!soundEnabled) return;
+        try {
+          initAudioContext();
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc1.type = 'triangle';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, audioCtx.currentTime);
+          osc2.frequency.setValueAtTime(554.37, audioCtx.currentTime);
+
+          gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc1.start();
+          osc2.start();
+          osc1.stop(audioCtx.currentTime + 0.62);
+          osc2.stop(audioCtx.currentTime + 0.62);
+
+          if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+        } catch (e) {}
+      };
+
+      playRingPulse();
+      ringtoneInterval = setInterval(playRingPulse, 1800);
+    }
+
+    function stopRingtone() {
+      if (ringtoneInterval) {
+        clearInterval(ringtoneInterval);
+        ringtoneInterval = null;
+      }
+      if (navigator.vibrate) navigator.vibrate(0);
+    }
+
+    function toggleSoundAlerts() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('soundToggleBtn');
+      btn.textContent = soundEnabled ? 'ON' : 'OFF';
+      btn.className = soundEnabled 
+        ? 'px-2.5 py-1 rounded-lg theme-accent text-[11px] font-semibold'
+        : 'px-2.5 py-1 rounded-lg bg-gray-700 text-gray-300 text-[11px] font-semibold';
+      if (soundEnabled) playMessageTone();
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    function triggerIncomingNotification(title, body, isCall = false) {
+      if (isCall) {
+        startRingtone();
+      } else {
+        playMessageTone();
+        showToast(title, body);
+      }
+
+      // Update Tab Title if hidden
+      if (document.hidden) {
+        unreadCount++;
+        document.title = `(${unreadCount}) ${title} - CypherLink`;
+      }
+
+      // System Browser Push Notification
+      if ('Notification' in window && Notification.permission === 'granted' && (document.hidden || isCall)) {
+        const notif = new Notification(title, {
+          body: body,
+          tag: isCall ? 'cypher-call' : 'cypher-msg',
+          renotify: true
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      }
+    }
+
+    let toastTimeout = null;
+    function showToast(title, body) {
+      const toast = document.getElementById('toastBanner');
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastBody').textContent = body;
+      toast.classList.remove('hidden');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+
+    // ==================== EXPANDED THEMES & CUSTOM COLOR ENGINE ====================
     const themes = {
       indigo: {
-        '--bg-main': '#0b0e14',
-        '--bg-panel': '#0f172a',
-        '--bg-header': '#0e131f',
-        '--bg-input': '#1a2333',
-        '--bg-bubble-in': '#1e293b',
-        '--border-color': '#1f2937',
-        '--text-main': '#f3f4f6',
-        '--text-muted': '#9ca3af',
-        '--accent': '#4f46e5',
-        '--accent-hover': '#4338ca'
+        '--bg-main': '#0b0e14', '--bg-panel': '#0f172a', '--bg-header': '#0e131f',
+        '--bg-input': '#1a2333', '--bg-bubble-in': '#1e293b', '--border-color': '#1f2937',
+        '--text-main': '#f3f4f6', '--text-muted': '#9ca3af', '--accent': '#4f46e5', '--accent-hover': '#4338ca'
       },
       emerald: {
-        '--bg-main': '#06110d',
-        '--bg-panel': '#0a1c16',
-        '--bg-header': '#081712',
-        '--bg-input': '#112921',
-        '--bg-bubble-in': '#133127',
-        '--border-color': '#1b4335',
-        '--text-main': '#ecfdf5',
-        '--text-muted': '#6ee7b7',
-        '--accent': '#059669',
-        '--accent-hover': '#047857'
+        '--bg-main': '#06110d', '--bg-panel': '#0a1c16', '--bg-header': '#081712',
+        '--bg-input': '#112921', '--bg-bubble-in': '#133127', '--border-color': '#1b4335',
+        '--text-main': '#ecfdf5', '--text-muted': '#6ee7b7', '--accent': '#059669', '--accent-hover': '#047857'
       },
       rose: {
-        '--bg-main': '#13080c',
-        '--bg-panel': '#1f0d14',
-        '--bg-header': '#190a10',
-        '--bg-input': '#2d131d',
-        '--bg-bubble-in': '#361723',
-        '--border-color': '#4c1d2e',
-        '--text-main': '#fff1f2',
-        '--text-muted': '#fda4af',
-        '--accent': '#e11d48',
-        '--accent-hover': '#be123c'
+        '--bg-main': '#13080c', '--bg-panel': '#1f0d14', '--bg-header': '#190a10',
+        '--bg-input': '#2d131d', '--bg-bubble-in': '#361723', '--border-color': '#4c1d2e',
+        '--text-main': '#fff1f2', '--text-muted': '#fda4af', '--accent': '#e11d48', '--accent-hover': '#be123c'
       },
       amber: {
-        '--bg-main': '#120e06',
-        '--bg-panel': '#1c160a',
-        '--bg-header': '#171208',
-        '--bg-input': '#29200e',
-        '--bg-bubble-in': '#332712',
-        '--border-color': '#453518',
-        '--text-main': '#fffbeb',
-        '--text-muted': '#fcd34d',
-        '--accent': '#d97706',
-        '--accent-hover': '#b45309'
+        '--bg-main': '#120e06', '--bg-panel': '#1c160a', '--bg-header': '#171208',
+        '--bg-input': '#29200e', '--bg-bubble-in': '#332712', '--border-color': '#453518',
+        '--text-main': '#fffbeb', '--text-muted': '#fcd34d', '--accent': '#d97706', '--accent-hover': '#b45309'
+      },
+      violet: {
+        '--bg-main': '#0f071a', '--bg-panel': '#180c29', '--bg-header': '#140a22',
+        '--bg-input': '#24133d', '--bg-bubble-in': '#2e184d', '--border-color': '#3f2269',
+        '--text-main': '#f5f3ff', '--text-muted': '#c4b5fd', '--accent': '#7c3aed', '--accent-hover': '#6d28d9'
+      },
+      cyan: {
+        '--bg-main': '#061217', '--bg-panel': '#0a1e26', '--bg-header': '#08181f',
+        '--bg-input': '#102d38', '--bg-bubble-in': '#153947', '--border-color': '#1d4e61',
+        '--text-main': '#ecfeff', '--text-muted': '#67e8f9', '--accent': '#0891b2', '--accent-hover': '#0e7490'
+      },
+      obsidian: {
+        '--bg-main': '#09090b', '--bg-panel': '#121215', '--bg-header': '#0e0e11',
+        '--bg-input': '#1c1c21', '--bg-bubble-in': '#24242b', '--border-color': '#2e2e38',
+        '--text-main': '#fafafa', '--text-muted': '#a1a1aa', '--accent': '#52525b', '--accent-hover': '#3f3f46'
       },
       light: {
-        '--bg-main': '#f1f5f9',
-        '--bg-panel': '#ffffff',
-        '--bg-header': '#ffffff',
-        '--bg-input': '#f8fafc',
-        '--bg-bubble-in': '#e2e8f0',
-        '--border-color': '#cbd5e1',
-        '--text-main': '#0f172a',
-        '--text-muted': '#475569',
-        '--accent': '#2563eb',
-        '--accent-hover': '#1d4ed8'
+        '--bg-main': '#f1f5f9', '--bg-panel': '#ffffff', '--bg-header': '#ffffff',
+        '--bg-input': '#f8fafc', '--bg-bubble-in': '#e2e8f0', '--border-color': '#cbd5e1',
+        '--text-main': '#0f172a', '--text-muted': '#475569', '--accent': '#2563eb', '--accent-hover': '#1d4ed8'
       }
     };
 
@@ -369,11 +531,20 @@
         document.documentElement.style.setProperty(prop, val);
       }
       localStorage.setItem('cypher_theme', themeKey);
+      localStorage.removeItem('cypher_custom_accent');
     }
 
-    // Load saved theme
+    function applyCustomAccent(hexColor) {
+      document.documentElement.style.setProperty('--accent', hexColor);
+      document.documentElement.style.setProperty('--accent-hover', hexColor);
+      localStorage.setItem('cypher_custom_accent', hexColor);
+    }
+
+    // Restore saved theme or custom accent
     const savedTheme = localStorage.getItem('cypher_theme');
     if (savedTheme && themes[savedTheme]) applyTheme(savedTheme);
+    const savedCustom = localStorage.getItem('cypher_custom_accent');
+    if (savedCustom) applyCustomAccent(savedCustom);
 
     // ==================== EMOJIS & STICKERS ====================
     const emojiList = [
@@ -390,14 +561,11 @@
     ];
 
     function initPickers() {
-      const eGrid = document.getElementById('emojisGrid');
-      const sGrid = document.getElementById('stickersGrid');
-
-      eGrid.innerHTML = emojiList.map(e => 
+      document.getElementById('emojisGrid').innerHTML = emojiList.map(e => 
         `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded-lg transition">${e}</button>`
       ).join('');
 
-      sGrid.innerHTML = stickerList.map(s => 
+      document.getElementById('stickersGrid').innerHTML = stickerList.map(s => 
         `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded-xl transition hover:scale-110">${s}</button>`
       ).join('');
     }
@@ -467,6 +635,10 @@
         return;
       }
 
+      // Unlock audio & request push permissions on user tap
+      initAudioContext();
+      requestNotificationPermission();
+
       room = sanitize(rawRoom);
       const statusEl = document.getElementById('authStatus');
       statusEl.textContent = 'Negotiating Mobile/Desktop TURN Relay...';
@@ -481,10 +653,9 @@
         if (peerInstance && !peerInstance.destroyed && peerInstance.socket && peerInstance.socket._open) {
           peerInstance.socket.send({ type: 'HEARTBEAT' });
         }
-      }, 8000); // 8s keep-alive for mobile 4G/5G NAT tables
+      }, 8000);
     }
 
-    // First user claims [room]-host and acts as relay hub for unlimited peers
     function tryHostRole() {
       const hostId = room + '-host';
       peer = new Peer(hostId, {
@@ -516,7 +687,6 @@
       setupCallHandler();
     }
 
-    // Subsequent users join as guests and connect to the Host Hub
     function joinAsGuest() {
       const guestId = room + '-guest-' + Math.floor(1000 + Math.random() * 9000);
       peer = new Peer(guestId, {
@@ -560,7 +730,6 @@
         const remoteName = conn.metadata?.name || 'Host';
         connections[conn.peer] = { conn: conn, name: remoteName };
 
-        // Introduce self
         conn.send({
           type: 'JOIN',
           peerId: myPeerId,
@@ -571,28 +740,25 @@
       });
 
       conn.on('data', (data) => {
-        // 1. Handshake / Join Notification
         if (data.type === 'JOIN') {
           connections[conn.peer] = { conn: conn, name: data.name };
           appendSystemNotice(`${data.name} joined the room`);
+          playMessageTone();
           updateParticipantsUI();
 
-          // If Host, sync full peer roster to everyone
-          if (isHost) {
-            syncRosterToGuests();
-          }
+          if (isHost) syncRosterToGuests();
         }
-
-        // 2. Host Roster Sync for Multi-User Display
         else if (data.type === 'ROSTER') {
           renderGuestRoster(data.members);
         }
-
-        // 3. Chat or Sticker Message
         else if (data.type === 'CHAT') {
           appendMessage(data.senderName, data.content, 'incoming', data.time, data.isSticker);
+          
+          // Trigger Chat Sound + Banner + Push Notification
+          const previewText = data.isSticker ? `Sent a sticker ${data.content}` : data.content;
+          triggerIncomingNotification(data.senderName, previewText, false);
 
-          // If Host, relay message to all OTHER connected guests
+          // Relay to other guests if Host
           if (isHost) {
             for (const [id, peerObj] of Object.entries(connections)) {
               if (id !== conn.peer && peerObj.conn.open) {
@@ -772,6 +938,7 @@
     }
 
     function logoutRoom() {
+      stopRingtone();
       endCall();
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       
@@ -792,42 +959,72 @@
       document.getElementById('sidebarBackdrop').classList.add('hidden');
     }
 
-    // ==================== AUDIO & VIDEO CALLING ====================
+    // ==================== INCOMING CALL MODAL & WEBRTC CALLING ====================
     function setupCallHandler() {
-      peer.on('call', async (call) => {
+      peer.on('call', (call) => {
+        pendingIncomingCall = call;
         const isVideo = call.metadata?.video !== false;
         const callerName = call.metadata?.callerName || 'Room Peer';
 
-        if (confirm(`Incoming ${isVideo ? 'Video' : 'Voice'} call from ${callerName}. Accept?`)) {
-          try {
-            localStream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true },
-              video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
-            });
+        document.getElementById('incomingCallerName').textContent = callerName;
+        document.getElementById('incomingCallType').textContent = isVideo ? 'Incoming Encrypted Video Call...' : 'Incoming Encrypted Voice Call...';
+        document.getElementById('incomingCallIcon').className = isVideo ? 'fa-solid fa-video' : 'fa-solid fa-phone';
+        document.getElementById('incomingCallModal').classList.remove('hidden');
 
-            document.getElementById('callOverlay').classList.remove('hidden');
-            document.getElementById('localVideo').srcObject = localStream;
+        // Start Ringtone + Mobile Vibration + System Push Notification
+        triggerIncomingNotification(`Incoming ${isVideo ? 'Video' : 'Voice'} Call`, `${callerName} is calling you`, true);
 
-            if (!isVideo) {
-              document.getElementById('localVideo').classList.add('hidden');
-              document.getElementById('remoteVideo').classList.add('hidden');
-              document.getElementById('audioIndicator').classList.remove('hidden');
-            } else {
-              document.getElementById('localVideo').classList.remove('hidden');
-              document.getElementById('remoteVideo').classList.remove('hidden');
-              document.getElementById('audioIndicator').classList.add('hidden');
-            }
-
-            call.answer(localStream);
-            handleStream(call);
-          } catch (e) {
-            alert('Camera/Mic access denied: ' + e.message);
-            call.close();
-          }
-        } else {
-          call.close();
-        }
+        call.on('close', () => {
+          stopRingtone();
+          document.getElementById('incomingCallModal').classList.add('hidden');
+          pendingIncomingCall = null;
+        });
       });
+    }
+
+    async function acceptIncomingCall() {
+      stopRingtone();
+      document.getElementById('incomingCallModal').classList.add('hidden');
+      if (!pendingIncomingCall) return;
+
+      const call = pendingIncomingCall;
+      pendingIncomingCall = null;
+      const isVideo = call.metadata?.video !== false;
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: isVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
+        });
+
+        document.getElementById('callOverlay').classList.remove('hidden');
+        document.getElementById('localVideo').srcObject = localStream;
+
+        if (!isVideo) {
+          document.getElementById('localVideo').classList.add('hidden');
+          document.getElementById('remoteVideo').classList.add('hidden');
+          document.getElementById('audioIndicator').classList.remove('hidden');
+        } else {
+          document.getElementById('localVideo').classList.remove('hidden');
+          document.getElementById('remoteVideo').classList.remove('hidden');
+          document.getElementById('audioIndicator').classList.add('hidden');
+        }
+
+        call.answer(localStream);
+        handleStream(call);
+      } catch (e) {
+        alert('Camera/Mic access denied: ' + e.message);
+        call.close();
+      }
+    }
+
+    function rejectIncomingCall() {
+      stopRingtone();
+      document.getElementById('incomingCallModal').classList.add('hidden');
+      if (pendingIncomingCall) {
+        pendingIncomingCall.close();
+        pendingIncomingCall = null;
+      }
     }
 
     async function startCall(isVideo) {
@@ -837,7 +1034,6 @@
         return;
       }
 
-      // Calls the first connected peer (or host if guest)
       const targetPeerId = peerIds[0];
 
       try {
@@ -893,6 +1089,7 @@
     }
 
     function endCall() {
+      stopRingtone();
       if (activeCall) activeCall.close();
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
@@ -903,10 +1100,14 @@
       document.getElementById('remoteVideo').srcObject = null;
     }
 
-    // Reconnect signaling socket automatically when mobile screen wakes up
+    // Reset unread counter and reconnect socket when waking phone/tab
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && peer && peer.disconnected && !peer.destroyed) {
-        peer.reconnect();
+      if (document.visibilityState === 'visible') {
+        unreadCount = 0;
+        document.title = originalTitle;
+        if (peer && peer.disconnected && !peer.destroyed) {
+          peer.reconnect();
+        }
       }
     });
   </script>
