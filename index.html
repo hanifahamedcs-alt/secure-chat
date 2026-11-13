@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink Ultimate — E2EE Room, Games & Tech Suite</title>
+  <title>CypherLink — Always-On Room & Interactive Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -95,58 +95,22 @@
         <i class="fa-solid fa-shield-halved"></i>
       </div>
       <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Encrypted Room</h2>
-      <p class="text-xs text-gray-400 mb-5">AES-256 E2EE • Games • Whiteboard • Soundboard • Chunked Media & Files</p>
+      <p class="text-xs text-gray-400 mb-5">Direct WebRTC TURN Connection • Games, Whiteboard, Soundboard & Calls</p>
       
       <div class="space-y-3 text-left">
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. KING" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <input id="userNameInput" type="text" placeholder="e.g. TOM" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
           <input id="roomNameInput" type="text" placeholder="e.g. squad2026" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 active:bg-indigo-700 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 mt-2">
-          <i class="fa-solid fa-bolt"></i> Connect & Lock Session
+          <i class="fa-solid fa-bolt"></i> Connect to Room
         </button>
       </div>
       <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
-    </div>
-  </div>
-
-  <!-- ==================== TELEMETRY & SAFETY FINGERPRINT MODAL ==================== -->
-  <div id="telemetryModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="theme-panel border rounded-2xl max-w-md w-full p-5 shadow-2xl">
-      <div class="flex items-center justify-between border-b theme-border pb-3 mb-3">
-        <h3 class="text-sm font-bold flex items-center gap-2">
-          <i class="fa-solid fa-fingerprint text-emerald-400"></i> Security & Network Diagnostics
-        </h3>
-        <button onclick="toggleTelemetryModal(false)" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      
-      <div class="space-y-3 text-xs">
-        <div class="p-3 rounded-xl theme-input border">
-          <div class="text-[10px] uppercase tracking-wider theme-muted mb-1">Encryption Protocol</div>
-          <div class="font-mono font-bold text-emerald-400">AES-GCM-256 (PBKDF2 Room-Synced Key)</div>
-        </div>
-
-        <div class="p-3 rounded-xl theme-input border">
-          <div class="text-[10px] uppercase tracking-wider theme-muted mb-1">Room SHA-256 Safety Fingerprint</div>
-          <div id="safetyFingerprintBox" class="font-mono text-[11px] break-all text-indigo-300 leading-relaxed">Calculating...</div>
-          <p class="text-[10px] theme-muted mt-1">Match this fingerprint with your partner to verify end-to-end integrity.</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div class="p-3 rounded-xl theme-input border">
-            <div class="text-[10px] theme-muted">Round-Trip Ping</div>
-            <div id="statPing" class="text-sm font-mono font-bold text-amber-400 mt-0.5">-- ms</div>
-          </div>
-          <div class="p-3 rounded-xl theme-input border">
-            <div class="text-[10px] theme-muted">Transport Route</div>
-            <div id="statRoute" class="text-xs font-mono font-bold text-emerald-400 mt-1">Checking...</div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -170,7 +134,7 @@
     </div>
   </div>
 
-  <!-- ==================== OPPONENT PICKER MODAL (FOR RPS & TIC-TAC-TOE) ==================== -->
+  <!-- ==================== OPPONENT PICKER MODAL ==================== -->
   <div id="opponentModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 shadow-2xl">
       <div class="flex items-center justify-between mb-3">
@@ -326,7 +290,7 @@
           <div class="overflow-hidden">
             <h3 class="text-sm font-semibold truncate" id="myNameLabel">Disconnected</h3>
             <span class="text-[11px] text-emerald-400 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> AES-256 Lock-Guard
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Lock-Guard Active
             </span>
           </div>
         </div>
@@ -356,9 +320,9 @@
         </div>
       </div>
 
-      <!-- Technical & Entertainment Suite -->
+      <!-- Games, Tools & Surprises -->
       <div class="p-3.5 border-b theme-border">
-        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Games, Tech & Surprises</div>
+        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Games, Tools & Surprises</div>
         <div class="grid grid-cols-2 gap-1.5 text-[11px]">
           <button onclick="openOpponentSelector('rps'); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎮</span> RPS Duel
@@ -384,11 +348,11 @@
           <button onclick="toggleTimerModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>⏱️</span> Sync Timer
           </button>
-          <button onclick="toggleTelemetryModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-emerald-500 flex items-center gap-1.5 font-medium">
-            <span>🛡️</span> E2EE & Ping
-          </button>
           <button onclick="exportChatTranscript(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>💾</span> Export Log
+          </button>
+          <button onclick="sendScreenNudge(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-amber-500 flex items-center gap-1.5 font-medium">
+            <span>⚡</span> Buzz Screen
           </button>
         </div>
       </div>
@@ -431,15 +395,12 @@
             <i class="fa-solid fa-bars text-sm"></i>
           </button>
           
-          <div onclick="toggleTelemetryModal(true)" class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0 cursor-pointer" title="Verify E2EE & Ping">
-            <i class="fa-solid fa-shield-halved"></i>
+          <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0">
+            <i class="fa-solid fa-comments"></i>
           </div>
           <div class="leading-tight overflow-hidden">
             <h2 class="text-xs md:text-sm font-semibold truncate" id="headerRoomTitle">Encrypted Room</h2>
-            <div class="flex items-center gap-2">
-              <span id="connBadge" class="text-[10px] text-amber-400 font-mono truncate">Waiting for peers...</span>
-              <span id="headerPingBadge" onclick="toggleTelemetryModal(true)" class="hidden sm:inline-block text-[9px] font-mono px-1.5 rounded bg-emerald-500/15 text-emerald-400 cursor-pointer">-- ms</span>
-            </div>
+            <span id="connBadge" class="text-[10px] text-amber-400 font-mono block truncate">Waiting for peers...</span>
           </div>
         </div>
 
@@ -475,7 +436,7 @@
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
         <div class="text-center my-2">
           <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
-            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> AES-256 Encrypted • Chunked Photos/Files, Soundboard, Trivia, Games & Calls Ready!
+            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Connected via TURN Relay • Chunked Photos/Files, Games, Soundboard & Calls Ready!
           </span>
         </div>
       </div>
@@ -527,7 +488,6 @@
         </div>
 
         <form onsubmit="sendMessage(event)" class="flex items-center gap-1.5 md:gap-2">
-          <!-- Emoji/Sticker/Soundboard/Games Button -->
           <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base hover:scale-105 transition shrink-0" title="Emojis, Stickers, Sounds & Games">
             😊
           </button>
@@ -616,11 +576,9 @@
     const originalTitle = document.title;
 
     // Technical & Interactive States
-    let aesCryptoKey = null;
     let incomingChunkBuffers = {};
     let chatTranscript = [];
     let activeReplyContext = null;
-    let telemetryTimer = null;
 
     let isSecretMode = false;
     let typingTimeout = null;
@@ -640,7 +598,8 @@
     // Background & Lock-Screen Persistence
     let wakeLockSentinel = null;
     let silentKeepAliveOsc = null;
-    let persistenceWatchdog = null;
+    let heartbeatTimer = null;
+    let hostCheckTimer = null;
 
     // Dedicated Metered TURN Servers
     const iceServersConfig = [
@@ -667,57 +626,57 @@
       }
     ];
 
-    // ==================== 1. WEB CRYPTO AES-256-GCM (SYNCED TO SANITIZED ROOM ID) ====================
-    async function deriveRoomCryptoKey(sanitizedRoomCode) {
-      const enc = new TextEncoder();
-      const keyMaterial = await window.crypto.subtle.importKey(
-        "raw", enc.encode(sanitizedRoomCode), { name: "PBKDF2" }, false, ["deriveKey"]
-      );
-
-      aesCryptoKey = await window.crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt: enc.encode("CypherLink_SyncedRoomSalt_v3"),
-          iterations: 100000,
-          hash: "SHA-256"
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
-      );
-
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", enc.encode(sanitizedRoomCode + "::FP"));
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fingerprint = hashArray.slice(0, 12).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
-      document.getElementById('safetyFingerprintBox').textContent = fingerprint;
-    }
-
-    async function encryptPayload(plainText) {
-      if (!aesCryptoKey) return { iv: "", cipher: plainText };
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
-      const enc = new TextEncoder();
-      const cipherBuffer = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesCryptoKey, enc.encode(plainText));
-      return {
-        iv: btoa(String.fromCharCode(...iv)),
-        cipher: btoa(String.fromCharCode(...new Uint8Array(cipherBuffer)))
-      };
-    }
-
-    async function decryptPayload(ivB64, cipherB64) {
-      if (!aesCryptoKey || !ivB64) return cipherB64;
-      try {
-        const iv = Uint8Array.from(atob(ivB64), c => c.charCodeAt(0));
-        const cipherBytes = Uint8Array.from(atob(cipherB64), c => c.charCodeAt(0));
-        const plainBuffer = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesCryptoKey, cipherBytes);
-        return new TextDecoder().decode(plainBuffer);
-      } catch (e) {
-        return "[Encrypted Message]";
+    // ==================== NON-BLOCKING BACKGROUND PERSISTENCE ====================
+    async function enableBackgroundPersistence() {
+      if ('wakeLock' in navigator) {
+        try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (err) {}
       }
+      try {
+        initAudioContext();
+        if (!silentKeepAliveOsc) {
+          silentKeepAliveOsc = audioCtx.createOscillator();
+          const silentGain = audioCtx.createGain();
+          silentGain.gain.value = 0.0001;
+          silentKeepAliveOsc.frequency.value = 20;
+          silentKeepAliveOsc.connect(silentGain);
+          silentGain.connect(audioCtx.destination);
+          silentKeepAliveOsc.start();
+        }
+      } catch (e) {}
+
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(() => {
+        if (intentionalLogout || !room) return;
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
+          peer.socket.send({ type: 'HEARTBEAT' });
+        }
+        if (peer && peer.disconnected && !peer.destroyed) {
+          peer.reconnect();
+        }
+      }, 10000);
     }
 
-    // ==================== 2. 16 KB CHUNKED IMAGE & FILE TRANSFER (ZERO DISCONNECT) ====================
-    const CHUNK_SIZE = 16384; // 16 KB safe WebRTC SCTP slice
+    function disableBackgroundPersistence() {
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
+      if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
+      if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        unreadCount = 0;
+        document.title = originalTitle;
+        if (!intentionalLogout && room) {
+          if ('wakeLock' in navigator) { try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (e) {} }
+          if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
+        }
+      }
+    });
+
+    // ==================== 16 KB CHUNKED IMAGE & FILE TRANSFER ====================
+    const CHUNK_SIZE = 16384;
 
     async function sendChunkedPayload(dataUrl, meta) {
       const transferId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -749,7 +708,7 @@
 
         const pct = Math.round(((i + 1) / totalChunks) * 100);
         showTransferProgress(`Sending (${pct}%)`, pct);
-        await new Promise(r => setTimeout(r, 8));
+        await new Promise(r => setTimeout(r, 10));
       }
 
       broadcastData({ type: 'CHUNK_END', transferId });
@@ -860,7 +819,7 @@
       document.getElementById('imageLightbox').classList.remove('hidden');
     }
 
-    // ==================== 3. SCREEN SHARING, TELEMETRY, QUOTE-REPLY & EXPORT ====================
+    // ==================== SCREEN SHARING, QUOTE-REPLY & EXPORT ====================
     async function toggleScreenShare() {
       if (!activeCall) { alert('Start a Voice or Video call first to share your screen.'); return; }
       const btn = document.getElementById('screenShareBtn');
@@ -893,43 +852,6 @@
       }
     }
 
-    function toggleTelemetryModal(show) {
-      const m = document.getElementById('telemetryModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
-    function startTelemetryMonitor() {
-      if (telemetryTimer) clearInterval(telemetryTimer);
-      telemetryTimer = setInterval(async () => {
-        const peerObjs = Object.values(connections);
-        if (peerObjs.length === 0) {
-          document.getElementById('headerPingBadge').classList.add('hidden');
-          return;
-        }
-        broadcastData({ type: 'PING', ts: Date.now(), senderId: myPeerId });
-
-        const pc = peerObjs[0].conn?.peerConnection;
-        if (pc) {
-          try {
-            const stats = await pc.getStats();
-            stats.forEach(report => {
-              if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
-                const rttMs = Math.round(report.currentRoundTripTime * 1000);
-                document.getElementById('statPing').textContent = `${rttMs} ms`;
-                const badge = document.getElementById('headerPingBadge');
-                badge.textContent = `${rttMs} ms`;
-                badge.classList.remove('hidden');
-              }
-              if (report.type === 'local-candidate' && report.candidateType) {
-                document.getElementById('statRoute').textContent = report.candidateType === 'relay' ? 'Metered TURN Relay' : `Direct (${report.candidateType})`;
-              }
-            });
-          } catch (e) {}
-        }
-      }, 3000);
-    }
-
     function setReplyQuote(sender, snippet) {
       activeReplyContext = { sender, text: snippet.slice(0, 80) };
       document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`;
@@ -950,7 +872,7 @@
     function exportChatTranscript() {
       if (chatTranscript.length === 0) { alert('No messages to export yet.'); return; }
       const lines = [
-        `CypherLink AES-256 Encrypted Room Transcript`,
+        `CypherLink Room Transcript`,
         `Room: #${room} | Exported: ${new Date().toLocaleString()}`,
         `--------------------------------------------------`,
         ...chatTranscript.map(m => `[${m.time}] ${m.sender}: ${m.text}`)
@@ -964,7 +886,7 @@
       URL.revokeObjectURL(url);
     }
 
-    // ==================== 4. SOUNDBOARD, SYNC TIMER, TRIVIA, DICE & MAGIC 8-BALL ====================
+    // ==================== SOUNDBOARD, SYNC TIMER, TRIVIA, DICE & MAGIC 8-BALL ====================
     const soundEffectsList = [
       { id: 'drumroll', emoji: '🥁', label: 'Drumroll' },
       { id: 'airhorn', emoji: '📯', label: 'Airhorn' },
@@ -1023,7 +945,7 @@
           gain.gain.setValueAtTime(0.2, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
           osc.start(now); osc.stop(now + 0.56);
-        } else if (id === 'siren' || id === 'alert') {
+        } else if (id === 'alert') {
           osc.type = 'sine';
           osc.frequency.setValueAtTime(600, now);
           osc.frequency.linearRampToValueAtTime(950, now + 0.25);
@@ -1032,7 +954,6 @@
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
           osc.start(now); osc.stop(now + 0.54);
         } else {
-          // drumroll
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(160, now);
           gain.gain.setValueAtTime(0.2, now);
@@ -1042,18 +963,11 @@
       } catch (e) {}
     }
 
-    // Shared Room Countdown Timer
-    function toggleTimerModal(show) {
-      const m = document.getElementById('timerModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
+    function toggleTimerModal(show) { const m = document.getElementById('timerModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function launchSharedTimer(seconds) {
       const label = document.getElementById('timerLabelInput').value.trim() || 'Room Timer';
       toggleTimerModal(false);
-      const timerId = 'tmr_' + Date.now();
-      const timerData = { id: timerId, creator: myName, label, seconds };
+      const timerData = { id: 'tmr_' + Date.now(), creator: myName, label, seconds };
       broadcastData({ type: 'SYNC_TIMER', timer: timerData });
       renderTimerCard(timerData, true);
     }
@@ -1085,43 +999,29 @@
       }, 1000);
     }
 
-    // Instant Dice & Magic 8-Ball
     function rollRoomDice() {
       document.getElementById('pickerPopover').classList.add('hidden');
       const d1 = Math.floor(Math.random() * 6) + 1;
       const d2 = Math.floor(Math.random() * 6) + 1;
       const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-      const text = `🎲 Rolled ${faces[d1-1]} ${faces[d2-1]} (Total: ${d1 + d2})`;
-      sendQuickSystemAction(text);
+      sendQuickSystemAction(`🎲 Rolled ${faces[d1-1]} ${faces[d2-1]} (Total: ${d1 + d2})`);
     }
 
     function askMagic8Ball() {
       document.getElementById('pickerPopover').classList.add('hidden');
-      const answers = [
-        '🎱 It is certain!', '🎱 Without a doubt!', '🎱 Ask again later...',
-        '🎱 Don’t count on it.', '🎱 Outlook good!', '🎱 Very doubtful.', '🎱 Signs point to yes!'
-      ];
-      const pick = answers[Math.floor(Math.random() * answers.length)];
-      sendQuickSystemAction(pick);
+      const answers = ['🎱 It is certain!', '🎱 Without a doubt!', '🎱 Ask again later...', '🎱 Don’t count on it.', '🎱 Outlook good!', '🎱 Very doubtful.', '🎱 Signs point to yes!'];
+      sendQuickSystemAction(answers[Math.floor(Math.random() * answers.length)]);
     }
 
-    async function sendQuickSystemAction(text) {
+    function sendQuickSystemAction(text) {
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const encrypted = await encryptPayload(text);
-      broadcastData({
-        type: 'CHAT_E2EE',
-        msgMode: 'text',
-        senderId: myPeerId,
-        senderName: myName,
-        iv: encrypted.iv,
-        cipher: encrypted.cipher,
-        time
-      });
-      appendMessage(myName, text, 'outgoing', time, 'text');
+      const msgId = 'msg_' + Date.now();
+      broadcastData({ type: 'CHAT', msgId, msgMode: 'text', senderId: myPeerId, senderName: myName, content: text, time });
+      appendMessage(myName, text, 'outgoing', time, 'text', msgId);
       recordTranscript(myName, text, time);
     }
 
-    // Live Multiplayer Trivia Quiz
+    // Trivia Quiz
     const triviaBank = [
       { q: "Which planet has the most moons in our solar system?", opts: ["Jupiter", "Saturn", "Uranus"], ans: 1 },
       { q: "What does HTTP stand for?", opts: ["HyperText Transfer Protocol", "High Transfer Text Path", "Host Terminal Transfer Protocol"], ans: 0 },
@@ -1177,11 +1077,7 @@
           if (i === quiz.ans) style = 'bg-emerald-600/30 border-emerald-500 text-emerald-300';
           else if (i === myAns.idx) style = 'bg-rose-600/30 border-rose-500 text-rose-300';
         }
-        return `
-          <button onclick="answerTrivia('${qId}', ${i})" class="w-full text-left p-2 rounded-xl ${style} text-xs font-medium transition">
-            ${escapeHTML(opt)}
-          </button>
-        `;
+        return `<button onclick="answerTrivia('${qId}', ${i})" class="w-full text-left p-2 rounded-xl ${style} text-xs font-medium transition">${escapeHTML(opt)}</button>`;
       }).join('');
 
       const list = Object.values(quiz.answers);
@@ -1191,15 +1087,26 @@
     // ==================== OPPONENT SELECTOR, RPS DUEL & TIC-TAC-TOE ====================
     function openOpponentSelector(gameType) {
       pendingGameType = gameType;
-      const others = roomRoster.filter(m => m.id !== myPeerId);
+      const candidateMap = new Map();
+
+      if (Array.isArray(roomRoster)) {
+        roomRoster.forEach(m => { if (m.id && m.id !== myPeerId) candidateMap.set(m.id, m.name || 'Partner'); });
+      }
+      for (const [peerId, peerObj] of Object.entries(connections)) {
+        if (peerId !== myPeerId && peerObj.conn && peerObj.conn.open && !candidateMap.has(peerId)) {
+          candidateMap.set(peerId, peerObj.name || 'Partner');
+        }
+      }
+
+      const others = Array.from(candidateMap.entries()).map(([id, name]) => ({ id, name }));
 
       if (others.length === 0) {
-        alert('Waiting for at least one more person to join the room first!');
+        alert('No connected partner found yet. Make sure both devices show "Active" in the top bar.');
         return;
       }
 
-      document.getElementById('opponentModalTitle').innerHTML = gameType === 'rps' 
-        ? '<span>🎮</span> Challenge to RPS Duel' 
+      document.getElementById('opponentModalTitle').innerHTML = gameType === 'rps'
+        ? '<span>🎮</span> Challenge to RPS Duel'
         : '<span>❌</span> Challenge to Tic-Tac-Toe';
 
       const container = document.getElementById('opponentListContainer');
@@ -1213,10 +1120,10 @@
         </button>
       `).join('');
 
-      if (pendingGameType === 'rps' && others.length > 1) {
+      if (pendingGameType === 'rps') {
         html += `
           <button onclick="launchTargetedGame('ANY', 'Anyone in Room')" class="w-full p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold mt-1">
-            ⚡ Open Challenge (First to join plays)
+            ⚡ Open Challenge (Anyone can accept)
           </button>
         `;
       }
@@ -1433,7 +1340,6 @@
       await sendChunkedPayload(dataUrl, { msgId, msgMode: 'image', time });
     }
 
-    // Polls
     function togglePollModal(show) { const m = document.getElementById('pollModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function launchPoll() {
       const q = document.getElementById('pollQuestionInput').value.trim();
@@ -1505,7 +1411,6 @@
       }).join('');
     }
 
-    // Spin Wheel
     function toggleWheelModal(show) { const m = document.getElementById('wheelModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function launchSpinWheel() {
       const title = document.getElementById('wheelTitleInput').value.trim() || 'Decision Wheel';
@@ -1551,9 +1456,8 @@
       }, 95);
     }
 
-    // Scratch Card
     function toggleScratchModal(show) { const m = document.getElementById('scratchModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
-    async function sendScratchCard() {
+    function sendScratchCard() {
       const secretText = document.getElementById('scratchSecretInput').value.trim();
       if (!secretText) return;
       document.getElementById('scratchSecretInput').value = '';
@@ -1561,9 +1465,7 @@
 
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const msgId = 'msg_' + Date.now();
-      const encrypted = await encryptPayload(secretText);
-
-      broadcastData({ type: 'CHAT_E2EE', msgId, msgMode: 'scratch', senderId: myPeerId, senderName: myName, iv: encrypted.iv, cipher: encrypted.cipher, time });
+      broadcastData({ type: 'CHAT', msgId, msgMode: 'scratch', senderId: myPeerId, senderName: myName, content: secretText, time });
       appendMessage(myName, secretText, 'outgoing', time, 'scratch', msgId);
     }
 
@@ -1597,7 +1499,6 @@
       sc.addEventListener('touchend', () => scratching = false);
     }
 
-    // Reactions & Emoji Rain
     function reactToMessage(msgId, emoji) {
       if (!messageReactions[msgId]) messageReactions[msgId] = {};
       if (!messageReactions[msgId][emoji]) messageReactions[msgId][emoji] = [];
@@ -1749,12 +1650,11 @@
       input.focus();
     }
 
-    async function sendSticker(sticker) {
+    function sendSticker(sticker) {
       document.getElementById('pickerPopover').classList.add('hidden');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const msgId = 'msg_' + Date.now();
-      const encrypted = await encryptPayload(sticker);
-      broadcastData({ type: 'CHAT_E2EE', msgId, msgMode: 'sticker', senderId: myPeerId, senderName: myName, iv: encrypted.iv, cipher: encrypted.cipher, time });
+      broadcastData({ type: 'CHAT', msgId, msgMode: 'sticker', senderId: myPeerId, senderName: myName, content: sticker, time });
       appendMessage(myName, sticker, 'outgoing', time, 'sticker', msgId);
       recordTranscript(myName, sticker, time);
     }
@@ -1828,60 +1728,7 @@
       }
     }
 
-    // ==================== LOCK-SCREEN PERSISTENCE, AUDIO & THEMES ====================
-    async function enableBackgroundPersistence() {
-      if ('wakeLock' in navigator) {
-        try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (err) {}
-      }
-      try {
-        initAudioContext();
-        if (!silentKeepAliveOsc) {
-          silentKeepAliveOsc = audioCtx.createOscillator();
-          const silentGain = audioCtx.createGain();
-          silentGain.gain.value = 0.0001;
-          silentKeepAliveOsc.frequency.value = 20;
-          silentKeepAliveOsc.connect(silentGain);
-          silentGain.connect(audioCtx.destination);
-          silentKeepAliveOsc.start();
-        }
-      } catch (e) {}
-
-      if (persistenceWatchdog) clearInterval(persistenceWatchdog);
-      persistenceWatchdog = setInterval(() => {
-        if (intentionalLogout || !room) return;
-        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        if (peer && !peer.destroyed && peer.socket && peer.socket._open) peer.socket.send({ type: 'HEARTBEAT' });
-        if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
-
-        if (!isHost && peer && !peer.destroyed && peer.open) {
-          const hostId = room + '-host';
-          const hostConn = connections[hostId];
-          if (!hostConn || !hostConn.conn || !hostConn.conn.open) {
-            const conn = peer.connect(hostId, { reliable: true, metadata: { name: myName } });
-            registerPeerConnection(conn);
-          }
-        }
-      }, 4000);
-    }
-
-    function disableBackgroundPersistence() {
-      if (persistenceWatchdog) { clearInterval(persistenceWatchdog); persistenceWatchdog = null; }
-      if (telemetryTimer) { clearInterval(telemetryTimer); telemetryTimer = null; }
-      if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
-      if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
-    }
-
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        unreadCount = 0;
-        document.title = originalTitle;
-        if (!intentionalLogout && room) {
-          if ('wakeLock' in navigator) { try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (e) {} }
-          if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
-        }
-      }
-    });
-
+    // ==================== AUDIO & THEMES ====================
     let audioCtx = null;
     function initAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1892,8 +1739,7 @@
       if (!soundEnabled) return;
       try {
         initAudioContext();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
@@ -1908,8 +1754,7 @@
       if (!soundEnabled) return;
       try {
         initAudioContext();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(140, audioCtx.currentTime);
         osc.frequency.linearRampToValueAtTime(90, audioCtx.currentTime + 0.45);
@@ -2015,14 +1860,14 @@
     const savedCustom = localStorage.getItem('cypher_custom_accent');
     if (savedCustom) applyCustomAccent(savedCustom);
 
-    // ==================== ROOM & MULTI-PEER CONNECTION ====================
+    // ==================== STABLE ROOM CONNECTION WITH STALE-HOST RECOVERY ====================
     function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
     function toggleMobileSidebar() {
       document.getElementById('sidebar').classList.toggle('-translate-x-full');
       document.getElementById('sidebarBackdrop').classList.toggle('hidden');
     }
 
-    async function enterRoom() {
+    function enterRoom() {
       myName = document.getElementById('userNameInput').value.trim();
       const rawRoom = document.getElementById('roomNameInput').value.trim();
       if (!myName || !rawRoom) { alert('Please enter both your name and a shared room code.'); return; }
@@ -2033,15 +1878,11 @@
       intentionalLogout = false;
       initAudioContext();
       requestNotificationPermission();
+      enableBackgroundPersistence();
 
       const statusEl = document.getElementById('authStatus');
-      statusEl.textContent = 'Syncing AES-256 Key & Locking Always-On TURN...';
+      statusEl.textContent = 'Connecting to TURN relay...';
       statusEl.classList.remove('hidden');
-
-      // Derive AES-256 key from the exact sanitized room ID so both sides match 100%
-      await deriveRoomCryptoKey(room);
-      enableBackgroundPersistence();
-      startTelemetryMonitor();
 
       tryHostRole();
     }
@@ -2059,8 +1900,12 @@
       });
 
       peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') { peer.destroy(); joinAsGuest(); }
-        else console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          peer.destroy();
+          joinAsGuest();
+        } else {
+          console.error('Peer error:', err);
+        }
       });
 
       setupCallHandler();
@@ -2079,6 +1924,16 @@
         const hostId = room + '-host';
         const conn = peer.connect(hostId, { reliable: true, metadata: { name: myName } });
         registerPeerConnection(conn);
+
+        // Stale-host recovery: if [room]-host is a dead ghost session that doesn't open in 4.5s, retry host claim
+        if (hostCheckTimer) clearTimeout(hostCheckTimer);
+        hostCheckTimer = setTimeout(() => {
+          if (!intentionalLogout && Object.keys(connections).length === 0) {
+            console.log('Host unresponsive — retrying connection...');
+            peer.destroy();
+            tryHostRole();
+          }
+        }, 4500);
       });
 
       peer.on('connection', (conn) => registerPeerConnection(conn));
@@ -2095,13 +1950,16 @@
 
     function registerPeerConnection(conn) {
       conn.on('open', () => {
+        if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
+
         const remoteName = conn.metadata?.name || 'Host';
         connections[conn.peer] = { conn: conn, name: remoteName };
         conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
+        if (!isHost) conn.send({ type: 'REQ_ROSTER' });
         updateParticipantsUI();
       });
 
-      conn.on('data', async (data) => {
+      conn.on('data', (data) => {
         if (data.type === 'JOIN') {
           connections[conn.peer] = { conn: conn, name: data.name };
           appendSystemNotice(`${data.name} connected to room`);
@@ -2109,19 +1967,12 @@
           updateParticipantsUI();
           if (isHost) syncRosterToGuests();
         }
+        else if (data.type === 'REQ_ROSTER') {
+          if (isHost) syncRosterToGuests();
+        }
         else if (data.type === 'ROSTER') {
           roomRoster = data.members;
           renderGuestRoster(data.members);
-        }
-        else if (data.type === 'PING') {
-          conn.send({ type: 'PONG', ts: data.ts });
-        }
-        else if (data.type === 'PONG') {
-          const rtt = Date.now() - data.ts;
-          document.getElementById('statPing').textContent = `${rtt} ms`;
-          const badge = document.getElementById('headerPingBadge');
-          badge.textContent = `${rtt} ms`;
-          badge.classList.remove('hidden');
         }
         else if (data.type === 'TYPING') {
           showRemoteTyping(data.senderName);
@@ -2234,7 +2085,6 @@
           renderReactionBadges(data.msgId);
           if (isHost) relayToOthers(conn.peer, data);
         }
-        // 16 KB CHUNKED MEDIA & FILE REASSEMBLY
         else if (data.type === 'CHUNK_START') {
           incomingChunkBuffers[data.transferId] = {
             chunks: new Array(data.totalChunks),
@@ -2274,17 +2124,15 @@
           hideTransferProgress();
           if (isHost) relayToOthers(conn.peer, data);
         }
-        // AES-256-GCM ENCRYPTED TEXT / STICKER / SCRATCH CARD
-        else if (data.type === 'CHAT_E2EE') {
+        else if (data.type === 'CHAT') {
           document.getElementById('typingIndicatorBar').classList.add('hidden');
-          const decryptedText = await decryptPayload(data.iv, data.cipher);
-          appendMessage(data.senderName, decryptedText, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote });
-          recordTranscript(data.senderName, decryptedText, data.time);
+          appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote });
+          recordTranscript(data.senderName, data.content, data.time);
 
-          const preview = data.msgMode === 'sticker' ? `Sent sticker ${decryptedText}`
+          const preview = data.msgMode === 'sticker' ? `Sent sticker ${data.content}`
                         : data.msgMode === 'scratch' ? '🎟️ Sent a mystery scratch card'
                         : data.msgMode === 'secret' ? '💣 Sent a secret message'
-                        : decryptedText;
+                        : data.content;
           triggerIncomingNotification(data.senderName, preview, false);
 
           if (isHost) relayToOthers(conn.peer, data);
@@ -2324,11 +2172,11 @@
       countEl.textContent = total;
 
       if (peers.length === 0) {
-        badge.textContent = 'AES-256 Locked • Waiting for peers...';
-        badge.className = 'text-[10px] text-amber-400 font-mono truncate';
+        badge.textContent = 'Always-On • Waiting for peers...';
+        badge.className = 'text-[10px] text-amber-400 font-mono block truncate';
       } else {
-        badge.textContent = `${total} Active • AES-256 E2EE`;
-        badge.className = 'text-[10px] text-emerald-400 font-mono truncate';
+        badge.textContent = `${total} Active • TURN Relay Connected`;
+        badge.className = 'text-[10px] text-emerald-400 font-mono block truncate';
       }
 
       if (isHost) syncRosterToGuests();
@@ -2359,7 +2207,7 @@
     }
 
     // ==================== MESSAGING, CLEAR CHAT & LOGOFF ====================
-    async function sendMessage(e) {
+    function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
@@ -2371,16 +2219,13 @@
       const msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
       const quoteData = activeReplyContext ? { ...activeReplyContext } : null;
 
-      const encrypted = await encryptPayload(text);
-
       broadcastData({
-        type: 'CHAT_E2EE',
+        type: 'CHAT',
         msgId,
         msgMode: mode,
         senderId: myPeerId,
         senderName: myName,
-        iv: encrypted.iv,
-        cipher: encrypted.cipher,
+        content: text,
         quote: quoteData,
         time
       });
@@ -2521,7 +2366,6 @@
               ${quoteBlock}
               <p class="break-words leading-relaxed">${escapeHTML(content)}</p>
               <div class="flex items-center justify-end gap-1 text-[9px] opacity-75 mt-1">
-                <i class="fa-solid fa-lock text-[7px]"></i>
                 <span>${time}</span>
                 ${isOut ? '<i class="fa-solid fa-check-double text-[8px]"></i>' : ''}
               </div>
@@ -2591,7 +2435,6 @@
       connections = {};
       roomRoster = [];
       incomingChunkBuffers = {};
-      aesCryptoKey = null;
       if (peer) { peer.destroy(); peer = null; }
       room = "";
       clearChat();
