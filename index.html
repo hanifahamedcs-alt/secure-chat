@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink — Multi-Peer Encrypted Room</title>
+  <title>CypherLink — Always-On Encrypted Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -54,6 +54,28 @@
       line-height: 1.1;
       animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
+
+    /* Emoji Rain Animation */
+    @keyframes fallDown {
+      0% { transform: translateY(-10vh) rotate(0deg) scale(0.8); opacity: 1; }
+      100% { transform: translateY(105vh) rotate(360deg) scale(1.2); opacity: 0; }
+    }
+    .emoji-drop {
+      position: fixed;
+      top: -50px;
+      z-index: 9999;
+      pointer-events: none;
+      font-size: 2.2rem;
+      animation: fallDown linear forwards;
+    }
+
+    /* Secret Blur Effect */
+    .secret-blurred {
+      filter: blur(6px);
+      cursor: pointer;
+      user-select: none;
+      transition: filter 0.3s ease;
+    }
   </style>
 </head>
 <body class="flex flex-col font-sans select-none overflow-hidden">
@@ -62,22 +84,22 @@
   <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14]/95 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-[#111827] border border-gray-800 p-6 md:p-8 rounded-2xl max-w-sm md:max-w-md w-full shadow-2xl text-center">
       <div class="w-14 h-14 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-indigo-500/30">
-        <i class="fa-solid fa-users-viewfinder"></i>
+        <i class="fa-solid fa-shield-halved"></i>
       </div>
-      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Join Encrypted Room</h2>
-      <p class="text-xs text-gray-400 mb-5">Supports 1-on-1 or multi-user group rooms across Mobile (4G/5G) & Desktop.</p>
+      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Encrypted Room</h2>
+      <p class="text-xs text-gray-400 mb-5">Stays connected even when your phone locks or runs in the background.</p>
       
       <div class="space-y-3 text-left">
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. NAYANTHARA" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <input id="userNameInput" type="text" placeholder="e.g. SIMBU" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
           <input id="roomNameInput" type="text" placeholder="e.g. squad2026" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 active:bg-indigo-700 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 mt-2">
-          <i class="fa-solid fa-right-to-bracket"></i> Connect to Room
+          <i class="fa-solid fa-bolt"></i> Connect & Lock Session
         </button>
       </div>
       <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
@@ -129,8 +151,8 @@
           <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0" id="myAvatar">?</div>
           <div class="overflow-hidden">
             <h3 class="text-sm font-semibold truncate" id="myNameLabel">Disconnected</h3>
-            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TURN Tunnel Ready
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1" id="lockGuardLabel">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Lock-Guard Active
             </span>
           </div>
         </div>
@@ -139,7 +161,7 @@
         </button>
       </div>
 
-      <!-- Expanded Screen Theme & Color Picker -->
+      <!-- Screen Theme & Color Picker -->
       <div class="p-3.5 border-b theme-border">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold tracking-wider theme-muted uppercase">Screen Theme & Color</span>
@@ -160,14 +182,22 @@
         </div>
       </div>
 
-      <!-- Notification & Sound Toggle -->
-      <div class="p-3.5 border-b theme-border flex items-center justify-between text-xs">
-        <span class="font-medium flex items-center gap-2">
-          <i class="fa-solid fa-volume-high text-indigo-400"></i> Sound & Alerts
-        </span>
-        <button id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-1 rounded-lg theme-accent text-[11px] font-semibold">
-          ON
-        </button>
+      <!-- Sound & Lock-Screen Persistence Status -->
+      <div class="p-3.5 border-b theme-border space-y-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-medium flex items-center gap-2">
+            <i class="fa-solid fa-volume-high text-indigo-400"></i> Sound & Alerts
+          </span>
+          <button id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold">
+            ON
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="font-medium flex items-center gap-2">
+            <i class="fa-solid fa-lock text-emerald-400"></i> Background Keep-Alive
+          </span>
+          <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">LOCKED ON</span>
+        </div>
       </div>
 
       <!-- Room Info & Participants -->
@@ -187,17 +217,15 @@
         <span id="participantCount" class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">1</span>
       </div>
       
-      <div id="participantsList" class="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 chat-scroll">
-        <!-- Populated dynamically -->
-      </div>
+      <div id="participantsList" class="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 chat-scroll"></div>
 
-      <!-- Sidebar Actions (Clear Chat & Logout) -->
+      <!-- Sidebar Actions -->
       <div class="p-3 border-t theme-border space-y-2">
         <button onclick="clearChat()" class="w-full py-2 px-3 rounded-xl border theme-border hover:bg-white/5 text-xs font-medium flex items-center justify-center gap-2 transition">
           <i class="fa-solid fa-broom text-amber-400"></i> Clear Chat History
         </button>
         <button onclick="logoutRoom()" class="w-full py-2 px-3 rounded-xl bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-medium flex items-center justify-center gap-2 transition">
-          <i class="fa-solid fa-right-from-bracket"></i> Leave & Logout
+          <i class="fa-solid fa-right-from-bracket"></i> Log Off & Disconnect
         </button>
       </div>
     </aside>
@@ -222,16 +250,20 @@
 
         <!-- Header Action Buttons -->
         <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
+          <!-- Surprise Celebration Button -->
+          <button onclick="triggerSurpriseBlast('🎉')" title="Send Celebration Surprise!" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-sm transition">
+            🎉
+          </button>
           <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
             <i class="fa-solid fa-phone text-xs"></i>
           </button>
           <button onclick="startCall(true)" title="Video Call" class="w-9 h-9 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center transition">
             <i class="fa-solid fa-video text-xs"></i>
           </button>
-          <button onclick="clearChat()" title="Clear Chat" class="w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center transition">
+          <button onclick="clearChat()" title="Clear Chat" class="hidden sm:flex w-9 h-9 rounded-xl theme-input border hover:text-amber-400 items-center justify-center transition">
             <i class="fa-solid fa-trash-can text-xs"></i>
           </button>
-          <button onclick="logoutRoom()" title="Logout" class="w-9 h-9 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/30 flex items-center justify-center transition">
+          <button onclick="logoutRoom()" title="Log Off" class="w-9 h-9 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-500/30 flex items-center justify-center transition">
             <i class="fa-solid fa-power-off text-xs"></i>
           </button>
         </div>
@@ -241,30 +273,61 @@
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
         <div class="text-center my-2">
           <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
-            <i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> Multi-Peer Mobile & Desktop TURN Tunnel Active
+            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Always-On Session Locked. Stays connected when screen sleeps.
           </span>
         </div>
       </div>
 
-      <!-- EMOJI & STICKER PICKER POPOVER -->
+      <!-- Live Typing Indicator Bar -->
+      <div id="typingIndicatorBar" class="hidden px-4 py-1 text-[11px] theme-muted italic flex items-center gap-1.5">
+        <span class="flex gap-0.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 0.15s"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 0.3s"></span>
+        </span>
+        <span id="typingUserText">Someone is typing...</span>
+      </div>
+
+      <!-- EMOJI, STICKER & SURPRISE PICKER POPOVER -->
       <div id="pickerPopover" class="hidden absolute bottom-16 md:bottom-20 left-3 right-3 md:left-6 md:right-auto md:w-80 theme-panel border rounded-2xl shadow-2xl p-3 z-30">
-        <div class="flex border-b theme-border pb-2 mb-2 gap-2">
+        <div class="flex border-b theme-border pb-2 mb-2 gap-1.5">
           <button onclick="switchPickerTab('emojis')" id="tabEmojis" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-accent">Emojis</button>
           <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
+          <button onclick="switchPickerTab('surprises')" id="tabSurprises" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5">Rain FX</button>
         </div>
 
         <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center"></div>
         <div id="stickersGrid" class="hidden grid grid-cols-4 gap-2 max-h-44 overflow-y-auto chat-scroll text-3xl text-center"></div>
+        <div id="surprisesGrid" class="hidden grid grid-cols-3 gap-2 max-h-44 overflow-y-auto chat-scroll text-center"></div>
       </div>
 
-      <!-- Message Input -->
+      <!-- Message Input Bar -->
       <div class="p-2.5 md:p-4 border-t theme-header shrink-0">
-        <form onsubmit="sendMessage(event)" class="flex items-center gap-2">
-          <button type="button" onclick="togglePicker()" class="w-10 h-10 rounded-xl theme-input border flex items-center justify-center text-lg hover:scale-105 transition shrink-0" title="Emojis & Stickers">
+        <!-- Secret Mode Banner -->
+        <div id="secretModeBanner" class="hidden mb-2 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] flex items-center justify-between">
+          <span><i class="fa-solid fa-bomb mr-1"></i> <b>Secret Self-Destruct Mode ON:</b> Message vanishes 10s after reading!</span>
+          <button type="button" onclick="toggleSecretMode()" class="underline font-bold">Off</button>
+        </div>
+
+        <form onsubmit="sendMessage(event)" class="flex items-center gap-1.5 md:gap-2">
+          <!-- Emoji/Sticker Button -->
+          <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base md:text-lg hover:scale-105 transition shrink-0" title="Emojis, Stickers & Screen Rain">
             😊
           </button>
-          <input id="messageInput" type="text" placeholder="Type a message or send sticker..." autocomplete="off" class="flex-1 theme-input border text-sm rounded-xl px-3.5 py-2.5 focus:outline-none" />
-          <button type="submit" class="theme-accent px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-1.5 shrink-0">
+
+          <!-- Secret Self-Destruct Toggle -->
+          <button type="button" id="secretBtn" onclick="toggleSecretMode()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-amber-400 transition shrink-0" title="Send Self-Destructing Secret Message">
+            <i class="fa-solid fa-bomb"></i>
+          </button>
+
+          <!-- Voice Walkie-Talkie Button -->
+          <button type="button" id="voiceNoteBtn" onclick="toggleVoiceRecording()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-rose-400 transition shrink-0" title="Record Instant Voice Note">
+            <i class="fa-solid fa-microphone-lines"></i>
+          </button>
+
+          <input id="messageInput" oninput="notifyTyping()" type="text" placeholder="Type message..." autocomplete="off" class="flex-1 theme-input border text-sm rounded-xl px-3 py-2.5 focus:outline-none min-w-0" />
+          
+          <button type="submit" class="theme-accent px-3.5 md:px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-1.5 shrink-0">
             <span class="hidden sm:inline">Send</span>
             <i class="fa-solid fa-paper-plane text-xs"></i>
           </button>
@@ -307,6 +370,7 @@
     let room = "";
     let isHost = false;
     let peer = null;
+    let intentionalLogout = false;
 
     let connections = {};
     let activeCall = null;
@@ -314,11 +378,23 @@
     let localStream = null;
     let isMicMuted = false;
     let isCamDisabled = false;
-    let heartbeatInterval = null;
     let soundEnabled = true;
     let ringtoneInterval = null;
     let unreadCount = 0;
     const originalTitle = document.title;
+
+    // Surprise & Interactive States
+    let isSecretMode = false;
+    let typingTimeout = null;
+    let lastTypingSent = 0;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecordingVoice = false;
+
+    // Background & Lock-Screen Persistence Variables
+    let wakeLockSentinel = null;
+    let silentKeepAliveOsc = null;
+    let persistenceWatchdog = null;
 
     // Dedicated Metered TURN Servers
     const iceServersConfig = [
@@ -345,6 +421,99 @@
       }
     ];
 
+    // ==================== ALWAYS-ON LOCK-SCREEN & BACKGROUND GUARD ====================
+    async function enableBackgroundPersistence() {
+      // 1. Request Screen Wake Lock API (prevents mobile OS deep sleep)
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.log('WakeLock note:', err.message);
+        }
+      }
+
+      // 2. Inaudible Web Audio Keep-Alive (stops iOS Safari / Android Chrome from freezing WebSockets when screen locks)
+      try {
+        initAudioContext();
+        if (!silentKeepAliveOsc) {
+          silentKeepAliveOsc = audioCtx.createOscillator();
+          const silentGain = audioCtx.createGain();
+          silentGain.gain.value = 0.0001; // Completely inaudible
+          silentKeepAliveOsc.frequency.value = 20;
+          silentKeepAliveOsc.connect(silentGain);
+          silentGain.connect(audioCtx.destination);
+          silentKeepAliveOsc.start();
+        }
+      } catch (e) {}
+
+      // 3. Aggressive 4-Second Watchdog: Auto-heals signaling & guest-to-host connection unless logged off
+      if (persistenceWatchdog) clearInterval(persistenceWatchdog);
+      persistenceWatchdog = setInterval(() => {
+        if (intentionalLogout || !room) return;
+
+        // Keep Web Audio context awake
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+
+        // Send signaling heartbeat
+        if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
+          peer.socket.send({ type: 'HEARTBEAT' });
+        }
+
+        // Reconnect signaling broker if dropped during lock/network switch
+        if (peer && peer.disconnected && !peer.destroyed) {
+          console.log('Auto-healing signaling connection...');
+          peer.reconnect();
+        }
+
+        // If Guest and disconnected from Host, auto-redial Host
+        if (!isHost && peer && !peer.destroyed && peer.open) {
+          const hostId = room + '-host';
+          const hostConn = connections[hostId];
+          if (!hostConn || !hostConn.conn || !hostConn.conn.open) {
+            console.log('Auto-reconnecting to Room Host...');
+            const conn = peer.connect(hostId, {
+              reliable: true,
+              metadata: { name: myName }
+            });
+            registerPeerConnection(conn);
+          }
+        }
+      }, 4000);
+    }
+
+    function disableBackgroundPersistence() {
+      if (persistenceWatchdog) {
+        clearInterval(persistenceWatchdog);
+        persistenceWatchdog = null;
+      }
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release().catch(() => {});
+        wakeLockSentinel = null;
+      }
+      if (silentKeepAliveOsc) {
+        try { silentKeepAliveOsc.stop(); } catch (e) {}
+        silentKeepAliveOsc = null;
+      }
+    }
+
+    // Re-acquire WakeLock automatically whenever screen turns back on
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        unreadCount = 0;
+        document.title = originalTitle;
+        if (!intentionalLogout && room) {
+          if ('wakeLock' in navigator) {
+            try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (e) {}
+          }
+          if (peer && peer.disconnected && !peer.destroyed) {
+            peer.reconnect();
+          }
+        }
+      }
+    });
+
     // ==================== NOTIFICATION & RINGTONE AUDIO ENGINE ====================
     let audioCtx = null;
 
@@ -364,8 +533,8 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
         
         gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
@@ -379,9 +548,7 @@
 
     function startRingtone() {
       stopRingtone();
-      if (navigator.vibrate) {
-        navigator.vibrate([400, 200, 400, 1000]);
-      }
+      if (navigator.vibrate) navigator.vibrate([400, 200, 400, 1000]);
       const playRingPulse = () => {
         if (!soundEnabled) return;
         try {
@@ -428,8 +595,8 @@
       const btn = document.getElementById('soundToggleBtn');
       btn.textContent = soundEnabled ? 'ON' : 'OFF';
       btn.className = soundEnabled 
-        ? 'px-2.5 py-1 rounded-lg theme-accent text-[11px] font-semibold'
-        : 'px-2.5 py-1 rounded-lg bg-gray-700 text-gray-300 text-[11px] font-semibold';
+        ? 'px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold'
+        : 'px-2.5 py-0.5 rounded-lg bg-gray-700 text-gray-300 text-[11px] font-semibold';
       if (soundEnabled) playMessageTone();
     }
 
@@ -447,13 +614,11 @@
         showToast(title, body);
       }
 
-      // Update Tab Title if hidden
       if (document.hidden) {
         unreadCount++;
         document.title = `(${unreadCount}) ${title} - CypherLink`;
       }
 
-      // System Browser Push Notification
       if ('Notification' in window && Notification.permission === 'granted' && (document.hidden || isCall)) {
         const notif = new Notification(title, {
           body: body,
@@ -480,7 +645,7 @@
       }, 3500);
     }
 
-    // ==================== EXPANDED THEMES & CUSTOM COLOR ENGINE ====================
+    // ==================== THEMES & CUSTOM COLOR ENGINE ====================
     const themes = {
       indigo: {
         '--bg-main': '#0b0e14', '--bg-panel': '#0f172a', '--bg-header': '#0e131f',
@@ -540,13 +705,12 @@
       localStorage.setItem('cypher_custom_accent', hexColor);
     }
 
-    // Restore saved theme or custom accent
     const savedTheme = localStorage.getItem('cypher_theme');
     if (savedTheme && themes[savedTheme]) applyTheme(savedTheme);
     const savedCustom = localStorage.getItem('cypher_custom_accent');
     if (savedCustom) applyCustomAccent(savedCustom);
 
-    // ==================== EMOJIS & STICKERS ====================
+    // ==================== SURPRISE FEATURES (RAIN, SECRET MSG, VOICE NOTE, TYPING) ====================
     const emojiList = [
       '😀','😂','🥰','😎','🤩','🥳','😭','😡','🤯','🥶',
       '👍','👎','👏','🙌','🙏','🤝','✌️','🤞','🔥','💯',
@@ -560,6 +724,15 @@
       '💯','🙌','🤝','🛡️','👾','🤖','🌟','🌈'
     ];
 
+    const surpriseRainList = [
+      { emoji: '🎉', label: 'Party' },
+      { emoji: '❤️', label: 'Love Rain' },
+      { emoji: '🔥', label: 'Firestorm' },
+      { emoji: '🚀', label: 'Rocket' },
+      { emoji: '💰', label: 'Cash Rain' },
+      { emoji: '❄️', label: 'Snowfall' }
+    ];
+
     function initPickers() {
       document.getElementById('emojisGrid').innerHTML = emojiList.map(e => 
         `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded-lg transition">${e}</button>`
@@ -567,6 +740,13 @@
 
       document.getElementById('stickersGrid').innerHTML = stickerList.map(s => 
         `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded-xl transition hover:scale-110">${s}</button>`
+      ).join('');
+
+      document.getElementById('surprisesGrid').innerHTML = surpriseRainList.map(item => 
+        `<button type="button" onclick="triggerSurpriseBlast('${item.emoji}')" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-2xl">${item.emoji}</span>
+          <span class="text-[10px] font-medium">${item.label}</span>
+        </button>`
       ).join('');
     }
     initPickers();
@@ -576,21 +756,25 @@
     }
 
     function switchPickerTab(tab) {
-      const eGrid = document.getElementById('emojisGrid');
-      const sGrid = document.getElementById('stickersGrid');
-      const tEmojis = document.getElementById('tabEmojis');
-      const tStickers = document.getElementById('tabStickers');
+      const grids = {
+        emojis: document.getElementById('emojisGrid'),
+        stickers: document.getElementById('stickersGrid'),
+        surprises: document.getElementById('surprisesGrid')
+      };
+      const tabs = {
+        emojis: document.getElementById('tabEmojis'),
+        stickers: document.getElementById('tabStickers'),
+        surprises: document.getElementById('tabSurprises')
+      };
 
-      if (tab === 'emojis') {
-        eGrid.classList.remove('hidden');
-        sGrid.classList.add('hidden');
-        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
-        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
-      } else {
-        sGrid.classList.remove('hidden');
-        eGrid.classList.add('hidden');
-        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
-        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
+      for (const key of Object.keys(grids)) {
+        if (key === tab) {
+          grids[key].classList.remove('hidden');
+          tabs[key].className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
+        } else {
+          grids[key].classList.add('hidden');
+          tabs[key].className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
+        }
       }
     }
 
@@ -605,7 +789,7 @@
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const payload = {
         type: 'CHAT',
-        isSticker: true,
+        msgMode: 'sticker',
         senderId: myPeerId,
         senderName: myName,
         content: sticker,
@@ -613,7 +797,119 @@
       };
 
       broadcastData(payload);
-      appendMessage(myName, sticker, 'outgoing', time, true);
+      appendMessage(myName, sticker, 'outgoing', time, 'sticker');
+    }
+
+    // 1. Screen Emoji Rain Effect (Broadcasts to everyone!)
+    function triggerSurpriseBlast(emoji) {
+      document.getElementById('pickerPopover').classList.add('hidden');
+      spawnEmojiRain(emoji);
+      playMessageTone();
+      broadcastData({
+        type: 'SURPRISE_RAIN',
+        emoji: emoji,
+        senderName: myName
+      });
+      appendSystemNotice(`You triggered a ${emoji} screen surprise!`);
+    }
+
+    function spawnEmojiRain(emoji) {
+      for (let i = 0; i < 28; i++) {
+        setTimeout(() => {
+          const drop = document.createElement('div');
+          drop.className = 'emoji-drop';
+          drop.textContent = emoji;
+          drop.style.left = Math.random() * 94 + 'vw';
+          drop.style.animationDuration = (2 + Math.random() * 2) + 's';
+          document.body.appendChild(drop);
+          setTimeout(() => drop.remove(), 4200);
+        }, i * 70);
+      }
+    }
+
+    // 2. Secret Self-Destructing Message Mode
+    function toggleSecretMode() {
+      isSecretMode = !isSecretMode;
+      const banner = document.getElementById('secretModeBanner');
+      const btn = document.getElementById('secretBtn');
+      const input = document.getElementById('messageInput');
+
+      if (isSecretMode) {
+        banner.classList.remove('hidden');
+        btn.classList.add('text-amber-400', 'border-amber-400');
+        input.placeholder = 'Type a secret message (auto-destructs in 10s)...';
+      } else {
+        banner.classList.add('hidden');
+        btn.classList.remove('text-amber-400', 'border-amber-400');
+        input.placeholder = 'Type message...';
+      }
+    }
+
+    // 3. Live Typing Indicator
+    function notifyTyping() {
+      const now = Date.now();
+      if (now - lastTypingSent > 1800) {
+        lastTypingSent = now;
+        broadcastData({ type: 'TYPING', senderName: myName });
+      }
+    }
+
+    function showRemoteTyping(name) {
+      const bar = document.getElementById('typingIndicatorBar');
+      document.getElementById('typingUserText').textContent = `${name} is typing...`;
+      bar.classList.remove('hidden');
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => bar.classList.add('hidden'), 2400);
+    }
+
+    // 4. Instant Walkie-Talkie Voice Notes
+    async function toggleVoiceRecording() {
+      const btn = document.getElementById('voiceNoteBtn');
+      if (!isRecordingVoice) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop());
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64Audio = reader.result;
+              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const payload = {
+                type: 'CHAT',
+                msgMode: 'audio',
+                senderId: myPeerId,
+                senderName: myName,
+                content: base64Audio,
+                time: time
+              };
+              broadcastData(payload);
+              appendMessage(myName, base64Audio, 'outgoing', time, 'audio');
+            };
+            reader.readAsDataURL(audioBlob);
+          };
+
+          mediaRecorder.start();
+          isRecordingVoice = true;
+          btn.classList.add('bg-rose-600', 'text-white', 'animate-pulse');
+          showToast('Recording Voice Note...', 'Tap the mic button again to send');
+        } catch (err) {
+          alert('Microphone access required for voice notes: ' + err.message);
+        }
+      } else {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+        isRecordingVoice = false;
+        btn.classList.remove('bg-rose-600', 'text-white', 'animate-pulse');
+      }
     }
 
     // ==================== ROOM & MULTI-PEER ENGINE ====================
@@ -635,25 +931,17 @@
         return;
       }
 
-      // Unlock audio & request push permissions on user tap
+      intentionalLogout = false;
       initAudioContext();
       requestNotificationPermission();
+      enableBackgroundPersistence();
 
       room = sanitize(rawRoom);
       const statusEl = document.getElementById('authStatus');
-      statusEl.textContent = 'Negotiating Mobile/Desktop TURN Relay...';
+      statusEl.textContent = 'Locking Always-On TURN Relay...';
       statusEl.classList.remove('hidden');
 
       tryHostRole();
-    }
-
-    function startMobileHeartbeat(peerInstance) {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      heartbeatInterval = setInterval(() => {
-        if (peerInstance && !peerInstance.destroyed && peerInstance.socket && peerInstance.socket._open) {
-          peerInstance.socket.send({ type: 'HEARTBEAT' });
-        }
-      }, 8000);
     }
 
     function tryHostRole() {
@@ -666,8 +954,7 @@
       peer.on('open', (id) => {
         isHost = true;
         myPeerId = id;
-        startMobileHeartbeat(peer);
-        setupInterface('Room Host (Relay Hub)');
+        setupInterface('Room Host (Always-On)');
         updateParticipantsUI();
 
         peer.on('connection', (conn) => {
@@ -697,8 +984,7 @@
       peer.on('open', (id) => {
         isHost = false;
         myPeerId = id;
-        startMobileHeartbeat(peer);
-        setupInterface('Participant');
+        setupInterface('Participant (Always-On)');
         updateParticipantsUI();
 
         const hostId = room + '-host';
@@ -742,40 +1028,53 @@
       conn.on('data', (data) => {
         if (data.type === 'JOIN') {
           connections[conn.peer] = { conn: conn, name: data.name };
-          appendSystemNotice(`${data.name} joined the room`);
+          appendSystemNotice(`${data.name} connected to room`);
           playMessageTone();
           updateParticipantsUI();
-
           if (isHost) syncRosterToGuests();
         }
         else if (data.type === 'ROSTER') {
           renderGuestRoster(data.members);
         }
+        else if (data.type === 'TYPING') {
+          showRemoteTyping(data.senderName);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'SURPRISE_RAIN') {
+          spawnEmojiRain(data.emoji);
+          playMessageTone();
+          appendSystemNotice(`${data.senderName} sent a ${data.emoji} screen surprise!`);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
         else if (data.type === 'CHAT') {
-          appendMessage(data.senderName, data.content, 'incoming', data.time, data.isSticker);
+          document.getElementById('typingIndicatorBar').classList.add('hidden');
+          appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text');
           
-          // Trigger Chat Sound + Banner + Push Notification
-          const previewText = data.isSticker ? `Sent a sticker ${data.content}` : data.content;
-          triggerIncomingNotification(data.senderName, previewText, false);
+          const preview = data.msgMode === 'sticker' ? `Sent sticker ${data.content}` 
+                        : data.msgMode === 'audio' ? '🎤 Sent a voice note' 
+                        : data.msgMode === 'secret' ? '💣 Sent a secret message' 
+                        : data.content;
+          triggerIncomingNotification(data.senderName, preview, false);
 
-          // Relay to other guests if Host
-          if (isHost) {
-            for (const [id, peerObj] of Object.entries(connections)) {
-              if (id !== conn.peer && peerObj.conn.open) {
-                peerObj.conn.send(data);
-              }
-            }
-          }
+          if (isHost) relayToOthers(conn.peer, data);
         }
       });
 
       conn.on('close', () => {
         const leftName = connections[conn.peer]?.name || 'A peer';
         delete connections[conn.peer];
-        appendSystemNotice(`${leftName} left the room`);
+        appendSystemNotice(`${leftName} disconnected`);
         updateParticipantsUI();
         if (isHost) syncRosterToGuests();
       });
+    }
+
+    function relayToOthers(excludePeerId, data) {
+      for (const [id, peerObj] of Object.entries(connections)) {
+        if (id !== excludePeerId && peerObj.conn && peerObj.conn.open) {
+          peerObj.conn.send(data);
+        }
+      }
     }
 
     function syncRosterToGuests() {
@@ -801,10 +1100,10 @@
       countEl.textContent = total;
 
       if (peers.length === 0) {
-        badge.textContent = 'Waiting for others to join...';
+        badge.textContent = 'Always-On • Waiting for peers...';
         badge.className = 'text-[10px] text-amber-400 font-mono block truncate';
       } else {
-        badge.textContent = `${total} Active in Room • TURN Relay`;
+        badge.textContent = `${total} Active • Lock-Guard Connected`;
         badge.className = 'text-[10px] text-emerald-400 font-mono block truncate';
       }
 
@@ -851,7 +1150,7 @@
       }
     }
 
-    // ==================== MESSAGING, CLEAR CHAT & LOGOUT ====================
+    // ==================== MESSAGING, CLEAR CHAT & LOGOFF ====================
     function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('messageInput');
@@ -860,10 +1159,11 @@
 
       document.getElementById('pickerPopover').classList.add('hidden');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const mode = isSecretMode ? 'secret' : 'text';
 
       const payload = {
         type: 'CHAT',
-        isSticker: false,
+        msgMode: mode,
         senderId: myPeerId,
         senderName: myName,
         content: text,
@@ -871,11 +1171,11 @@
       };
 
       broadcastData(payload);
-      appendMessage(myName, text, 'outgoing', time, false);
+      appendMessage(myName, text, 'outgoing', time, mode);
       input.value = '';
     }
 
-    function appendMessage(sender, content, direction, time, isSticker) {
+    function appendMessage(sender, content, direction, time, mode = 'text') {
       const container = document.getElementById('messagesContainer');
       const isOut = direction === 'outgoing';
 
@@ -884,7 +1184,7 @@
 
       const senderTag = !isOut ? `<span class="text-[10px] font-semibold theme-muted mb-1 ml-1">${sender}</span>` : '';
 
-      if (isSticker) {
+      if (mode === 'sticker') {
         msgDiv.innerHTML = `
           ${senderTag}
           <div class="px-2 py-1">
@@ -892,6 +1192,32 @@
             <div class="text-[9px] theme-muted ${isOut ? 'text-right' : 'text-left'} mt-0.5">${time}</div>
           </div>
         `;
+      } else if (mode === 'audio') {
+        msgDiv.innerHTML = `
+          ${senderTag}
+          <div class="max-w-[85%] md:max-w-[70%] px-3 py-2 rounded-2xl ${
+            isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'
+          } shadow">
+            <div class="text-[10px] font-semibold mb-1 opacity-80"><i class="fa-solid fa-microphone-lines mr-1"></i> Voice Note</div>
+            <audio controls src="${content}" class="h-8 w-52 md:w-60"></audio>
+            <div class="text-[9px] opacity-75 text-right mt-1">${time}</div>
+          </div>
+        `;
+      } else if (mode === 'secret') {
+        const uniqueId = 'sec_' + Math.random().toString(36).substr(2, 9);
+        msgDiv.innerHTML = `
+          ${senderTag}
+          <div id="${uniqueId}" onclick="revealSecret('${uniqueId}')" class="max-w-[85%] md:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-xs md:text-sm border border-amber-500/50 bg-amber-950/40 text-amber-100 shadow cursor-pointer">
+            <div class="text-[10px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+              <i class="fa-solid fa-bomb"></i> <span id="${uniqueId}_timer">Secret Message (Tap to reveal)</span>
+            </div>
+            <p id="${uniqueId}_text" class="break-words leading-relaxed ${isOut ? '' : 'secret-blurred'}">${escapeHTML(content)}</p>
+            <div class="text-[9px] opacity-75 text-right mt-1">${time}</div>
+          </div>
+        `;
+        if (isOut) {
+          setTimeout(() => startSelfDestruct(uniqueId), 1000);
+        }
       } else {
         msgDiv.innerHTML = `
           ${senderTag}
@@ -909,6 +1235,32 @@
 
       container.appendChild(msgDiv);
       container.scrollTop = container.scrollHeight;
+    }
+
+    function revealSecret(id) {
+      const textEl = document.getElementById(id + '_text');
+      if (textEl && textEl.classList.contains('secret-blurred')) {
+        textEl.classList.remove('secret-blurred');
+        startSelfDestruct(id);
+      }
+    }
+
+    function startSelfDestruct(id) {
+      let seconds = 10;
+      const timerEl = document.getElementById(id + '_timer');
+      const boxEl = document.getElementById(id);
+      if (!timerEl || !boxEl) return;
+
+      const interval = setInterval(() => {
+        seconds--;
+        if (timerEl) timerEl.textContent = `Self-destructing in ${seconds}s...`;
+        if (seconds <= 0) {
+          clearInterval(interval);
+          if (boxEl) {
+            boxEl.innerHTML = `<span class="text-[11px] italic opacity-60">💥 Secret message burned</span>`;
+          }
+        }
+      }, 1000);
     }
 
     function appendSystemNotice(text) {
@@ -938,9 +1290,10 @@
     }
 
     function logoutRoom() {
+      intentionalLogout = true;
+      disableBackgroundPersistence();
       stopRingtone();
       endCall();
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
       
       for (const peerObj of Object.values(connections)) {
         if (peerObj.conn) peerObj.conn.close();
@@ -952,6 +1305,7 @@
         peer = null;
       }
 
+      room = "";
       clearChat();
       document.getElementById('authStatus').classList.add('hidden');
       document.getElementById('authOverlay').classList.remove('hidden');
@@ -971,7 +1325,6 @@
         document.getElementById('incomingCallIcon').className = isVideo ? 'fa-solid fa-video' : 'fa-solid fa-phone';
         document.getElementById('incomingCallModal').classList.remove('hidden');
 
-        // Start Ringtone + Mobile Vibration + System Push Notification
         triggerIncomingNotification(`Incoming ${isVideo ? 'Video' : 'Voice'} Call`, `${callerName} is calling you`, true);
 
         call.on('close', () => {
@@ -1099,17 +1452,6 @@
       document.getElementById('localVideo').srcObject = null;
       document.getElementById('remoteVideo').srcObject = null;
     }
-
-    // Reset unread counter and reconnect socket when waking phone/tab
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        unreadCount = 0;
-        document.title = originalTitle;
-        if (peer && peer.disconnected && !peer.destroyed) {
-          peer.reconnect();
-        }
-      }
-    });
   </script>
 </body>
 </html>
