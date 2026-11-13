@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>REALTIME — Live Beat Studio, Time Capsules & Co-Op Room</title>
+  <title>REALTIME — Dual-Snap, Soundscape Mixer & Live Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -85,7 +85,6 @@
       transition: filter 0.3s ease;
     }
 
-    /* Live Remote Cursor Tag */
     .remote-cursor {
       position: fixed;
       pointer-events: none;
@@ -93,7 +92,6 @@
       transition: left 0.08s linear, top 0.08s linear;
     }
 
-    /* Laser Ping Ripple */
     @keyframes laserPulse {
       0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
       100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
@@ -126,12 +124,12 @@
         <i class="fa-solid fa-shield-halved"></i>
       </div>
       <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Interactive Room</h2>
-      <p class="text-xs text-gray-400 mb-5">Shared Beat Studio • Live Cursors • Time Capsules • Co-Op Story & WebRTC Calls</p>
+      <p class="text-xs text-gray-400 mb-5">Split-Reality Dual Snap • Soundscape Mixer • Beat Studio • Time Capsules & Calls</p>
       
       <div class="space-y-3 text-left">
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. WIN" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <input id="userNameInput" type="text" placeholder="e.g. ERIC" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
@@ -145,7 +143,81 @@
     </div>
   </div>
 
-  <!-- ==================== NEW FEATURE 1: SHARED LIVE BEAT MAKER / SYNTH PAD ==================== -->
+  <!-- ==================== NEW FEATURE #3: DUAL-CAMERA SPLIT-REALITY SNAP MODAL ==================== -->
+  <div id="dualSnapModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-md w-full p-5 shadow-2xl text-center">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>📸</span> Split-Reality Dual Snap</h3>
+        <button onclick="closeDualSnapModal()" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-3">Captures your surroundings first, then snaps your selfie reaction 1.2s later into a dual-frame card!</p>
+      
+      <div class="relative w-full h-64 bg-black rounded-2xl overflow-hidden border theme-border mb-3 flex items-center justify-center">
+        <video id="dualSnapPreview" autoplay playsinline webkit-playsinline muted class="w-full h-full object-cover"></video>
+        <div id="dualSnapStatusBadge" class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/70 text-[10px] font-bold text-amber-400">
+          Ready • Step 1: Main View
+        </div>
+      </div>
+
+      <button id="captureDualBtn" onclick="executeDualSnapSequence()" class="w-full py-3 rounded-xl theme-accent text-xs font-bold flex items-center justify-center gap-2 shadow-lg">
+        <i class="fa-solid fa-camera"></i> Capture Split-Reality Snap
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== NEW FEATURE #4: SYNCHRONIZED AMBIENT SOUNDSCAPE MIXER ==================== -->
+  <div id="soundscapeModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b theme-border pb-3 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🎧</span>
+          <h3 class="text-sm font-bold">Ambient Soundscape Mixer</h3>
+        </div>
+        <button onclick="toggleSoundscapeModal(false)" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-4">Slide any channel to synthesize live background ambience across everyone's room simultaneously (0 KB bandwidth):</p>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="font-semibold">🌧️ Rain on Tin Roof</span>
+            <span id="volLabel_rain" class="font-mono text-[10px] theme-muted">0%</span>
+          </div>
+          <input id="slider_rain" type="range" min="0" max="100" value="0" oninput="updateSoundscapeChannel('rain', this.value, true)" class="w-full accent-indigo-500 cursor-pointer" />
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="font-semibold">🔥 Crackling Fireplace</span>
+            <span id="volLabel_fire" class="font-mono text-[10px] theme-muted">0%</span>
+          </div>
+          <input id="slider_fire" type="range" min="0" max="100" value="0" oninput="updateSoundscapeChannel('fire', this.value, true)" class="w-full accent-amber-500 cursor-pointer" />
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="font-semibold">🌊 Deep Ocean Waves</span>
+            <span id="volLabel_ocean" class="font-mono text-[10px] theme-muted">0%</span>
+          </div>
+          <input id="slider_ocean" type="range" min="0" max="100" value="0" oninput="updateSoundscapeChannel('ocean', this.value, true)" class="w-full accent-cyan-500 cursor-pointer" />
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="font-semibold">📻 Lo-Fi Vinyl Crackle</span>
+            <span id="volLabel_vinyl" class="font-mono text-[10px] theme-muted">0%</span>
+          </div>
+          <input id="slider_vinyl" type="range" min="0" max="100" value="0" oninput="updateSoundscapeChannel('vinyl', this.value, true)" class="w-full accent-rose-500 cursor-pointer" />
+        </div>
+      </div>
+
+      <button onclick="muteAllSoundscapes(true)" class="w-full mt-4 py-2 rounded-xl bg-rose-600/15 text-rose-400 border border-rose-500/30 text-xs font-semibold">
+        Mute All Ambient Channels
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== CO-OP LIVE BEAT STUDIO MODAL ==================== -->
   <div id="beatStudioModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-3 md:p-6">
     <div class="theme-panel border rounded-2xl max-w-xl w-full p-5 shadow-2xl">
       <div class="flex items-center justify-between border-b theme-border pb-3 mb-3">
@@ -158,7 +230,6 @@
       </div>
       <p class="text-[11px] theme-muted mb-3">Toggle pads together—every beat plays live on everyone's speakers!</p>
       
-      <!-- 4 Tracks x 8 Steps Sequencer Grid -->
       <div id="sequencerGrid" class="space-y-2 mb-4 overflow-x-auto"></div>
 
       <div class="flex items-center justify-between pt-2 border-t theme-border">
@@ -175,14 +246,14 @@
     </div>
   </div>
 
-  <!-- ==================== NEW FEATURE 3: TIME-CAPSULE MESSAGE COMPOSER ==================== -->
+  <!-- ==================== TIME-CAPSULE MESSAGE COMPOSER ==================== -->
   <div id="capsuleModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-bold flex items-center gap-2"><span>⏳</span> Seal a Time-Capsule Message</h3>
         <button onclick="toggleCapsuleModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] theme-muted mb-2.5">Locked inside a cryptographic vault—nobody can read it until the countdown reaches zero!</p>
+      <p class="text-[11px] theme-muted mb-2.5">Locked inside a vault—nobody can read it until the countdown reaches zero!</p>
       <div class="space-y-2.5">
         <textarea id="capsuleTextInput" rows="2" placeholder="Write a prediction, secret, or future note..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"></textarea>
         <div class="grid grid-cols-3 gap-2">
@@ -194,14 +265,13 @@
     </div>
   </div>
 
-  <!-- ==================== NEW FEATURE 4: AMBIENT WEATHER AURA PICKER ==================== -->
+  <!-- ==================== AMBIENT WEATHER AURA PICKER ==================== -->
   <div id="auraModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 shadow-2xl">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-bold flex items-center gap-2"><span>🌌</span> Room Ambient Weather</h3>
         <button onclick="toggleAuraModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] theme-muted mb-3">Changes the live animated atmosphere across everyone's chat screen:</p>
       <div class="grid grid-cols-2 gap-2 text-xs font-semibold">
         <button onclick="setRoomAura('meteors', true)" class="p-2.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-2"><span>🌠</span> Meteors</button>
         <button onclick="setRoomAura('fireflies', true)" class="p-2.5 rounded-xl theme-input border hover:border-emerald-500 flex items-center gap-2"><span>✨</span> Fireflies</button>
@@ -212,14 +282,14 @@
     </div>
   </div>
 
-  <!-- ==================== NEW FEATURE 5: CO-OP BLIND STORY CHAIN MODAL ==================== -->
+  <!-- ==================== CO-OP BLIND STORY CHAIN MODAL ==================== -->
   <div id="storyChainModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-bold flex items-center gap-2"><span>📖</span> Co-Op Blind Story Chain</h3>
         <button onclick="toggleStoryChainModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] theme-muted mb-2.5">Each player adds a line seeing ONLY the last 3 words of the previous line—then unlock the hilarious full story!</p>
+      <p class="text-[11px] theme-muted mb-2.5">Each player adds a line seeing ONLY the last 3 words of the previous line—then unlock the full story!</p>
       <input id="storyChainStartInput" type="text" placeholder="Opening line (e.g. Late last night the robot...)" class="w-full theme-input border rounded-xl px-3 py-2.5 text-xs focus:outline-none mb-3" />
       <button onclick="launchStoryChain()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">
         📖 Start 4-Line Story Chain
@@ -435,6 +505,12 @@
       <div class="p-3 border-b theme-border">
         <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-1.5">Fresh Room Experiences</div>
         <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+          <button onclick="openDualSnapModal(); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-pink-500 flex items-center gap-1.5 font-medium">
+            <span>📸</span> Dual Snap
+          </button>
+          <button onclick="toggleSoundscapeModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-cyan-500 flex items-center gap-1.5 font-medium">
+            <span>🎧</span> Soundscape
+          </button>
           <button onclick="toggleBeatStudio(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎹</span> Beat Studio
           </button>
@@ -459,12 +535,6 @@
           </button>
           <button onclick="toggleWhiteboard(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎨</span> Whiteboard
-          </button>
-          <button onclick="toggleScratchModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>🎟️</span> Scratch Card
-          </button>
-          <button onclick="launchTriviaQuiz(); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>🧠</span> Trivia Quiz
           </button>
         </div>
       </div>
@@ -518,11 +588,11 @@
 
         <!-- Header Action Buttons -->
         <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
-          <button onclick="toggleBeatStudio(true)" title="Live Co-Op Beat Maker" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
-            🎹
+          <button onclick="openDualSnapModal()" title="Split-Reality Dual Camera Snap" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            📸
           </button>
-          <button onclick="toggleLiveCursors()" id="headerCursorBtn" title="Toggle Live Cursors & Laser Pointer" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
-            🎯
+          <button onclick="toggleSoundscapeModal(true)" title="Synchronized Ambient Soundscape Mixer" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            🎧
           </button>
           <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
             <i class="fa-solid fa-phone text-xs"></i>
@@ -548,7 +618,7 @@
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
         <div class="text-center my-2">
           <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
-            <i class="fa-solid fa-sparkles text-indigo-400 mr-1"></i> Try Co-Op Beat Studio 🎹, Time Capsules ⏳, Live Cursors 🎯 & Story Chain 📖!
+            <i class="fa-solid fa-sparkles text-indigo-400 mr-1"></i> Try Split-Reality Dual Snap 📸, Soundscape Mixer 🎧, Beat Studio 🎹 & Time Capsules ⏳!
           </span>
         </div>
       </div>
@@ -584,7 +654,6 @@
 
       <!-- Message Input Bar -->
       <div class="p-2.5 md:p-4 border-t theme-header shrink-0">
-        <!-- Quote Reply Preview Banner -->
         <div id="replyPreviewBanner" class="hidden mb-2 px-3 py-1.5 rounded-xl theme-input border-l-4 border-indigo-500 text-xs flex items-center justify-between">
           <div class="overflow-hidden">
             <span class="text-[10px] font-bold text-indigo-400 block" id="replyTargetSender">Replying to...</span>
@@ -593,7 +662,6 @@
           <button type="button" onclick="cancelReply()" class="theme-muted hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- Secret Mode Banner -->
         <div id="secretModeBanner" class="hidden mb-2 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] flex items-center justify-between">
           <span><i class="fa-solid fa-bomb mr-1"></i> <b>Secret Mode ON:</b> Self-destructs 10s after reading!</span>
           <button type="button" onclick="toggleSecretMode()" class="underline font-bold">Off</button>
@@ -608,8 +676,8 @@
             <i class="fa-solid fa-image"></i>
           </button>
 
-          <button type="button" onclick="toggleCapsuleModal(true)" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-amber-400 transition shrink-0" title="Send Time-Capsule Message">
-            <i class="fa-solid fa-hourglass-half"></i>
+          <button type="button" onclick="openDualSnapModal()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-pink-400 transition shrink-0" title="Split-Reality Dual-Camera Snap">
+            <i class="fa-solid fa-camera-rotate"></i>
           </button>
 
           <button type="button" id="secretBtn" onclick="toggleSecretMode()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-amber-400 transition shrink-0" title="Secret Self-Destruct Message">
@@ -735,7 +803,189 @@
       }
     ];
 
-    // ==================== 1. CO-OP LIVE BEAT STUDIO (8-STEP SYNTH SEQUENCER) ====================
+    // ==================== NEW FEATURE #3: SPLIT-REALITY DUAL-CAMERA SNAP ====================
+    let dualPreviewStream = null;
+
+    async function openDualSnapModal() {
+      if (Object.keys(connections).length === 0) {
+        alert('Wait for at least one participant to join the room first.');
+        return;
+      }
+      document.getElementById('dualSnapModal').classList.remove('hidden');
+      document.getElementById('dualSnapStatusBadge').textContent = 'Step 1: Frame your surroundings';
+      document.getElementById('captureDualBtn').disabled = false;
+
+      try {
+        // Try rear camera first on mobile; falls back automatically to default webcam on desktop
+        dualPreviewStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 960 }, height: { ideal: 720 } },
+          audio: false
+        });
+        document.getElementById('dualSnapPreview').srcObject = dualPreviewStream;
+      } catch (err) {
+        alert('Camera permission required: ' + err.message);
+        closeDualSnapModal();
+      }
+    }
+
+    function closeDualSnapModal() {
+      document.getElementById('dualSnapModal').classList.add('hidden');
+      if (dualPreviewStream) {
+        dualPreviewStream.getTracks().forEach(t => t.stop());
+        dualPreviewStream = null;
+      }
+      document.getElementById('dualSnapPreview').srcObject = null;
+    }
+
+    async function executeDualSnapSequence() {
+      const btn = document.getElementById('captureDualBtn');
+      const badge = document.getElementById('dualSnapStatusBadge');
+      const videoEl = document.getElementById('dualSnapPreview');
+      if (!dualPreviewStream) return;
+
+      btn.disabled = true;
+      badge.textContent = '📸 Snapped Main View! Switching to Selfie...';
+      playMessageTone();
+
+      // 1. Capture Frame A (Main / Rear View)
+      const compCanvas = document.createElement('canvas');
+      compCanvas.width = 720;
+      compCanvas.height = 540;
+      const c = compCanvas.getContext('2d');
+      c.drawImage(videoEl, 0, 0, 720, 540);
+
+      // Stop rear stream and switch to front/user selfie camera
+      dualPreviewStream.getTracks().forEach(t => t.stop());
+
+      try {
+        dualPreviewStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } },
+          audio: false
+        });
+        videoEl.srcObject = dualPreviewStream;
+        await new Promise(r => setTimeout(r, 1100)); // Brief pause for camera exposure & smile
+
+        // 2. Draw Circular Picture-in-Picture Selfie Badge in Top-Left Corner
+        c.save();
+        c.beginPath();
+        c.arc(115, 115, 82, 0, Math.PI * 2);
+        c.closePath();
+        c.lineWidth = 6;
+        c.strokeStyle = '#ffffff';
+        c.stroke();
+        c.clip();
+        c.drawImage(videoEl, 33, 33, 164, 164);
+        c.restore();
+
+        // Add subtle watermark badge
+        c.fillStyle = 'rgba(0,0,0,0.6)';
+        c.fillRect(520, 502, 185, 26);
+        c.fillStyle = '#ffffff';
+        c.font = 'bold 12px sans-serif';
+        c.fillText('📸 Split-Reality Dual Snap', 532, 519);
+
+        playMessageTone();
+        closeDualSnapModal();
+
+        // Compress below 220 KB and send over 16 KB chunks
+        let quality = 0.75;
+        let dataUrl = compCanvas.toDataURL('image/jpeg', quality);
+        let approxBytes = Math.round((dataUrl.length * 3) / 4);
+        while (approxBytes > 220 * 1024 && quality > 0.3) {
+          quality -= 0.1;
+          dataUrl = compCanvas.toDataURL('image/jpeg', quality);
+          approxBytes = Math.round((dataUrl.length * 3) / 4);
+        }
+
+        const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const msgId = 'msg_' + Date.now();
+
+        appendMessage(myName, dataUrl, 'outgoing', time, 'photo', msgId, { sizeKB, isDual: true });
+        await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', sizeKB, isDual: true, time });
+      } catch (err) {
+        closeDualSnapModal();
+        alert('Could not capture second camera: ' + err.message);
+      }
+    }
+
+    // ==================== NEW FEATURE #4: SYNCHRONIZED AMBIENT SOUNDSCAPE MIXER ====================
+    const soundscapeNodes = {};
+    const soundscapeLevels = { rain: 0, fire: 0, ocean: 0, vinyl: 0 };
+
+    function toggleSoundscapeModal(show) {
+      const m = document.getElementById('soundscapeModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function ensureSoundscapeGraph() {
+      initAudioContext();
+      if (soundscapeNodes.initialized) return;
+
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const createChannel = (filterType, freq, qVal) => {
+        const src = audioCtx.createBufferSource();
+        src.buffer = noiseBuffer;
+        src.loop = true;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = filterType;
+        filter.frequency.value = freq;
+        filter.Q.value = qVal;
+
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
+
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        src.start();
+        return gain;
+      };
+
+      soundscapeNodes.rain = createChannel('bandpass', 1100, 0.7);
+      soundscapeNodes.fire = createChannel('lowpass', 320, 1.5);
+      soundscapeNodes.ocean = createChannel('lowpass', 180, 0.9);
+      soundscapeNodes.vinyl = createChannel('highpass', 3800, 1.2);
+      soundscapeNodes.initialized = true;
+    }
+
+    function updateSoundscapeChannel(channel, val, broadcast = true) {
+      const num = parseInt(val, 10) || 0;
+      soundscapeLevels[channel] = num;
+
+      const slider = document.getElementById('slider_' + channel);
+      const label = document.getElementById('volLabel_' + channel);
+      if (slider) slider.value = num;
+      if (label) label.textContent = `${num}%`;
+
+      if (num > 0 || soundscapeNodes.initialized) {
+        ensureSoundscapeGraph();
+        const scaledGain = (num / 100) * (channel === 'vinyl' ? 0.05 : 0.16);
+        soundscapeNodes[channel].gain.setTargetAtTime(scaledGain, audioCtx.currentTime, 0.08);
+      }
+
+      if (broadcast) {
+        broadcastData({ type: 'SOUNDSCAPE_SYNC', channel, val: num, senderName: myName });
+      }
+    }
+
+    function muteAllSoundscapes(broadcast = true) {
+      ['rain', 'fire', 'ocean', 'vinyl'].forEach(ch => updateSoundscapeChannel(ch, 0, false));
+      if (broadcast) {
+        broadcastData({ type: 'SOUNDSCAPE_MUTE' });
+        appendSystemNotice('🎧 Muted ambient soundscape mixer');
+      }
+    }
+
+    // ==================== CO-OP LIVE BEAT STUDIO (8-STEP SYNTH SEQUENCER) ====================
     const beatTracks = [
       { name: 'Kick', color: 'bg-rose-500', freq: 65, type: 'sine' },
       { name: 'Snare', color: 'bg-amber-500', freq: 220, type: 'triangle' },
@@ -749,12 +999,8 @@
 
     function toggleBeatStudio(show) {
       const m = document.getElementById('beatStudioModal');
-      if (show) {
-        renderSequencerGrid();
-        m.classList.remove('hidden');
-      } else {
-        m.classList.add('hidden');
-      }
+      if (show) { renderSequencerGrid(); m.classList.remove('hidden'); }
+      else m.classList.add('hidden');
     }
 
     function renderSequencerGrid() {
@@ -764,7 +1010,7 @@
           <span class="w-12 text-[11px] font-bold theme-muted shrink-0">${tr.name}</span>
           <div class="flex-1 grid grid-cols-8 gap-1.5">
             ${beatMatrix[r].map((active, c) => `
-              <button onclick="toggleBeatCell(${r}, ${c}, true)" id="pad_${r}_${c}" class="h-8 rounded-lg border ${
+              <button onclick="toggleBeatCell(${r}, ${c}, true)" class="h-8 rounded-lg border ${
                 active ? tr.color + ' border-white/60 shadow' : 'theme-input theme-border'
               } ${beatStep === c && beatPlaying ? 'ring-2 ring-white' : ''} transition"></button>
             `).join('')}
@@ -777,9 +1023,7 @@
       beatMatrix[r][c] = !beatMatrix[r][c];
       if (beatMatrix[r][c]) playBeatTrackSound(r);
       renderSequencerGrid();
-      if (broadcast) {
-        broadcastData({ type: 'BEAT_CELL', r, c, val: beatMatrix[r][c] });
-      }
+      if (broadcast) broadcastData({ type: 'BEAT_CELL', r, c, val: beatMatrix[r][c] });
     }
 
     function clearBeatGrid(broadcast = true) {
@@ -796,9 +1040,7 @@
         btn.classList.replace('theme-accent', 'bg-rose-600');
         beatStep = 0;
         beatTimer = setInterval(() => {
-          for (let r = 0; r < 4; r++) {
-            if (beatMatrix[r][beatStep]) playBeatTrackSound(r);
-          }
+          for (let r = 0; r < 4; r++) { if (beatMatrix[r][beatStep]) playBeatTrackSound(r); }
           renderSequencerGrid();
           beatStep = (beatStep + 1) % 8;
         }, 260);
@@ -816,29 +1058,20 @@
       try {
         initAudioContext();
         const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
         const tr = beatTracks[r];
         osc.type = tr.type;
-        if (r === 0) {
-          osc.frequency.setValueAtTime(140, now);
-          osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
-        } else if (r === 3) {
-          const scale = [330, 392, 440, 523.25];
-          osc.frequency.setValueAtTime(scale[beatStep % scale.length], now);
-        } else {
-          osc.frequency.setValueAtTime(tr.freq, now);
-        }
+        if (r === 0) { osc.frequency.setValueAtTime(140, now); osc.frequency.exponentialRampToValueAtTime(42, now + 0.14); }
+        else if (r === 3) { const scale = [330, 392, 440, 523.25]; osc.frequency.setValueAtTime(scale[beatStep % scale.length], now); }
+        else { osc.frequency.setValueAtTime(tr.freq, now); }
         gain.gain.setValueAtTime(r === 2 ? 0.08 : 0.18, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + (r === 2 ? 0.06 : 0.18));
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.2);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.2);
       } catch (e) {}
     }
 
-    // ==================== 2. REAL-TIME LIVE CURSORS & LASER POINTER ====================
+    // ==================== LIVE CURSORS & LASER POINTER ====================
     let liveCursorsEnabled = false;
     let lastCursorSent = 0;
     let remoteCursorEls = {};
@@ -846,16 +1079,13 @@
     function toggleLiveCursors() {
       liveCursorsEnabled = !liveCursorsEnabled;
       const badge = document.getElementById('cursorStatusBadge');
-      const headerBtn = document.getElementById('headerCursorBtn');
       if (liveCursorsEnabled) {
         badge.textContent = 'ON';
         badge.className = 'text-[9px] font-bold text-emerald-400';
-        headerBtn.classList.add('border-rose-500', 'text-rose-400');
         showToast('Live Cursors & Laser ON', 'Move mouse or tap screen to point live!');
       } else {
         badge.textContent = 'OFF';
         badge.className = 'text-[9px] font-bold text-gray-500';
-        headerBtn.classList.remove('border-rose-500', 'text-rose-400');
         document.getElementById('cursorsLayer').innerHTML = '';
         remoteCursorEls = {};
       }
@@ -866,18 +1096,13 @@
       const now = Date.now();
       if (now - lastCursorSent < 75) return;
       lastCursorSent = now;
-
-      const nx = +(e.clientX / window.innerWidth).toFixed(3);
-      const ny = +(e.clientY / window.innerHeight).toFixed(3);
-      broadcastData({ type: 'CURSOR_MOVE', peerId: myPeerId, name: myName, nx, ny });
+      broadcastData({ type: 'CURSOR_MOVE', peerId: myPeerId, name: myName, nx: +(e.clientX / window.innerWidth).toFixed(3), ny: +(e.clientY / window.innerHeight).toFixed(3) });
     });
 
     window.addEventListener('pointerdown', (e) => {
       if (!liveCursorsEnabled || Object.keys(connections).length === 0) return;
-      const nx = +(e.clientX / window.innerWidth).toFixed(3);
-      const ny = +(e.clientY / window.innerHeight).toFixed(3);
       spawnLaserRing(e.clientX, e.clientY);
-      broadcastData({ type: 'LASER_PING', peerId: myPeerId, name: myName, nx, ny });
+      broadcastData({ type: 'LASER_PING', peerId: myPeerId, name: myName, nx: +(e.clientX / window.innerWidth).toFixed(3), ny: +(e.clientY / window.innerHeight).toFixed(3) });
     });
 
     function updateRemoteCursor(peerId, name, nx, ny) {
@@ -906,21 +1131,14 @@
       setTimeout(() => ring.remove(), 900);
     }
 
-    // ==================== 3. TIME-CAPSULE LOCKED MESSAGES ====================
-    function toggleCapsuleModal(show) {
-      const m = document.getElementById('capsuleModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
+    // ==================== TIME-CAPSULE MESSAGES ====================
+    function toggleCapsuleModal(show) { const m = document.getElementById('capsuleModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function sendTimeCapsule(seconds) {
       const text = document.getElementById('capsuleTextInput').value.trim();
       if (!text) return;
       document.getElementById('capsuleTextInput').value = '';
       toggleCapsuleModal(false);
-
-      const capId = 'cap_' + Date.now();
-      const capsule = { id: capId, sender: myName, text, seconds, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      const capsule = { id: 'cap_' + Date.now(), sender: myName, text, seconds, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
       broadcastData({ type: 'TIME_CAPSULE', capsule });
       renderTimeCapsuleCard(capsule, true);
     }
@@ -931,9 +1149,7 @@
       div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
       div.innerHTML = `
         <div class="w-72 theme-panel border border-amber-500/40 rounded-2xl p-3.5 shadow-lg text-center">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
-            ⏳ Time Capsule by ${escapeHTML(cap.sender)}
-          </div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">⏳ Time Capsule by ${escapeHTML(cap.sender)}</div>
           <div id="${cap.id}_vault" class="py-3 px-2.5 rounded-xl theme-input border my-1.5">
             <div class="text-lg font-mono font-extrabold text-amber-400" id="${cap.id}_clock">Unlocks in ${cap.seconds}s</div>
             <div class="text-[10px] theme-muted mt-0.5">Sealed until countdown hits 0</div>
@@ -949,46 +1165,33 @@
         rem--;
         const clockEl = document.getElementById(cap.id + '_clock');
         const vaultEl = document.getElementById(cap.id + '_vault');
-        if (rem > 0) {
-          if (clockEl) clockEl.textContent = `Unlocks in ${rem}s`;
-        } else {
+        if (rem > 0) { if (clockEl) clockEl.textContent = `Unlocks in ${rem}s`; }
+        else {
           clearInterval(iv);
           if (vaultEl) {
             vaultEl.className = 'py-3 px-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 my-1.5 text-left';
-            vaultEl.innerHTML = `
-              <div class="text-[10px] font-bold text-emerald-400 mb-1">🔓 Time Capsule Unlocked!</div>
-              <p class="text-xs md:text-sm text-white break-words">${escapeHTML(cap.text)}</p>
-            `;
+            vaultEl.innerHTML = `<div class="text-[10px] font-bold text-emerald-400 mb-1">🔓 Time Capsule Unlocked!</div><p class="text-xs md:text-sm text-white break-words">${escapeHTML(cap.text)}</p>`;
           }
           playMessageTone();
         }
       }, 1000);
     }
 
-    // ==================== 4. LIVE AMBIENT WEATHER AURA ENGINE ====================
+    // ==================== AMBIENT WEATHER AURA & STORY CHAIN ====================
     let currentAura = 'none';
     let auraParticles = [];
     const ambCanvas = document.getElementById('ambientCanvas');
     const ambCtx = ambCanvas.getContext('2d');
 
-    function resizeAmbientCanvas() {
-      ambCanvas.width = window.innerWidth;
-      ambCanvas.height = window.innerHeight;
-    }
+    function resizeAmbientCanvas() { ambCanvas.width = window.innerWidth; ambCanvas.height = window.innerHeight; }
     window.addEventListener('resize', resizeAmbientCanvas);
     resizeAmbientCanvas();
 
-    function toggleAuraModal(show) {
-      const m = document.getElementById('auraModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
+    function toggleAuraModal(show) { const m = document.getElementById('auraModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function setRoomAura(mode, broadcast = true) {
       currentAura = mode;
       auraParticles = [];
       toggleAuraModal(false);
-
       if (mode !== 'none') {
         for (let i = 0; i < 45; i++) {
           auraParticles.push({
@@ -1001,7 +1204,6 @@
           });
         }
       }
-
       if (broadcast) {
         broadcastData({ type: 'ROOM_AURA', mode, senderName: myName });
         appendSystemNotice(`🌌 Room atmosphere changed to: ${mode.toUpperCase()}`);
@@ -1012,33 +1214,22 @@
       ambCtx.clearRect(0, 0, ambCanvas.width, ambCanvas.height);
       if (currentAura !== 'none') {
         auraParticles.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
+          p.x += p.vx; p.y += p.vy;
           if (p.y > ambCanvas.height) { p.y = -10; p.x = Math.random() * ambCanvas.width; }
           if (p.x < 0) p.x = ambCanvas.width;
           if (p.x > ambCanvas.width) p.x = 0;
 
           if (currentAura === 'meteors') {
-            ambCtx.strokeStyle = 'rgba(129, 140, 248, 0.75)';
-            ambCtx.lineWidth = 2;
-            ambCtx.beginPath();
-            ambCtx.moveTo(p.x, p.y);
-            ambCtx.lineTo(p.x + 18, p.y - 18);
-            ambCtx.stroke();
+            ambCtx.strokeStyle = 'rgba(129, 140, 248, 0.75)'; ambCtx.lineWidth = 2;
+            ambCtx.beginPath(); ambCtx.moveTo(p.x, p.y); ambCtx.lineTo(p.x + 18, p.y - 18); ambCtx.stroke();
           } else if (currentAura === 'fireflies') {
             ambCtx.fillStyle = 'rgba(52, 211, 153, 0.8)';
-            ambCtx.beginPath();
-            ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ambCtx.fill();
+            ambCtx.beginPath(); ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ambCtx.fill();
           } else if (currentAura === 'matrix') {
-            ambCtx.fillStyle = 'rgba(34, 197, 94, 0.55)';
-            ambCtx.font = '13px monospace';
-            ambCtx.fillText(p.char, p.x, p.y);
+            ambCtx.fillStyle = 'rgba(34, 197, 94, 0.55)'; ambCtx.font = '13px monospace'; ambCtx.fillText(p.char, p.x, p.y);
           } else if (currentAura === 'snow') {
             ambCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ambCtx.beginPath();
-            ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ambCtx.fill();
+            ambCtx.beginPath(); ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ambCtx.fill();
           }
         });
       }
@@ -1046,25 +1237,14 @@
     }
     animateAmbientCanvas();
 
-    // ==================== 5. CO-OP BLIND STORY CHAIN BUILDER ====================
-    function toggleStoryChainModal(show) {
-      const m = document.getElementById('storyChainModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
+    function toggleStoryChainModal(show) { const m = document.getElementById('storyChainModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function launchStoryChain() {
       const firstLine = document.getElementById('storyChainStartInput').value.trim();
       if (!firstLine) return;
       document.getElementById('storyChainStartInput').value = '';
       toggleStoryChainModal(false);
-
       const chainId = 'chain_' + Date.now();
-      const chain = {
-        id: chainId,
-        maxLines: 4,
-        entries: [{ author: myName, text: firstLine }]
-      };
+      const chain = { id: chainId, maxLines: 4, entries: [{ author: myName, text: firstLine }] };
       storyChains[chainId] = chain;
       broadcastData({ type: 'STORY_CHAIN_UPDATE', chain });
       renderStoryChainCard(chain, true);
@@ -1075,7 +1255,6 @@
       const line = input ? input.value.trim() : '';
       const chain = storyChains[chainId];
       if (!line || !chain || chain.entries.length >= chain.maxLines) return;
-
       chain.entries.push({ author: myName, text: line });
       updateStoryChainUI(chainId);
       broadcastData({ type: 'STORY_CHAIN_UPDATE', chain });
@@ -1100,23 +1279,18 @@
       const chain = storyChains[chainId];
       const body = document.getElementById(chainId + '_body');
       if (!chain || !body) return;
-
       const count = chain.entries.length;
       if (count < chain.maxLines) {
         const lastEntry = chain.entries[count - 1];
-        const words = lastEntry.text.split(/\s+/);
-        const hint = words.slice(-3).join(' ');
+        const hint = lastEntry.text.split(/\s+/).slice(-3).join(' ');
         const alreadyAdded = chain.entries.some(e => e.author === myName) && count === 1;
-
         body.innerHTML = `
           <p class="text-[11px] theme-muted mb-2">Progress: <b>${count}/${chain.maxLines}</b> lines written</p>
           <div class="p-2.5 rounded-xl theme-input border text-xs mb-2.5">
             <span class="text-[10px] text-indigo-400 block">Clue (Last 3 words):</span>
             <span class="font-bold italic">"...${escapeHTML(hint)}"</span>
           </div>
-          ${alreadyAdded ? `
-            <p class="text-[11px] text-amber-400 font-medium">Waiting for partner to add the next line...</p>
-          ` : `
+          ${alreadyAdded ? `<p class="text-[11px] text-amber-400 font-medium">Waiting for partner to add the next line...</p>` : `
             <div class="flex gap-1.5">
               <input id="${chainId}_input" type="text" placeholder="Continue the story..." class="flex-1 theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none min-w-0" />
               <button onclick="submitStoryChainLine('${chainId}')" class="px-3 py-1.5 rounded-lg theme-accent text-xs font-semibold shrink-0">Add</button>
@@ -1128,9 +1302,7 @@
         body.innerHTML = `
           <div class="text-[10px] font-bold text-amber-400 mb-2">✨ Full Story Unlocked!</div>
           <div class="space-y-1.5 text-xs bg-white/5 p-2.5 rounded-xl">
-            ${chain.entries.map(e => `
-              <div><span class="font-bold text-indigo-400">${escapeHTML(e.author)}:</span> <span>${escapeHTML(e.text)}</span></div>
-            `).join('')}
+            ${chain.entries.map(e => `<div><span class="font-bold text-indigo-400">${escapeHTML(e.author)}:</span> <span>${escapeHTML(e.text)}</span></div>`).join('')}
           </div>
         `;
       }
@@ -1923,6 +2095,12 @@
       ).join('');
 
       document.getElementById('surprisesGrid').innerHTML = `
+        <button type="button" onclick="openDualSnapModal(); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">📸</span><span class="text-[10px] font-medium">Dual Snap</span>
+        </button>
+        <button type="button" onclick="toggleSoundscapeModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎧</span><span class="text-[10px] font-medium">Soundscape</span>
+        </button>
         <button type="button" onclick="toggleBeatStudio(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
           <span class="text-xl">🎹</span><span class="text-[10px] font-medium">Beat Studio</span>
         </button>
@@ -1952,12 +2130,6 @@
         </button>
         <button type="button" onclick="toggleWhiteboard(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
           <span class="text-xl">🎨</span><span class="text-[10px] font-medium">Whiteboard</span>
-        </button>
-        <button type="button" onclick="togglePollModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">📊</span><span class="text-[10px] font-medium">Live Poll</span>
-        </button>
-        <button type="button" onclick="toggleTimerModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">⏱️</span><span class="text-[10px] font-medium">Sync Timer</span>
         </button>
       `;
     }
@@ -2315,6 +2487,14 @@
           roomRoster = data.members;
           renderGuestRoster(data.members);
         }
+        else if (data.type === 'SOUNDSCAPE_SYNC') {
+          updateSoundscapeChannel(data.channel, data.val, false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'SOUNDSCAPE_MUTE') {
+          muteAllSoundscapes(false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
         else if (data.type === 'BEAT_CELL') {
           beatMatrix[data.r][data.c] = data.val;
           if (data.val) playBeatTrackSound(data.r);
@@ -2496,7 +2676,8 @@
             const fullDataUrl = buf.chunks.join('');
             const m = buf.meta;
             appendMessage(buf.senderName, fullDataUrl, 'incoming', m.time, m.msgMode, m.msgId, m);
-            const notifBody = m.msgMode === 'photo' ? `🖼️ Sent a compressed photo (${m.sizeKB} KB)`
+            const notifBody = m.isDual ? `📸 Sent a Split-Reality Dual Snap (${m.sizeKB} KB)`
+                            : m.msgMode === 'photo' ? `🖼️ Sent a compressed photo (${m.sizeKB} KB)`
                             : m.msgMode === 'image' ? '🎨 Sent a whiteboard sketch'
                             : '🎤 Sent a voice note';
             triggerIncomingNotification(buf.senderName, notifBody, false);
@@ -2674,6 +2855,7 @@
         msgDiv.innerHTML = `
           ${senderTag}
           <div class="max-w-[82%] md:max-w-[55%] p-2 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
+            ${meta.isDual ? `<div class="text-[10px] font-bold mb-1 opacity-90">📸 Split-Reality Dual Snap</div>` : ''}
             <img src="${content}" onclick="openLightbox('${content}')" class="rounded-xl max-h-64 w-full object-cover cursor-zoom-in" />
             <div class="flex items-center justify-between text-[9px] opacity-80 mt-1.5 px-1">
               <span><i class="fa-solid fa-check-circle mr-1"></i>${meta.sizeKB || ''} KB</span>
@@ -2805,6 +2987,8 @@
       disableBackgroundPersistence();
       stopRingtone();
       endCall();
+      closeDualSnapModal();
+      muteAllSoundscapes(false);
       setRoomAura('none', false);
       liveCursorsEnabled = false;
       document.getElementById('cursorsLayer').innerHTML = '';
@@ -2939,6 +3123,35 @@
       isCamDisabled = !isCamDisabled;
       localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled);
       document.getElementById('camBtn').classList.toggle('bg-rose-600', isCamDisabled);
+    }
+
+    async function toggleScreenShare() {
+      if (!activeCall) { alert('Start a Voice or Video call first to share your screen.'); return; }
+      const btn = document.getElementById('screenShareBtn');
+      if (!isScreenSharing) {
+        try {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenTrack = screenStream.getVideoTracks()[0];
+          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) await sender.replaceTrack(screenTrack);
+          document.getElementById('localVideo').srcObject = screenStream;
+          document.getElementById('localVideo').classList.remove('hidden');
+          document.getElementById('remoteVideo').classList.remove('hidden');
+          document.getElementById('audioIndicator').classList.add('hidden');
+          isScreenSharing = true;
+          btn.classList.add('bg-emerald-600');
+          screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
+        } catch (err) {}
+      } else {
+        if (localStream && localStream.getVideoTracks().length > 0) {
+          const camTrack = localStream.getVideoTracks()[0];
+          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) await sender.replaceTrack(camTrack);
+          document.getElementById('localVideo').srcObject = localStream;
+        }
+        isScreenSharing = false;
+        btn.classList.remove('bg-emerald-600');
+      }
     }
 
     function endCall() {
