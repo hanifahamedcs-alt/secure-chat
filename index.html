@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink — Always-On Room & Interactive Suite</title>
+  <title>REALTIME — Live Beat Studio, Time Capsules & Co-Op Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -39,7 +39,7 @@
     .theme-border { border-color: var(--border-color); }
     .theme-muted { color: var(--text-muted); }
 
-    .chat-scroll::-webkit-scrollbar { width: 4px; }
+    .chat-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
     .chat-scroll::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); border-radius: 4px; }
     * { -webkit-tap-highlight-color: transparent; }
 
@@ -84,9 +84,40 @@
       user-select: none;
       transition: filter 0.3s ease;
     }
+
+    /* Live Remote Cursor Tag */
+    .remote-cursor {
+      position: fixed;
+      pointer-events: none;
+      z-index: 60;
+      transition: left 0.08s linear, top 0.08s linear;
+    }
+
+    /* Laser Ping Ripple */
+    @keyframes laserPulse {
+      0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+    }
+    .laser-ring {
+      position: fixed;
+      width: 44px;
+      height: 44px;
+      border: 3px solid #f43f5e;
+      border-radius: 9999px;
+      box-shadow: 0 0 15px #f43f5e;
+      pointer-events: none;
+      z-index: 60;
+      animation: laserPulse 0.85s ease-out forwards;
+    }
   </style>
 </head>
 <body id="appBody" class="flex flex-col font-sans select-none overflow-hidden">
+
+  <!-- ==================== AMBIENT ROOM WEATHER CANVAS ==================== -->
+  <canvas id="ambientCanvas" class="fixed inset-0 pointer-events-none z-10 opacity-70"></canvas>
+
+  <!-- ==================== REMOTE CURSORS LAYER ==================== -->
+  <div id="cursorsLayer" class="fixed inset-0 pointer-events-none z-50"></div>
 
   <!-- ==================== JOIN ROOM MODAL ==================== -->
   <div id="authOverlay" class="fixed inset-0 z-50 bg-[#0b0e14]/95 backdrop-blur-md flex items-center justify-center p-4">
@@ -94,13 +125,13 @@
       <div class="w-14 h-14 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-indigo-500/30">
         <i class="fa-solid fa-shield-halved"></i>
       </div>
-      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Encrypted Room</h2>
-      <p class="text-xs text-gray-400 mb-5">Direct WebRTC TURN Connection • Games, Whiteboard, Soundboard & Calls</p>
+      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Interactive Room</h2>
+      <p class="text-xs text-gray-400 mb-5">Shared Beat Studio • Live Cursors • Time Capsules • Co-Op Story & WebRTC Calls</p>
       
       <div class="space-y-3 text-left">
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. TOM" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <input id="userNameInput" type="text" placeholder="e.g. WIN" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
@@ -111,6 +142,88 @@
         </button>
       </div>
       <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
+    </div>
+  </div>
+
+  <!-- ==================== NEW FEATURE 1: SHARED LIVE BEAT MAKER / SYNTH PAD ==================== -->
+  <div id="beatStudioModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-3 md:p-6">
+    <div class="theme-panel border rounded-2xl max-w-xl w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b theme-border pb-3 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🎹</span>
+          <h3 class="text-sm font-bold">Co-Op Live Beat Studio</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Real-Time Jam</span>
+        </div>
+        <button onclick="toggleBeatStudio(false)" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-3">Toggle pads together—every beat plays live on everyone's speakers!</p>
+      
+      <!-- 4 Tracks x 8 Steps Sequencer Grid -->
+      <div id="sequencerGrid" class="space-y-2 mb-4 overflow-x-auto"></div>
+
+      <div class="flex items-center justify-between pt-2 border-t theme-border">
+        <div class="flex items-center gap-2">
+          <button id="beatPlayBtn" onclick="toggleBeatPlayback(true)" class="px-4 py-2 rounded-xl theme-accent text-xs font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-play"></i> Start Loop
+          </button>
+          <button onclick="clearBeatGrid(true)" class="px-3 py-2 rounded-xl theme-input border text-xs font-medium hover:text-rose-400">
+            Clear Grid
+          </button>
+        </div>
+        <span class="text-[11px] font-mono theme-muted">115 BPM • Synth</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== NEW FEATURE 3: TIME-CAPSULE MESSAGE COMPOSER ==================== -->
+  <div id="capsuleModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>⏳</span> Seal a Time-Capsule Message</h3>
+        <button onclick="toggleCapsuleModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-2.5">Locked inside a cryptographic vault—nobody can read it until the countdown reaches zero!</p>
+      <div class="space-y-2.5">
+        <textarea id="capsuleTextInput" rows="2" placeholder="Write a prediction, secret, or future note..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"></textarea>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="sendTimeCapsule(20)" class="py-2 rounded-xl theme-input border hover:border-indigo-500 text-xs font-bold">20 Secs</button>
+          <button onclick="sendTimeCapsule(60)" class="py-2 rounded-xl theme-input border hover:border-indigo-500 text-xs font-bold">1 Min</button>
+          <button onclick="sendTimeCapsule(180)" class="py-2 rounded-xl theme-input border hover:border-indigo-500 text-xs font-bold">3 Mins</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== NEW FEATURE 4: AMBIENT WEATHER AURA PICKER ==================== -->
+  <div id="auraModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>🌌</span> Room Ambient Weather</h3>
+        <button onclick="toggleAuraModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-3">Changes the live animated atmosphere across everyone's chat screen:</p>
+      <div class="grid grid-cols-2 gap-2 text-xs font-semibold">
+        <button onclick="setRoomAura('meteors', true)" class="p-2.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-2"><span>🌠</span> Meteors</button>
+        <button onclick="setRoomAura('fireflies', true)" class="p-2.5 rounded-xl theme-input border hover:border-emerald-500 flex items-center gap-2"><span>✨</span> Fireflies</button>
+        <button onclick="setRoomAura('matrix', true)" class="p-2.5 rounded-xl theme-input border hover:border-green-500 flex items-center gap-2"><span>📟</span> Cyber Rain</button>
+        <button onclick="setRoomAura('snow', true)" class="p-2.5 rounded-xl theme-input border hover:border-cyan-500 flex items-center gap-2"><span>❄️</span> Snowfall</button>
+        <button onclick="setRoomAura('none', true)" class="col-span-2 p-2 rounded-xl bg-rose-600/15 text-rose-400 border border-rose-500/30">Turn Off Atmosphere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== NEW FEATURE 5: CO-OP BLIND STORY CHAIN MODAL ==================== -->
+  <div id="storyChainModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>📖</span> Co-Op Blind Story Chain</h3>
+        <button onclick="toggleStoryChainModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-2.5">Each player adds a line seeing ONLY the last 3 words of the previous line—then unlock the hilarious full story!</p>
+      <input id="storyChainStartInput" type="text" placeholder="Opening line (e.g. Late last night the robot...)" class="w-full theme-input border rounded-xl px-3 py-2.5 text-xs focus:outline-none mb-3" />
+      <button onclick="launchStoryChain()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">
+        📖 Start 4-Line Story Chain
+      </button>
     </div>
   </div>
 
@@ -213,7 +326,6 @@
         <h3 class="text-sm font-bold flex items-center gap-2"><span>🎡</span> Live Decision Roulette</h3>
         <button onclick="toggleWheelModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] theme-muted mb-2.5">Enter comma-separated options. Everyone in the room watches the spin live!</p>
       <div class="space-y-2.5">
         <input id="wheelTitleInput" type="text" value="Who goes first?" placeholder="Wheel title..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
         <input id="wheelOptionsInput" type="text" placeholder="e.g. Pizza, Burgers, Biryani, Tacos" class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
@@ -231,7 +343,6 @@
         <h3 class="text-sm font-bold flex items-center gap-2"><span>🎟️</span> Send Mystery Scratch Card</h3>
         <button onclick="toggleScratchModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] theme-muted mb-2.5">Your message is hidden under silver foil—recipients must rub/scratch it off to read!</p>
       <div class="space-y-2.5">
         <input id="scratchSecretInput" type="text" placeholder="Hidden surprise, dare, or secret code..." class="w-full theme-input border rounded-xl px-3 py-2.5 text-xs focus:outline-none" />
         <button onclick="sendScratchCard()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">
@@ -276,7 +387,7 @@
   </div>
 
   <!-- ==================== MAIN MESSENGER INTERFACE ==================== -->
-  <div class="flex-1 flex overflow-hidden relative">
+  <div class="flex-1 flex overflow-hidden relative z-20">
     
     <!-- Mobile Sidebar Drawer Backdrop -->
     <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
@@ -300,65 +411,66 @@
       </div>
 
       <!-- Screen Theme & Color Picker -->
-      <div class="p-3.5 border-b theme-border">
-        <div class="flex items-center justify-between mb-2">
+      <div class="p-3 border-b theme-border">
+        <div class="flex items-center justify-between mb-1.5">
           <span class="text-[10px] font-bold tracking-wider theme-muted uppercase">Screen Theme & Color</span>
-          <label class="text-[10px] font-semibold text-indigo-400 cursor-pointer flex items-center gap-1 hover:underline" title="Pick Custom Accent Color">
+          <label class="text-[10px] font-semibold text-indigo-400 cursor-pointer flex items-center gap-1 hover:underline">
             <i class="fa-solid fa-palette"></i> Custom
             <input type="color" id="customAccentInput" onchange="applyCustomAccent(this.value)" class="w-0 h-0 opacity-0 absolute" />
           </label>
         </div>
-        <div class="grid grid-cols-4 gap-2">
-          <button onclick="applyTheme('indigo')" title="Midnight Indigo" class="h-7 rounded-lg bg-[#4f46e5] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('emerald')" title="Emerald Matrix" class="h-7 rounded-lg bg-[#059669] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('rose')" title="Crimson Rose" class="h-7 rounded-lg bg-[#e11d48] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('amber')" title="Cyber Amber" class="h-7 rounded-lg bg-[#d97706] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('violet')" title="Royal Violet" class="h-7 rounded-lg bg-[#7c3aed] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('cyan')" title="Ocean Cyan" class="h-7 rounded-lg bg-[#0891b2] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('obsidian')" title="Obsidian Dark" class="h-7 rounded-lg bg-[#334155] border border-white/30 hover:scale-105 transition"></button>
-          <button onclick="applyTheme('light')" title="Clean Light" class="h-7 rounded-lg bg-[#f8fafc] border border-gray-400 hover:scale-105 transition"></button>
+        <div class="grid grid-cols-4 gap-1.5">
+          <button onclick="applyTheme('indigo')" title="Midnight Indigo" class="h-6 rounded-lg bg-[#4f46e5] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('emerald')" title="Emerald Matrix" class="h-6 rounded-lg bg-[#059669] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('rose')" title="Crimson Rose" class="h-6 rounded-lg bg-[#e11d48] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('amber')" title="Cyber Amber" class="h-6 rounded-lg bg-[#d97706] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('violet')" title="Royal Violet" class="h-6 rounded-lg bg-[#7c3aed] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('cyan')" title="Ocean Cyan" class="h-6 rounded-lg bg-[#0891b2] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('obsidian')" title="Obsidian Dark" class="h-6 rounded-lg bg-[#334155] border border-white/30 hover:scale-105 transition"></button>
+          <button onclick="applyTheme('light')" title="Clean Light" class="h-6 rounded-lg bg-[#f8fafc] border border-gray-400 hover:scale-105 transition"></button>
         </div>
       </div>
 
-      <!-- Games, Tools & Surprises -->
-      <div class="p-3.5 border-b theme-border">
-        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Games, Tools & Surprises</div>
+      <!-- Original Interactive Suite -->
+      <div class="p-3 border-b theme-border">
+        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-1.5">Fresh Room Experiences</div>
         <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-          <button onclick="openOpponentSelector('rps'); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+          <button onclick="toggleBeatStudio(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>🎹</span> Beat Studio
+          </button>
+          <button onclick="toggleCapsuleModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-amber-500 flex items-center gap-1.5 font-medium">
+            <span>⏳</span> Time Capsule
+          </button>
+          <button onclick="toggleLiveCursors(); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-rose-500 flex items-center justify-between font-medium">
+            <span><span>🎯</span> Cursors</span>
+            <span id="cursorStatusBadge" class="text-[9px] font-bold text-gray-500">OFF</span>
+          </button>
+          <button onclick="toggleAuraModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-cyan-500 flex items-center gap-1.5 font-medium">
+            <span>🌌</span> Weather Aura
+          </button>
+          <button onclick="toggleStoryChainModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-emerald-500 flex items-center gap-1.5 font-medium">
+            <span>📖</span> Story Chain
+          </button>
+          <button onclick="openOpponentSelector('rps'); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎮</span> RPS Duel
           </button>
-          <button onclick="openOpponentSelector('ttt'); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+          <button onclick="openOpponentSelector('ttt'); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>❌</span> Tic-Tac-Toe
           </button>
-          <button onclick="toggleWhiteboard(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+          <button onclick="toggleWhiteboard(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎨</span> Whiteboard
           </button>
-          <button onclick="toggleWheelModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>🎡</span> Spin Wheel
-          </button>
-          <button onclick="toggleScratchModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+          <button onclick="toggleScratchModal(true); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🎟️</span> Scratch Card
           </button>
-          <button onclick="launchTriviaQuiz(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+          <button onclick="launchTriviaQuiz(); toggleMobileSidebar();" class="p-1.5 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
             <span>🧠</span> Trivia Quiz
-          </button>
-          <button onclick="togglePollModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>📊</span> Live Poll
-          </button>
-          <button onclick="toggleTimerModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>⏱️</span> Sync Timer
-          </button>
-          <button onclick="exportChatTranscript(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <span>💾</span> Export Log
-          </button>
-          <button onclick="sendScreenNudge(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-amber-500 flex items-center gap-1.5 font-medium">
-            <span>⚡</span> Buzz Screen
           </button>
         </div>
       </div>
 
       <!-- Sound & Alerts Toggle -->
-      <div class="px-3.5 py-2.5 border-b theme-border flex items-center justify-between text-xs">
+      <div class="px-3.5 py-2 border-b theme-border flex items-center justify-between text-xs">
         <span class="font-medium flex items-center gap-2">
           <i class="fa-solid fa-volume-high text-indigo-400"></i> Sound & Alerts
         </span>
@@ -368,7 +480,7 @@
       </div>
 
       <!-- Room Info & Participants -->
-      <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-bold tracking-wider theme-muted uppercase flex justify-between items-center">
+      <div class="px-3.5 pt-2 pb-1 text-[10px] font-bold tracking-wider theme-muted uppercase flex justify-between items-center">
         <span>Room #<span id="roomLabel">none</span></span>
         <span id="participantCount" class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">1</span>
       </div>
@@ -376,11 +488,11 @@
       <div id="participantsList" class="flex-1 overflow-y-auto px-3 py-1.5 space-y-1.5 chat-scroll"></div>
 
       <!-- Sidebar Actions -->
-      <div class="p-3 border-t theme-border space-y-2">
-        <button onclick="clearChat()" class="w-full py-2 px-3 rounded-xl border theme-border hover:bg-white/5 text-xs font-medium flex items-center justify-center gap-2 transition">
+      <div class="p-3 border-t theme-border space-y-1.5">
+        <button onclick="clearChat()" class="w-full py-1.5 px-3 rounded-xl border theme-border hover:bg-white/5 text-xs font-medium flex items-center justify-center gap-2 transition">
           <i class="fa-solid fa-broom text-amber-400"></i> Clear Chat History
         </button>
-        <button onclick="logoutRoom()" class="w-full py-2 px-3 rounded-xl bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-medium flex items-center justify-center gap-2 transition">
+        <button onclick="logoutRoom()" class="w-full py-1.5 px-3 rounded-xl bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-medium flex items-center justify-center gap-2 transition">
           <i class="fa-solid fa-right-from-bracket"></i> Log Off & Disconnect
         </button>
       </div>
@@ -406,11 +518,11 @@
 
         <!-- Header Action Buttons -->
         <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
-          <button onclick="openOpponentSelector('rps')" title="Challenge Player to RPS" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
-            🎮
+          <button onclick="toggleBeatStudio(true)" title="Live Co-Op Beat Maker" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            🎹
           </button>
-          <button onclick="sendScreenNudge()" title="Buzz / Shake Screen" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
-            ⚡
+          <button onclick="toggleLiveCursors()" id="headerCursorBtn" title="Toggle Live Cursors & Laser Pointer" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            🎯
           </button>
           <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
             <i class="fa-solid fa-phone text-xs"></i>
@@ -436,7 +548,7 @@
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
         <div class="text-center my-2">
           <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
-            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Connected via TURN Relay • Chunked Photos/Files, Games, Soundboard & Calls Ready!
+            <i class="fa-solid fa-sparkles text-indigo-400 mr-1"></i> Try Co-Op Beat Studio 🎹, Time Capsules ⏳, Live Cursors 🎯 & Story Chain 📖!
           </span>
         </div>
       </div>
@@ -457,7 +569,7 @@
           <button onclick="switchPickerTab('emojis')" id="tabEmojis" class="flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent">Emojis</button>
           <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
           <button onclick="switchPickerTab('sounds')" id="tabSounds" class="flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted hover:bg-white/5">Sounds</button>
-          <button onclick="switchPickerTab('surprises')" id="tabSurprises" class="flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted hover:bg-white/5">Apps & FX</button>
+          <button onclick="switchPickerTab('surprises')" id="tabSurprises" class="flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted hover:bg-white/5">Lab & FX</button>
         </div>
 
         <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center"></div>
@@ -466,7 +578,7 @@
         <div id="surprisesGrid" class="hidden grid grid-cols-3 gap-2 max-h-48 overflow-y-auto chat-scroll text-center"></div>
       </div>
 
-      <!-- Hidden File Inputs for Chunked Image & File Transfers -->
+      <!-- Hidden File Inputs -->
       <input type="file" id="imageFileInput" accept="image/*" onchange="handleImageUpload(event)" class="hidden" />
       <input type="file" id="docFileInput" onchange="handleFileUpload(event)" class="hidden" />
 
@@ -488,26 +600,22 @@
         </div>
 
         <form onsubmit="sendMessage(event)" class="flex items-center gap-1.5 md:gap-2">
-          <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base hover:scale-105 transition shrink-0" title="Emojis, Stickers, Sounds & Games">
+          <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base hover:scale-105 transition shrink-0" title="Emojis, Stickers, Sounds & Lab">
             😊
           </button>
 
-          <!-- Chunked Compressed Photo -->
           <button type="button" onclick="document.getElementById('imageFileInput').click()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-indigo-400 transition shrink-0" title="Send Compressed Photo (16KB Chunked)">
             <i class="fa-solid fa-image"></i>
           </button>
 
-          <!-- Chunked File Transfer -->
-          <button type="button" onclick="document.getElementById('docFileInput').click()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-emerald-400 transition shrink-0" title="Send Document / File (Up to 10MB)">
-            <i class="fa-solid fa-paperclip"></i>
+          <button type="button" onclick="toggleCapsuleModal(true)" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-amber-400 transition shrink-0" title="Send Time-Capsule Message">
+            <i class="fa-solid fa-hourglass-half"></i>
           </button>
 
-          <!-- Secret Self-Destruct Toggle -->
           <button type="button" id="secretBtn" onclick="toggleSecretMode()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-amber-400 transition shrink-0" title="Secret Self-Destruct Message">
             <i class="fa-solid fa-bomb"></i>
           </button>
 
-          <!-- Voice Note Button -->
           <button type="button" id="voiceNoteBtn" onclick="toggleVoiceRecording()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-rose-400 transition shrink-0" title="Record Instant Voice Note">
             <i class="fa-solid fa-microphone-lines"></i>
           </button>
@@ -575,7 +683,7 @@
     let unreadCount = 0;
     const originalTitle = document.title;
 
-    // Technical & Interactive States
+    // Interactive States
     let incomingChunkBuffers = {};
     let chatTranscript = [];
     let activeReplyContext = null;
@@ -587,11 +695,12 @@
     let audioChunks = [];
     let isRecordingVoice = false;
 
-    // Game & Poll Trackers
+    // Game & Lab Trackers
     let activePolls = {};
     let rpsGames = {};
     let tttGames = {};
     let triviaGames = {};
+    let storyChains = {};
     let messageReactions = {};
     let pendingGameType = 'rps';
 
@@ -626,6 +735,407 @@
       }
     ];
 
+    // ==================== 1. CO-OP LIVE BEAT STUDIO (8-STEP SYNTH SEQUENCER) ====================
+    const beatTracks = [
+      { name: 'Kick', color: 'bg-rose-500', freq: 65, type: 'sine' },
+      { name: 'Snare', color: 'bg-amber-500', freq: 220, type: 'triangle' },
+      { name: 'Hi-Hat', color: 'bg-cyan-400', freq: 1200, type: 'square' },
+      { name: 'Synth', color: 'bg-indigo-500', freq: 440, type: 'sine' }
+    ];
+    let beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false));
+    let beatPlaying = false;
+    let beatStep = 0;
+    let beatTimer = null;
+
+    function toggleBeatStudio(show) {
+      const m = document.getElementById('beatStudioModal');
+      if (show) {
+        renderSequencerGrid();
+        m.classList.remove('hidden');
+      } else {
+        m.classList.add('hidden');
+      }
+    }
+
+    function renderSequencerGrid() {
+      const grid = document.getElementById('sequencerGrid');
+      grid.innerHTML = beatTracks.map((tr, r) => `
+        <div class="flex items-center gap-2">
+          <span class="w-12 text-[11px] font-bold theme-muted shrink-0">${tr.name}</span>
+          <div class="flex-1 grid grid-cols-8 gap-1.5">
+            ${beatMatrix[r].map((active, c) => `
+              <button onclick="toggleBeatCell(${r}, ${c}, true)" id="pad_${r}_${c}" class="h-8 rounded-lg border ${
+                active ? tr.color + ' border-white/60 shadow' : 'theme-input theme-border'
+              } ${beatStep === c && beatPlaying ? 'ring-2 ring-white' : ''} transition"></button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleBeatCell(r, c, broadcast = true) {
+      beatMatrix[r][c] = !beatMatrix[r][c];
+      if (beatMatrix[r][c]) playBeatTrackSound(r);
+      renderSequencerGrid();
+      if (broadcast) {
+        broadcastData({ type: 'BEAT_CELL', r, c, val: beatMatrix[r][c] });
+      }
+    }
+
+    function clearBeatGrid(broadcast = true) {
+      beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false));
+      renderSequencerGrid();
+      if (broadcast) broadcastData({ type: 'BEAT_CLEAR' });
+    }
+
+    function toggleBeatPlayback(broadcast = true) {
+      beatPlaying = !beatPlaying;
+      const btn = document.getElementById('beatPlayBtn');
+      if (beatPlaying) {
+        btn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Loop`;
+        btn.classList.replace('theme-accent', 'bg-rose-600');
+        beatStep = 0;
+        beatTimer = setInterval(() => {
+          for (let r = 0; r < 4; r++) {
+            if (beatMatrix[r][beatStep]) playBeatTrackSound(r);
+          }
+          renderSequencerGrid();
+          beatStep = (beatStep + 1) % 8;
+        }, 260);
+      } else {
+        clearInterval(beatTimer);
+        btn.innerHTML = `<i class="fa-solid fa-play"></i> Start Loop`;
+        btn.classList.replace('bg-rose-600', 'theme-accent');
+        renderSequencerGrid();
+      }
+      if (broadcast) broadcastData({ type: 'BEAT_STATE', playing: beatPlaying });
+    }
+
+    function playBeatTrackSound(r) {
+      if (!soundEnabled) return;
+      try {
+        initAudioContext();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const tr = beatTracks[r];
+        osc.type = tr.type;
+        if (r === 0) {
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
+        } else if (r === 3) {
+          const scale = [330, 392, 440, 523.25];
+          osc.frequency.setValueAtTime(scale[beatStep % scale.length], now);
+        } else {
+          osc.frequency.setValueAtTime(tr.freq, now);
+        }
+        gain.gain.setValueAtTime(r === 2 ? 0.08 : 0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (r === 2 ? 0.06 : 0.18));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch (e) {}
+    }
+
+    // ==================== 2. REAL-TIME LIVE CURSORS & LASER POINTER ====================
+    let liveCursorsEnabled = false;
+    let lastCursorSent = 0;
+    let remoteCursorEls = {};
+
+    function toggleLiveCursors() {
+      liveCursorsEnabled = !liveCursorsEnabled;
+      const badge = document.getElementById('cursorStatusBadge');
+      const headerBtn = document.getElementById('headerCursorBtn');
+      if (liveCursorsEnabled) {
+        badge.textContent = 'ON';
+        badge.className = 'text-[9px] font-bold text-emerald-400';
+        headerBtn.classList.add('border-rose-500', 'text-rose-400');
+        showToast('Live Cursors & Laser ON', 'Move mouse or tap screen to point live!');
+      } else {
+        badge.textContent = 'OFF';
+        badge.className = 'text-[9px] font-bold text-gray-500';
+        headerBtn.classList.remove('border-rose-500', 'text-rose-400');
+        document.getElementById('cursorsLayer').innerHTML = '';
+        remoteCursorEls = {};
+      }
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      if (!liveCursorsEnabled || Object.keys(connections).length === 0) return;
+      const now = Date.now();
+      if (now - lastCursorSent < 75) return;
+      lastCursorSent = now;
+
+      const nx = +(e.clientX / window.innerWidth).toFixed(3);
+      const ny = +(e.clientY / window.innerHeight).toFixed(3);
+      broadcastData({ type: 'CURSOR_MOVE', peerId: myPeerId, name: myName, nx, ny });
+    });
+
+    window.addEventListener('pointerdown', (e) => {
+      if (!liveCursorsEnabled || Object.keys(connections).length === 0) return;
+      const nx = +(e.clientX / window.innerWidth).toFixed(3);
+      const ny = +(e.clientY / window.innerHeight).toFixed(3);
+      spawnLaserRing(e.clientX, e.clientY);
+      broadcastData({ type: 'LASER_PING', peerId: myPeerId, name: myName, nx, ny });
+    });
+
+    function updateRemoteCursor(peerId, name, nx, ny) {
+      if (!liveCursorsEnabled) return;
+      let el = remoteCursorEls[peerId];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'remote-cursor flex items-center gap-1';
+        el.innerHTML = `
+          <i class="fa-solid fa-location-arrow text-rose-500 text-sm -rotate-90 drop-shadow"></i>
+          <span class="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-bold shadow">${escapeHTML(name)}</span>
+        `;
+        document.getElementById('cursorsLayer').appendChild(el);
+        remoteCursorEls[peerId] = el;
+      }
+      el.style.left = (nx * window.innerWidth) + 'px';
+      el.style.top = (ny * window.innerHeight) + 'px';
+    }
+
+    function spawnLaserRing(x, y) {
+      const ring = document.createElement('div');
+      ring.className = 'laser-ring';
+      ring.style.left = x + 'px';
+      ring.style.top = y + 'px';
+      document.getElementById('cursorsLayer').appendChild(ring);
+      setTimeout(() => ring.remove(), 900);
+    }
+
+    // ==================== 3. TIME-CAPSULE LOCKED MESSAGES ====================
+    function toggleCapsuleModal(show) {
+      const m = document.getElementById('capsuleModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function sendTimeCapsule(seconds) {
+      const text = document.getElementById('capsuleTextInput').value.trim();
+      if (!text) return;
+      document.getElementById('capsuleTextInput').value = '';
+      toggleCapsuleModal(false);
+
+      const capId = 'cap_' + Date.now();
+      const capsule = { id: capId, sender: myName, text, seconds, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      broadcastData({ type: 'TIME_CAPSULE', capsule });
+      renderTimeCapsuleCard(capsule, true);
+    }
+
+    function renderTimeCapsuleCard(cap, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div class="w-72 theme-panel border border-amber-500/40 rounded-2xl p-3.5 shadow-lg text-center">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
+            ⏳ Time Capsule by ${escapeHTML(cap.sender)}
+          </div>
+          <div id="${cap.id}_vault" class="py-3 px-2.5 rounded-xl theme-input border my-1.5">
+            <div class="text-lg font-mono font-extrabold text-amber-400" id="${cap.id}_clock">Unlocks in ${cap.seconds}s</div>
+            <div class="text-[10px] theme-muted mt-0.5">Sealed until countdown hits 0</div>
+          </div>
+          <div class="text-[9px] theme-muted text-right">${cap.time}</div>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+
+      let rem = cap.seconds;
+      const iv = setInterval(() => {
+        rem--;
+        const clockEl = document.getElementById(cap.id + '_clock');
+        const vaultEl = document.getElementById(cap.id + '_vault');
+        if (rem > 0) {
+          if (clockEl) clockEl.textContent = `Unlocks in ${rem}s`;
+        } else {
+          clearInterval(iv);
+          if (vaultEl) {
+            vaultEl.className = 'py-3 px-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 my-1.5 text-left';
+            vaultEl.innerHTML = `
+              <div class="text-[10px] font-bold text-emerald-400 mb-1">🔓 Time Capsule Unlocked!</div>
+              <p class="text-xs md:text-sm text-white break-words">${escapeHTML(cap.text)}</p>
+            `;
+          }
+          playMessageTone();
+        }
+      }, 1000);
+    }
+
+    // ==================== 4. LIVE AMBIENT WEATHER AURA ENGINE ====================
+    let currentAura = 'none';
+    let auraParticles = [];
+    const ambCanvas = document.getElementById('ambientCanvas');
+    const ambCtx = ambCanvas.getContext('2d');
+
+    function resizeAmbientCanvas() {
+      ambCanvas.width = window.innerWidth;
+      ambCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeAmbientCanvas);
+    resizeAmbientCanvas();
+
+    function toggleAuraModal(show) {
+      const m = document.getElementById('auraModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function setRoomAura(mode, broadcast = true) {
+      currentAura = mode;
+      auraParticles = [];
+      toggleAuraModal(false);
+
+      if (mode !== 'none') {
+        for (let i = 0; i < 45; i++) {
+          auraParticles.push({
+            x: Math.random() * ambCanvas.width,
+            y: Math.random() * ambCanvas.height,
+            vx: mode === 'meteors' ? -3 - Math.random() * 3 : (Math.random() - 0.5) * 1.2,
+            vy: mode === 'fireflies' ? (Math.random() - 0.5) * 1.2 : 1.5 + Math.random() * 3,
+            size: 1.5 + Math.random() * 2.5,
+            char: String.fromCharCode(0x30A0 + Math.random() * 96)
+          });
+        }
+      }
+
+      if (broadcast) {
+        broadcastData({ type: 'ROOM_AURA', mode, senderName: myName });
+        appendSystemNotice(`🌌 Room atmosphere changed to: ${mode.toUpperCase()}`);
+      }
+    }
+
+    function animateAmbientCanvas() {
+      ambCtx.clearRect(0, 0, ambCanvas.width, ambCanvas.height);
+      if (currentAura !== 'none') {
+        auraParticles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.y > ambCanvas.height) { p.y = -10; p.x = Math.random() * ambCanvas.width; }
+          if (p.x < 0) p.x = ambCanvas.width;
+          if (p.x > ambCanvas.width) p.x = 0;
+
+          if (currentAura === 'meteors') {
+            ambCtx.strokeStyle = 'rgba(129, 140, 248, 0.75)';
+            ambCtx.lineWidth = 2;
+            ambCtx.beginPath();
+            ambCtx.moveTo(p.x, p.y);
+            ambCtx.lineTo(p.x + 18, p.y - 18);
+            ambCtx.stroke();
+          } else if (currentAura === 'fireflies') {
+            ambCtx.fillStyle = 'rgba(52, 211, 153, 0.8)';
+            ambCtx.beginPath();
+            ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ambCtx.fill();
+          } else if (currentAura === 'matrix') {
+            ambCtx.fillStyle = 'rgba(34, 197, 94, 0.55)';
+            ambCtx.font = '13px monospace';
+            ambCtx.fillText(p.char, p.x, p.y);
+          } else if (currentAura === 'snow') {
+            ambCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ambCtx.beginPath();
+            ambCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ambCtx.fill();
+          }
+        });
+      }
+      requestAnimationFrame(animateAmbientCanvas);
+    }
+    animateAmbientCanvas();
+
+    // ==================== 5. CO-OP BLIND STORY CHAIN BUILDER ====================
+    function toggleStoryChainModal(show) {
+      const m = document.getElementById('storyChainModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function launchStoryChain() {
+      const firstLine = document.getElementById('storyChainStartInput').value.trim();
+      if (!firstLine) return;
+      document.getElementById('storyChainStartInput').value = '';
+      toggleStoryChainModal(false);
+
+      const chainId = 'chain_' + Date.now();
+      const chain = {
+        id: chainId,
+        maxLines: 4,
+        entries: [{ author: myName, text: firstLine }]
+      };
+      storyChains[chainId] = chain;
+      broadcastData({ type: 'STORY_CHAIN_UPDATE', chain });
+      renderStoryChainCard(chain, true);
+    }
+
+    function submitStoryChainLine(chainId) {
+      const input = document.getElementById(chainId + '_input');
+      const line = input ? input.value.trim() : '';
+      const chain = storyChains[chainId];
+      if (!line || !chain || chain.entries.length >= chain.maxLines) return;
+
+      chain.entries.push({ author: myName, text: line });
+      updateStoryChainUI(chainId);
+      broadcastData({ type: 'STORY_CHAIN_UPDATE', chain });
+    }
+
+    function renderStoryChainCard(chain, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div id="${chain.id}" class="w-72 md:w-80 theme-panel border rounded-2xl p-3.5 shadow-lg">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1">📖 Co-Op Blind Story Chain</div>
+          <div id="${chain.id}_body"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      updateStoryChainUI(chain.id);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateStoryChainUI(chainId) {
+      const chain = storyChains[chainId];
+      const body = document.getElementById(chainId + '_body');
+      if (!chain || !body) return;
+
+      const count = chain.entries.length;
+      if (count < chain.maxLines) {
+        const lastEntry = chain.entries[count - 1];
+        const words = lastEntry.text.split(/\s+/);
+        const hint = words.slice(-3).join(' ');
+        const alreadyAdded = chain.entries.some(e => e.author === myName) && count === 1;
+
+        body.innerHTML = `
+          <p class="text-[11px] theme-muted mb-2">Progress: <b>${count}/${chain.maxLines}</b> lines written</p>
+          <div class="p-2.5 rounded-xl theme-input border text-xs mb-2.5">
+            <span class="text-[10px] text-indigo-400 block">Clue (Last 3 words):</span>
+            <span class="font-bold italic">"...${escapeHTML(hint)}"</span>
+          </div>
+          ${alreadyAdded ? `
+            <p class="text-[11px] text-amber-400 font-medium">Waiting for partner to add the next line...</p>
+          ` : `
+            <div class="flex gap-1.5">
+              <input id="${chainId}_input" type="text" placeholder="Continue the story..." class="flex-1 theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none min-w-0" />
+              <button onclick="submitStoryChainLine('${chainId}')" class="px-3 py-1.5 rounded-lg theme-accent text-xs font-semibold shrink-0">Add</button>
+            </div>
+          `}
+        `;
+      } else {
+        spawnEmojiRain('📖');
+        body.innerHTML = `
+          <div class="text-[10px] font-bold text-amber-400 mb-2">✨ Full Story Unlocked!</div>
+          <div class="space-y-1.5 text-xs bg-white/5 p-2.5 rounded-xl">
+            ${chain.entries.map(e => `
+              <div><span class="font-bold text-indigo-400">${escapeHTML(e.author)}:</span> <span>${escapeHTML(e.text)}</span></div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
     // ==================== NON-BLOCKING BACKGROUND PERSISTENCE ====================
     async function enableBackgroundPersistence() {
       if ('wakeLock' in navigator) {
@@ -648,18 +1158,15 @@
       heartbeatTimer = setInterval(() => {
         if (intentionalLogout || !room) return;
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
-          peer.socket.send({ type: 'HEARTBEAT' });
-        }
-        if (peer && peer.disconnected && !peer.destroyed) {
-          peer.reconnect();
-        }
+        if (peer && !peer.destroyed && peer.socket && peer.socket._open) peer.socket.send({ type: 'HEARTBEAT' });
+        if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
       }, 10000);
     }
 
     function disableBackgroundPersistence() {
       if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
       if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
+      if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
       if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
       if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
     }
@@ -743,8 +1250,6 @@
         const msgId = 'msg_' + Date.now();
 
         appendMessage(myName, dataUrl, 'outgoing', time, 'photo', msgId, { sizeKB });
-        recordTranscript(myName, `[Sent Compressed Photo: ${sizeKB} KB]`, time);
-
         await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', sizeKB, time });
       } catch (err) {
         hideTransferProgress();
@@ -791,102 +1296,12 @@
       });
     }
 
-    async function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      event.target.value = '';
-
-      if (Object.keys(connections).length === 0) { alert('Wait for a participant to join first.'); return; }
-      if (file.size > 10 * 1024 * 1024) { alert('Maximum P2P file size is 10 MB.'); return; }
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target.result;
-        const sizeKB = Math.max(1, Math.round(file.size / 1024));
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const msgId = 'msg_' + Date.now();
-
-        appendMessage(myName, dataUrl, 'outgoing', time, 'file', msgId, { fileName: file.name, sizeKB });
-        recordTranscript(myName, `[Sent File: ${file.name} (${sizeKB} KB)]`, time);
-
-        await sendChunkedPayload(dataUrl, { msgId, msgMode: 'file', fileName: file.name, sizeKB, time });
-      };
-      reader.readAsDataURL(file);
-    }
-
     function openLightbox(src) {
       document.getElementById('lightboxImg').src = src;
       document.getElementById('imageLightbox').classList.remove('hidden');
     }
 
-    // ==================== SCREEN SHARING, QUOTE-REPLY & EXPORT ====================
-    async function toggleScreenShare() {
-      if (!activeCall) { alert('Start a Voice or Video call first to share your screen.'); return; }
-      const btn = document.getElementById('screenShareBtn');
-
-      if (!isScreenSharing) {
-        try {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          const screenTrack = screenStream.getVideoTracks()[0];
-          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) await sender.replaceTrack(screenTrack);
-
-          document.getElementById('localVideo').srcObject = screenStream;
-          document.getElementById('localVideo').classList.remove('hidden');
-          document.getElementById('remoteVideo').classList.remove('hidden');
-          document.getElementById('audioIndicator').classList.add('hidden');
-
-          isScreenSharing = true;
-          btn.classList.add('bg-emerald-600');
-          screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
-        } catch (err) {}
-      } else {
-        if (localStream && localStream.getVideoTracks().length > 0) {
-          const camTrack = localStream.getVideoTracks()[0];
-          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) await sender.replaceTrack(camTrack);
-          document.getElementById('localVideo').srcObject = localStream;
-        }
-        isScreenSharing = false;
-        btn.classList.remove('bg-emerald-600');
-      }
-    }
-
-    function setReplyQuote(sender, snippet) {
-      activeReplyContext = { sender, text: snippet.slice(0, 80) };
-      document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`;
-      document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text;
-      document.getElementById('replyPreviewBanner').classList.remove('hidden');
-      document.getElementById('messageInput').focus();
-    }
-
-    function cancelReply() {
-      activeReplyContext = null;
-      document.getElementById('replyPreviewBanner').classList.add('hidden');
-    }
-
-    function recordTranscript(sender, text, time) {
-      chatTranscript.push({ time, sender, text });
-    }
-
-    function exportChatTranscript() {
-      if (chatTranscript.length === 0) { alert('No messages to export yet.'); return; }
-      const lines = [
-        `CypherLink Room Transcript`,
-        `Room: #${room} | Exported: ${new Date().toLocaleString()}`,
-        `--------------------------------------------------`,
-        ...chatTranscript.map(m => `[${m.time}] ${m.sender}: ${m.text}`)
-      ].join('\n');
-      const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `CypherLink_${room}_${Date.now()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // ==================== SOUNDBOARD, SYNC TIMER, TRIVIA, DICE & MAGIC 8-BALL ====================
+    // ==================== SOUNDBOARD, TRIVIA, RPS, TTT, WHITEBOARD, POLLS & SCRATCH ====================
     const soundEffectsList = [
       { id: 'drumroll', emoji: '🥁', label: 'Drumroll' },
       { id: 'airhorn', emoji: '📯', label: 'Airhorn' },
@@ -911,184 +1326,40 @@
       try {
         initAudioContext();
         const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
 
         if (id === 'airhorn') {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(380, now);
-          osc.frequency.linearRampToValueAtTime(410, now + 0.45);
-          gain.gain.setValueAtTime(0.22, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(380, now); osc.frequency.linearRampToValueAtTime(410, now + 0.45);
+          gain.gain.setValueAtTime(0.22, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
           osc.start(now); osc.stop(now + 0.52);
         } else if (id === 'laser') {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(950, now);
-          osc.frequency.exponentialRampToValueAtTime(120, now + 0.25);
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.27);
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(950, now); osc.frequency.exponentialRampToValueAtTime(120, now + 0.25);
+          gain.gain.setValueAtTime(0.18, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.27);
           osc.start(now); osc.stop(now + 0.28);
         } else if (id === 'coin') {
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(987.77, now);
-          osc.frequency.setValueAtTime(1318.51, now + 0.08);
-          gain.gain.setValueAtTime(0.14, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+          osc.type = 'square'; osc.frequency.setValueAtTime(987.77, now); osc.frequency.setValueAtTime(1318.51, now + 0.08);
+          gain.gain.setValueAtTime(0.14, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
           osc.start(now); osc.stop(now + 0.34);
         } else if (id === 'tada') {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(523.25, now);
-          osc.frequency.setValueAtTime(659.25, now + 0.12);
-          osc.frequency.setValueAtTime(783.99, now + 0.24);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.12); osc.frequency.setValueAtTime(783.99, now + 0.24);
+          gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
           osc.start(now); osc.stop(now + 0.56);
         } else if (id === 'alert') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(600, now);
-          osc.frequency.linearRampToValueAtTime(950, now + 0.25);
-          osc.frequency.linearRampToValueAtTime(600, now + 0.5);
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+          osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.linearRampToValueAtTime(950, now + 0.25); osc.frequency.linearRampToValueAtTime(600, now + 0.5);
+          gain.gain.setValueAtTime(0.18, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
           osc.start(now); osc.stop(now + 0.54);
         } else {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(160, now);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.type = 'triangle'; osc.frequency.setValueAtTime(160, now);
+          gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
           osc.start(now); osc.stop(now + 0.42);
         }
       } catch (e) {}
     }
 
-    function toggleTimerModal(show) { const m = document.getElementById('timerModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
-    function launchSharedTimer(seconds) {
-      const label = document.getElementById('timerLabelInput').value.trim() || 'Room Timer';
-      toggleTimerModal(false);
-      const timerData = { id: 'tmr_' + Date.now(), creator: myName, label, seconds };
-      broadcastData({ type: 'SYNC_TIMER', timer: timerData });
-      renderTimerCard(timerData, true);
-    }
-
-    function renderTimerCard(timer, isOut) {
-      const container = document.getElementById('messagesContainer');
-      const div = document.createElement('div');
-      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-      div.innerHTML = `
-        <div class="w-64 theme-panel border rounded-2xl p-3.5 shadow-lg text-center">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1">⏱️ ${escapeHTML(timer.label)}</div>
-          <div id="${timer.id}_val" class="text-2xl font-mono font-extrabold text-amber-400 my-1">${timer.seconds}s</div>
-          <div class="text-[10px] theme-muted">Started by ${escapeHTML(timer.creator)}</div>
-        </div>
-      `;
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-
-      let rem = timer.seconds;
-      const el = document.getElementById(timer.id + '_val');
-      const iv = setInterval(() => {
-        rem--;
-        if (el) el.textContent = rem > 0 ? `${rem}s` : `⏰ TIME UP!`;
-        if (rem <= 0) {
-          clearInterval(iv);
-          if (el) el.classList.replace('text-amber-400', 'text-rose-500');
-          playBuzzTone();
-        }
-      }, 1000);
-    }
-
-    function rollRoomDice() {
-      document.getElementById('pickerPopover').classList.add('hidden');
-      const d1 = Math.floor(Math.random() * 6) + 1;
-      const d2 = Math.floor(Math.random() * 6) + 1;
-      const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-      sendQuickSystemAction(`🎲 Rolled ${faces[d1-1]} ${faces[d2-1]} (Total: ${d1 + d2})`);
-    }
-
-    function askMagic8Ball() {
-      document.getElementById('pickerPopover').classList.add('hidden');
-      const answers = ['🎱 It is certain!', '🎱 Without a doubt!', '🎱 Ask again later...', '🎱 Don’t count on it.', '🎱 Outlook good!', '🎱 Very doubtful.', '🎱 Signs point to yes!'];
-      sendQuickSystemAction(answers[Math.floor(Math.random() * answers.length)]);
-    }
-
-    function sendQuickSystemAction(text) {
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const msgId = 'msg_' + Date.now();
-      broadcastData({ type: 'CHAT', msgId, msgMode: 'text', senderId: myPeerId, senderName: myName, content: text, time });
-      appendMessage(myName, text, 'outgoing', time, 'text', msgId);
-      recordTranscript(myName, text, time);
-    }
-
-    // Trivia Quiz
-    const triviaBank = [
-      { q: "Which planet has the most moons in our solar system?", opts: ["Jupiter", "Saturn", "Uranus"], ans: 1 },
-      { q: "What does HTTP stand for?", opts: ["HyperText Transfer Protocol", "High Transfer Text Path", "Host Terminal Transfer Protocol"], ans: 0 },
-      { q: "Which element has the chemical symbol 'Au'?", opts: ["Silver", "Copper", "Gold"], ans: 2 },
-      { q: "How many bits are in 1 Byte?", opts: ["4 bits", "8 bits", "16 bits"], ans: 1 },
-      { q: "Which country invented paper?", opts: ["Egypt", "China", "Greece"], ans: 1 }
-    ];
-
-    function launchTriviaQuiz() {
-      const item = triviaBank[Math.floor(Math.random() * triviaBank.length)];
-      const qId = 'triv_' + Date.now();
-      const quiz = { id: qId, host: myName, q: item.q, opts: item.opts, ans: item.ans, answers: {} };
-      triviaGames[qId] = quiz;
-      broadcastData({ type: 'TRIVIA_START', quiz });
-      renderTriviaCard(quiz, true);
-    }
-
-    function answerTrivia(qId, optIdx) {
-      const quiz = triviaGames[qId];
-      if (!quiz || quiz.answers[myPeerId] !== undefined) return;
-      quiz.answers[myPeerId] = { name: myName, idx: optIdx };
-      updateTriviaUI(qId);
-      broadcastData({ type: 'TRIVIA_ANSWER', qId, peerId: myPeerId, name: myName, idx: optIdx });
-    }
-
-    function renderTriviaCard(quiz, isOut) {
-      const container = document.getElementById('messagesContainer');
-      const div = document.createElement('div');
-      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-      div.innerHTML = `
-        <div class="w-72 md:w-80 theme-panel border rounded-2xl p-3.5 shadow-lg">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">🧠 Live Room Trivia</div>
-          <p class="text-xs font-bold mb-2.5">${escapeHTML(quiz.q)}</p>
-          <div id="${quiz.id}_opts" class="space-y-1.5"></div>
-          <div id="${quiz.id}_res" class="text-[10px] theme-muted mt-2"></div>
-        </div>
-      `;
-      container.appendChild(div);
-      updateTriviaUI(quiz.id);
-      container.scrollTop = container.scrollHeight;
-    }
-
-    function updateTriviaUI(qId) {
-      const quiz = triviaGames[qId];
-      const optsEl = document.getElementById(qId + '_opts');
-      const resEl = document.getElementById(qId + '_res');
-      if (!quiz || !optsEl) return;
-
-      const myAns = quiz.answers[myPeerId];
-      optsEl.innerHTML = quiz.opts.map((opt, i) => {
-        let style = 'theme-input border';
-        if (myAns !== undefined) {
-          if (i === quiz.ans) style = 'bg-emerald-600/30 border-emerald-500 text-emerald-300';
-          else if (i === myAns.idx) style = 'bg-rose-600/30 border-rose-500 text-rose-300';
-        }
-        return `<button onclick="answerTrivia('${qId}', ${i})" class="w-full text-left p-2 rounded-xl ${style} text-xs font-medium transition">${escapeHTML(opt)}</button>`;
-      }).join('');
-
-      const list = Object.values(quiz.answers);
-      resEl.innerHTML = list.map(a => `${escapeHTML(a.name)}: ${a.idx === quiz.ans ? '✅' : '❌'}`).join(' • ');
-    }
-
-    // ==================== OPPONENT SELECTOR, RPS DUEL & TIC-TAC-TOE ====================
     function openOpponentSelector(gameType) {
       pendingGameType = gameType;
       const candidateMap = new Map();
-
       if (Array.isArray(roomRoster)) {
         roomRoster.forEach(m => { if (m.id && m.id !== myPeerId) candidateMap.set(m.id, m.name || 'Partner'); });
       }
@@ -1099,7 +1370,6 @@
       }
 
       const others = Array.from(candidateMap.entries()).map(([id, name]) => ({ id, name }));
-
       if (others.length === 0) {
         alert('No connected partner found yet. Make sure both devices show "Active" in the top bar.');
         return;
@@ -1133,7 +1403,6 @@
     }
 
     function closeOpponentModal() { document.getElementById('opponentModal').classList.add('hidden'); }
-
     function launchTargetedGame(targetId, targetName) {
       closeOpponentModal();
       if (pendingGameType === 'rps') startRPSGame(targetId, targetName);
@@ -1221,7 +1490,6 @@
       return wins[p1.move] === p2.move ? `🏆 ${escapeHTML(p1.name)} Wins!` : `🏆 ${escapeHTML(p2.name)} Wins!`;
     }
 
-    // Tic-Tac-Toe
     function startTicTacToeGame(targetId, targetName) {
       const gameId = 'ttt_' + Date.now();
       const game = { id: gameId, xId: myPeerId, xName: myName, oId: targetId, oName: targetName, board: Array(9).fill(''), turnId: myPeerId, winnerText: null };
@@ -1288,7 +1556,70 @@
       }
     }
 
-    // ==================== WHITEBOARD, POLLS, WHEEL, SCRATCH & RAIN ====================
+    // Trivia Quiz
+    const triviaBank = [
+      { q: "Which planet has the most moons in our solar system?", opts: ["Jupiter", "Saturn", "Uranus"], ans: 1 },
+      { q: "What does HTTP stand for?", opts: ["HyperText Transfer Protocol", "High Transfer Text Path", "Host Terminal Transfer Protocol"], ans: 0 },
+      { q: "Which element has the chemical symbol 'Au'?", opts: ["Silver", "Copper", "Gold"], ans: 2 },
+      { q: "How many bits are in 1 Byte?", opts: ["4 bits", "8 bits", "16 bits"], ans: 1 },
+      { q: "Which country invented paper?", opts: ["Egypt", "China", "Greece"], ans: 1 }
+    ];
+
+    function launchTriviaQuiz() {
+      const item = triviaBank[Math.floor(Math.random() * triviaBank.length)];
+      const qId = 'triv_' + Date.now();
+      const quiz = { id: qId, host: myName, q: item.q, opts: item.opts, ans: item.ans, answers: {} };
+      triviaGames[qId] = quiz;
+      broadcastData({ type: 'TRIVIA_START', quiz });
+      renderTriviaCard(quiz, true);
+    }
+
+    function answerTrivia(qId, optIdx) {
+      const quiz = triviaGames[qId];
+      if (!quiz || quiz.answers[myPeerId] !== undefined) return;
+      quiz.answers[myPeerId] = { name: myName, idx: optIdx };
+      updateTriviaUI(qId);
+      broadcastData({ type: 'TRIVIA_ANSWER', qId, peerId: myPeerId, name: myName, idx: optIdx });
+    }
+
+    function renderTriviaCard(quiz, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div class="w-72 md:w-80 theme-panel border rounded-2xl p-3.5 shadow-lg">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">🧠 Live Room Trivia</div>
+          <p class="text-xs font-bold mb-2.5">${escapeHTML(quiz.q)}</p>
+          <div id="${quiz.id}_opts" class="space-y-1.5"></div>
+          <div id="${quiz.id}_res" class="text-[10px] theme-muted mt-2"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      updateTriviaUI(quiz.id);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateTriviaUI(qId) {
+      const quiz = triviaGames[qId];
+      const optsEl = document.getElementById(qId + '_opts');
+      const resEl = document.getElementById(qId + '_res');
+      if (!quiz || !optsEl) return;
+
+      const myAns = quiz.answers[myPeerId];
+      optsEl.innerHTML = quiz.opts.map((opt, i) => {
+        let style = 'theme-input border';
+        if (myAns !== undefined) {
+          if (i === quiz.ans) style = 'bg-emerald-600/30 border-emerald-500 text-emerald-300';
+          else if (i === myAns.idx) style = 'bg-rose-600/30 border-rose-500 text-rose-300';
+        }
+        return `<button onclick="answerTrivia('${qId}', ${i})" class="w-full text-left p-2 rounded-xl ${style} text-xs font-medium transition">${escapeHTML(opt)}</button>`;
+      }).join('');
+
+      const list = Object.values(quiz.answers);
+      resEl.innerHTML = list.map(a => `${escapeHTML(a.name)}: ${a.idx === quiz.ans ? '✅' : '❌'}`).join(' • ');
+    }
+
+    // Whiteboard, Polls, Wheel, Scratch, Timer & Rain
     const canvas = document.getElementById('sharedCanvas');
     const ctx = canvas.getContext('2d');
     let isDrawing = false, lastX = 0, lastY = 0, brushColor = '#3b82f6';
@@ -1296,17 +1627,13 @@
 
     function toggleWhiteboard(show) { const m = document.getElementById('whiteboardModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
     function setBrushColor(color) { brushColor = color; }
-
     function getCanvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
       const cx = e.touches ? e.touches[0].clientX : e.clientX;
       const cy = e.touches ? e.touches[0].clientY : e.clientY;
       return { x: (cx - rect.left) * (canvas.width / rect.width), y: (cy - rect.top) * (canvas.height / rect.height) };
     }
-
-    function drawSegment(x0, y0, x1, y1, color) {
-      ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    }
+    function drawSegment(x0, y0, x1, y1, color) { ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
 
     canvas.addEventListener('mousedown', (e) => { isDrawing = true; const p = getCanvasCoords(e); lastX = p.x; lastY = p.y; });
     canvas.addEventListener('mousemove', (e) => {
@@ -1317,7 +1644,6 @@
       lastX = p.x; lastY = p.y;
     });
     window.addEventListener('mouseup', () => isDrawing = false);
-
     canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; const p = getCanvasCoords(e); lastX = p.x; lastY = p.y; }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
@@ -1330,7 +1656,6 @@
     canvas.addEventListener('touchend', () => isDrawing = false);
 
     function clearWhiteboard(broadcast = false) { ctx.clearRect(0, 0, canvas.width, canvas.height); if (broadcast) broadcastData({ type: 'DRAW_CLEAR' }); }
-
     async function sendCanvasSnapshot() {
       const dataUrl = canvas.toDataURL('image/png');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1347,16 +1672,12 @@
       const o2 = document.getElementById('pollOpt2Input').value.trim();
       const o3 = document.getElementById('pollOpt3Input').value.trim();
       if (!q || !o1 || !o2) { alert('Enter a question and at least 2 options.'); return; }
-
-      const options = [o1, o2];
-      if (o3) options.push(o3);
+      const options = [o1, o2]; if (o3) options.push(o3);
       const pollId = 'poll_' + Date.now();
       const pollData = { id: pollId, creator: myName, question: q, options: options.map(text => ({ text, voters: [] })) };
-
       activePolls[pollId] = pollData;
       broadcastData({ type: 'NEW_POLL', poll: pollData });
       renderPollCard(pollData, true);
-
       document.getElementById('pollQuestionInput').value = '';
       document.getElementById('pollOpt1Input').value = '';
       document.getElementById('pollOpt2Input').value = '';
@@ -1394,7 +1715,6 @@
       const optsContainer = document.getElementById(pollId + '_opts');
       if (!poll || !optsContainer) return;
       const totalVotes = poll.options.reduce((sum, o) => sum + o.voters.length, 0);
-
       optsContainer.innerHTML = poll.options.map((opt, idx) => {
         const count = opt.voters.length;
         const pct = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
@@ -1417,7 +1737,6 @@
       const rawOpts = document.getElementById('wheelOptionsInput').value.trim();
       const items = rawOpts ? rawOpts.split(',').map(s => s.trim()).filter(Boolean) : ['Yes', 'No', 'Maybe', 'Try Again'];
       if (items.length < 2) { alert('Enter at least 2 options.'); return; }
-
       const winnerIdx = Math.floor(Math.random() * items.length);
       const wheelData = { id: 'wheel_' + Date.now(), creator: myName, title, items, winnerIdx };
       toggleWheelModal(false);
@@ -1439,7 +1758,6 @@
       `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
-
       const slotEl = document.getElementById(wheel.id + '_slot');
       let ticks = 0;
       const timer = setInterval(() => {
@@ -1447,10 +1765,7 @@
         ticks++;
         if (ticks >= 22) {
           clearInterval(timer);
-          if (slotEl) {
-            slotEl.textContent = `🎉 ${wheel.items[wheel.winnerIdx]} 🎉`;
-            slotEl.classList.add('border-emerald-500', 'text-emerald-400');
-          }
+          if (slotEl) { slotEl.textContent = `🎉 ${wheel.items[wheel.winnerIdx]} 🎉`; slotEl.classList.add('border-emerald-500', 'text-emerald-400'); }
           playMessageTone();
         }
       }, 95);
@@ -1462,7 +1777,6 @@
       if (!secretText) return;
       document.getElementById('scratchSecretInput').value = '';
       toggleScratchModal(false);
-
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const msgId = 'msg_' + Date.now();
       broadcastData({ type: 'CHAT', msgId, msgMode: 'scratch', senderId: myPeerId, senderName: myName, content: secretText, time });
@@ -1497,6 +1811,37 @@
       sc.addEventListener('touchstart', (e) => { e.preventDefault(); scratching = true; scratchAt(e); }, { passive: false });
       sc.addEventListener('touchmove', (e) => { e.preventDefault(); scratchAt(e); }, { passive: false });
       sc.addEventListener('touchend', () => scratching = false);
+    }
+
+    function toggleTimerModal(show) { const m = document.getElementById('timerModal'); if (show) m.classList.remove('hidden'); else m.classList.add('hidden'); }
+    function launchSharedTimer(seconds) {
+      const label = document.getElementById('timerLabelInput').value.trim() || 'Room Timer';
+      toggleTimerModal(false);
+      const timerData = { id: 'tmr_' + Date.now(), creator: myName, label, seconds };
+      broadcastData({ type: 'SYNC_TIMER', timer: timerData });
+      renderTimerCard(timerData, true);
+    }
+
+    function renderTimerCard(timer, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div class="w-64 theme-panel border rounded-2xl p-3.5 shadow-lg text-center">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1">⏱️ ${escapeHTML(timer.label)}</div>
+          <div id="${timer.id}_val" class="text-2xl font-mono font-extrabold text-amber-400 my-1">${timer.seconds}s</div>
+          <div class="text-[10px] theme-muted">Started by ${escapeHTML(timer.creator)}</div>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      let rem = timer.seconds;
+      const el = document.getElementById(timer.id + '_val');
+      const iv = setInterval(() => {
+        rem--;
+        if (el) el.textContent = rem > 0 ? `${rem}s` : `⏰ TIME UP!`;
+        if (rem <= 0) { clearInterval(iv); if (el) el.classList.replace('text-amber-400', 'text-rose-500'); playBuzzTone(); }
+      }, 1000);
     }
 
     function reactToMessage(msgId, emoji) {
@@ -1578,6 +1923,18 @@
       ).join('');
 
       document.getElementById('surprisesGrid').innerHTML = `
+        <button type="button" onclick="toggleBeatStudio(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎹</span><span class="text-[10px] font-medium">Beat Studio</span>
+        </button>
+        <button type="button" onclick="toggleCapsuleModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">⏳</span><span class="text-[10px] font-medium">Time Capsule</span>
+        </button>
+        <button type="button" onclick="toggleStoryChainModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">📖</span><span class="text-[10px] font-medium">Story Chain</span>
+        </button>
+        <button type="button" onclick="toggleAuraModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🌌</span><span class="text-[10px] font-medium">Weather Aura</span>
+        </button>
         <button type="button" onclick="openOpponentSelector('rps'); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
           <span class="text-xl">🎮</span><span class="text-[10px] font-medium">RPS Duel</span>
         </button>
@@ -1601,18 +1958,6 @@
         </button>
         <button type="button" onclick="toggleTimerModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
           <span class="text-xl">⏱️</span><span class="text-[10px] font-medium">Sync Timer</span>
-        </button>
-        <button type="button" onclick="rollRoomDice()" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">🎲</span><span class="text-[10px] font-medium">Roll Dice</span>
-        </button>
-        <button type="button" onclick="askMagic8Ball()" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">🎱</span><span class="text-[10px] font-medium">Magic 8-Ball</span>
-        </button>
-        <button type="button" onclick="triggerSurpriseBlast('🎉')" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">🎉</span><span class="text-[10px] font-medium">Party Rain</span>
-        </button>
-        <button type="button" onclick="triggerSurpriseBlast('❤️')" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
-          <span class="text-xl">❤️</span><span class="text-[10px] font-medium">Love Rain</span>
         </button>
       `;
     }
@@ -1656,7 +2001,6 @@
       const msgId = 'msg_' + Date.now();
       broadcastData({ type: 'CHAT', msgId, msgMode: 'sticker', senderId: myPeerId, senderName: myName, content: sticker, time });
       appendMessage(myName, sticker, 'outgoing', time, 'sticker', msgId);
-      recordTranscript(myName, sticker, time);
     }
 
     function toggleSecretMode() {
@@ -1709,7 +2053,6 @@
               const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               const msgId = 'msg_' + Date.now();
               appendMessage(myName, base64Audio, 'outgoing', time, 'audio', msgId);
-              recordTranscript(myName, '[Voice Note]', time);
               await sendChunkedPayload(base64Audio, { msgId, msgMode: 'audio', time });
             };
             reader.readAsDataURL(audioBlob);
@@ -1925,11 +2268,9 @@
         const conn = peer.connect(hostId, { reliable: true, metadata: { name: myName } });
         registerPeerConnection(conn);
 
-        // Stale-host recovery: if [room]-host is a dead ghost session that doesn't open in 4.5s, retry host claim
         if (hostCheckTimer) clearTimeout(hostCheckTimer);
         hostCheckTimer = setTimeout(() => {
           if (!intentionalLogout && Object.keys(connections).length === 0) {
-            console.log('Host unresponsive — retrying connection...');
             peer.destroy();
             tryHostRole();
           }
@@ -1973,6 +2314,49 @@
         else if (data.type === 'ROSTER') {
           roomRoster = data.members;
           renderGuestRoster(data.members);
+        }
+        else if (data.type === 'BEAT_CELL') {
+          beatMatrix[data.r][data.c] = data.val;
+          if (data.val) playBeatTrackSound(data.r);
+          renderSequencerGrid();
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'BEAT_CLEAR') {
+          clearBeatGrid(false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'BEAT_STATE') {
+          if (beatPlaying !== data.playing) toggleBeatPlayback(false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'CURSOR_MOVE') {
+          updateRemoteCursor(data.peerId, data.name, data.nx, data.ny);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'LASER_PING') {
+          spawnLaserRing(data.nx * window.innerWidth, data.ny * window.innerHeight);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'TIME_CAPSULE') {
+          renderTimeCapsuleCard(data.capsule, false);
+          triggerIncomingNotification('⏳ Time Capsule Sealed!', `${data.capsule.sender} sent a ${data.capsule.seconds}s capsule`, false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'ROOM_AURA') {
+          setRoomAura(data.mode, false);
+          appendSystemNotice(`🌌 ${data.senderName} set atmosphere: ${data.mode.toUpperCase()}`);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'STORY_CHAIN_UPDATE') {
+          const exists = !!storyChains[data.chain.id];
+          storyChains[data.chain.id] = data.chain;
+          if (!exists) {
+            renderStoryChainCard(data.chain, false);
+            triggerIncomingNotification('📖 Co-Op Story Chain!', 'Your turn to add a blind line', false);
+          } else {
+            updateStoryChainUI(data.chain.id);
+          }
+          if (isHost) relayToOthers(conn.peer, data);
         }
         else if (data.type === 'TYPING') {
           showRemoteTyping(data.senderName);
@@ -2112,13 +2496,10 @@
             const fullDataUrl = buf.chunks.join('');
             const m = buf.meta;
             appendMessage(buf.senderName, fullDataUrl, 'incoming', m.time, m.msgMode, m.msgId, m);
-            
             const notifBody = m.msgMode === 'photo' ? `🖼️ Sent a compressed photo (${m.sizeKB} KB)`
-                            : m.msgMode === 'file' ? `📎 Sent file: ${m.fileName} (${m.sizeKB} KB)`
                             : m.msgMode === 'image' ? '🎨 Sent a whiteboard sketch'
                             : '🎤 Sent a voice note';
             triggerIncomingNotification(buf.senderName, notifBody, false);
-            recordTranscript(buf.senderName, notifBody, m.time);
             delete incomingChunkBuffers[data.transferId];
           }
           hideTransferProgress();
@@ -2127,20 +2508,21 @@
         else if (data.type === 'CHAT') {
           document.getElementById('typingIndicatorBar').classList.add('hidden');
           appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote });
-          recordTranscript(data.senderName, data.content, data.time);
-
           const preview = data.msgMode === 'sticker' ? `Sent sticker ${data.content}`
                         : data.msgMode === 'scratch' ? '🎟️ Sent a mystery scratch card'
                         : data.msgMode === 'secret' ? '💣 Sent a secret message'
                         : data.content;
           triggerIncomingNotification(data.senderName, preview, false);
-
           if (isHost) relayToOthers(conn.peer, data);
         }
       });
 
       conn.on('close', () => {
         const leftName = connections[conn.peer]?.name || 'A peer';
+        if (remoteCursorEls[conn.peer]) {
+          remoteCursorEls[conn.peer].remove();
+          delete remoteCursorEls[conn.peer];
+        }
         delete connections[conn.peer];
         appendSystemNotice(`${leftName} disconnected`);
         updateParticipantsUI();
@@ -2192,7 +2574,7 @@
       document.getElementById('participantCount').textContent = members.length;
       list.innerHTML = members.map(m => `
         <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
-          <div class="w-7 h-7 rounded-lg ${m.id === myPeerId ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase">
+          <div class="w-7 h-7 rounded-lg ${m.id === myPeerId ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">
             ${m.name[0]}
           </div>
           <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${m.id === myPeerId ? '(You)' : ''}</span>
@@ -2231,9 +2613,21 @@
       });
 
       appendMessage(myName, text, 'outgoing', time, mode, msgId, { quote: quoteData });
-      recordTranscript(myName, text, time);
       input.value = '';
       cancelReply();
+    }
+
+    function setReplyQuote(sender, snippet) {
+      activeReplyContext = { sender, text: snippet.slice(0, 80) };
+      document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`;
+      document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text;
+      document.getElementById('replyPreviewBanner').classList.remove('hidden');
+      document.getElementById('messageInput').focus();
+    }
+
+    function cancelReply() {
+      activeReplyContext = null;
+      document.getElementById('replyPreviewBanner').classList.add('hidden');
     }
 
     function appendMessage(sender, content, direction, time, mode = 'text', msgId = '', meta = {}) {
@@ -2282,29 +2676,9 @@
           <div class="max-w-[82%] md:max-w-[55%] p-2 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
             <img src="${content}" onclick="openLightbox('${content}')" class="rounded-xl max-h-64 w-full object-cover cursor-zoom-in" />
             <div class="flex items-center justify-between text-[9px] opacity-80 mt-1.5 px-1">
-              <span><i class="fa-solid fa-check-circle mr-1"></i>${meta.sizeKB || ''} KB Chunked</span>
+              <span><i class="fa-solid fa-check-circle mr-1"></i>${meta.sizeKB || ''} KB</span>
               <span>${time}</span>
             </div>
-          </div>
-          ${reactionBar}
-        `;
-      } else if (mode === 'file') {
-        msgDiv.innerHTML = `
-          ${senderTag}
-          <div class="max-w-[85%] md:max-w-[65%] p-3 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-black/25 flex items-center justify-center text-lg shrink-0">
-                <i class="fa-solid fa-file-arrow-down"></i>
-              </div>
-              <div class="overflow-hidden flex-1">
-                <div class="text-xs font-bold truncate">${escapeHTML(meta.fileName || 'Document')}</div>
-                <div class="text-[10px] opacity-75">${meta.sizeKB || ''} KB • P2P Transfer</div>
-              </div>
-              <a href="${content}" download="${escapeHTML(meta.fileName || 'download')}" class="px-2.5 py-1.5 rounded-lg bg-black/30 hover:bg-black/50 text-[11px] font-semibold shrink-0">
-                Save
-              </a>
-            </div>
-            <div class="text-[9px] opacity-75 text-right mt-1.5">${time}</div>
           </div>
           ${reactionBar}
         `;
@@ -2431,6 +2805,10 @@
       disableBackgroundPersistence();
       stopRingtone();
       endCall();
+      setRoomAura('none', false);
+      liveCursorsEnabled = false;
+      document.getElementById('cursorsLayer').innerHTML = '';
+      remoteCursorEls = {};
       for (const peerObj of Object.values(connections)) { if (peerObj.conn) peerObj.conn.close(); }
       connections = {};
       roomRoster = [];
