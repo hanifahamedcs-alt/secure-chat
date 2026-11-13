@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
-  <title>CypherLink Pro — AES-256 E2EE & Chunked WebRTC</title>
+  <title>CypherLink — Interactive Always-On Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -55,14 +55,30 @@
       animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
 
-    @keyframes screenShake {
-      0%, 100% { transform: translate(0, 0); }
-      20% { transform: translate(-7px, 3px); }
-      40% { transform: translate(7px, -3px); }
-      60% { transform: translate(-5px, -3px); }
-      80% { transform: translate(5px, 3px); }
+    @keyframes fallDown {
+      0% { transform: translateY(-10vh) rotate(0deg) scale(0.8); opacity: 1; }
+      100% { transform: translateY(105vh) rotate(360deg) scale(1.2); opacity: 0; }
     }
-    .shake-active { animation: screenShake 0.5s ease-in-out; }
+    .emoji-drop {
+      position: fixed;
+      top: -50px;
+      z-index: 9999;
+      pointer-events: none;
+      font-size: 2.2rem;
+      animation: fallDown linear forwards;
+    }
+
+    @keyframes screenShake {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      15% { transform: translate(-8px, 4px) rotate(-1deg); }
+      30% { transform: translate(8px, -4px) rotate(1deg); }
+      45% { transform: translate(-6px, -4px) rotate(-1deg); }
+      60% { transform: translate(6px, 4px) rotate(1deg); }
+      75% { transform: translate(-4px, 2px) rotate(0deg); }
+    }
+    .shake-active {
+      animation: screenShake 0.55s ease-in-out;
+    }
 
     .secret-blurred {
       filter: blur(6px);
@@ -80,60 +96,23 @@
       <div class="w-14 h-14 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-indigo-500/30">
         <i class="fa-solid fa-shield-halved"></i>
       </div>
-      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">CypherLink E2EE Room</h2>
-      <p class="text-xs text-gray-400 mb-5">AES-256-GCM Encrypted • Chunked Media & Files • Always-On TURN</p>
+      <h2 class="text-xl md:text-2xl font-bold text-white mb-1">Always-On Encrypted Room</h2>
+      <p class="text-xs text-gray-400 mb-5">Compressed Photo Sharing, RPS, Tic-Tac-Toe, Scratch Cards, Spin Wheel & Calls.</p>
       
       <div class="space-y-3 text-left">
         <div>
           <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Your Display Name</label>
-          <input id="userNameInput" type="text" placeholder="e.g. RARA" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
+          <input id="userNameInput" type="text" placeholder="e.g. Hanif" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <div>
-          <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Passphrase</label>
-          <input id="roomNameInput" type="text" placeholder="e.g. secure-alpha-26" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
-          <p class="text-[10px] text-gray-500 mt-1">Used to derive your 256-bit AES encryption key locally.</p>
+          <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Shared Room Code</label>
+          <input id="roomNameInput" type="text" placeholder="e.g. squad2026" class="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" />
         </div>
         <button onclick="enterRoom()" class="w-full py-3 bg-indigo-600 active:bg-indigo-700 hover:bg-indigo-500 text-white font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 mt-2">
-          <i class="fa-solid fa-key"></i> Derive Key & Connect
+          <i class="fa-solid fa-bolt"></i> Connect & Lock Session
         </button>
       </div>
       <p id="authStatus" class="mt-4 text-xs text-amber-400 font-mono hidden"></p>
-    </div>
-  </div>
-
-  <!-- ==================== SAFETY FINGERPRINT & NETWORK TELEMETRY MODAL ==================== -->
-  <div id="telemetryModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="theme-panel border rounded-2xl max-w-md w-full p-5 shadow-2xl">
-      <div class="flex items-center justify-between border-b theme-border pb-3 mb-3">
-        <h3 class="text-sm font-bold flex items-center gap-2">
-          <i class="fa-solid fa-fingerprint text-emerald-400"></i> Cryptography & Link Telemetry
-        </h3>
-        <button onclick="toggleTelemetryModal(false)" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      
-      <div class="space-y-3 text-xs">
-        <div class="p-3 rounded-xl theme-input border">
-          <div class="text-[10px] uppercase tracking-wider theme-muted mb-1">Active Cipher Suite</div>
-          <div class="font-mono font-bold text-emerald-400">PBKDF2-SHA256 → AES-GCM-256</div>
-        </div>
-
-        <div class="p-3 rounded-xl theme-input border">
-          <div class="text-[10px] uppercase tracking-wider theme-muted mb-1">Room SHA-256 Safety Fingerprint</div>
-          <div id="safetyFingerprintBox" class="font-mono text-[11px] break-all text-indigo-300 leading-relaxed">Calculating...</div>
-          <p class="text-[10px] theme-muted mt-1">Verify this code matches on your partner's screen to confirm zero interception.</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div class="p-3 rounded-xl theme-input border">
-            <div class="text-[10px] theme-muted">Round-Trip Ping</div>
-            <div id="statPing" class="text-sm font-mono font-bold text-amber-400 mt-0.5">-- ms</div>
-          </div>
-          <div class="p-3 rounded-xl theme-input border">
-            <div class="text-[10px] theme-muted">Transport Route</div>
-            <div id="statRoute" class="text-xs font-mono font-bold text-emerald-400 mt-1">Checking...</div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -157,6 +136,113 @@
     </div>
   </div>
 
+  <!-- ==================== OPPONENT PICKER MODAL (FOR RPS & TIC-TAC-TOE) ==================== -->
+  <div id="opponentModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2" id="opponentModalTitle">
+          <span>🎮</span> Choose Opponent
+        </h3>
+        <button onclick="closeOpponentModal()" class="theme-muted hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-3">Select which room member you want to challenge:</p>
+      <div id="opponentListContainer" class="space-y-2 max-h-60 overflow-y-auto chat-scroll"></div>
+    </div>
+  </div>
+
+  <!-- ==================== LIVE WHITEBOARD MODAL ==================== -->
+  <div id="whiteboardModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-3 md:p-6">
+    <div class="theme-panel border rounded-2xl max-w-2xl w-full flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-3.5 border-b theme-border flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-paintbrush text-indigo-400"></i>
+          <h3 class="text-sm font-bold">Live Shared Whiteboard</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Real-Time Sync</span>
+        </div>
+        <button onclick="toggleWhiteboard(false)" class="theme-muted hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="bg-[#090d16] relative flex items-center justify-center touch-none">
+        <canvas id="sharedCanvas" width="640" height="380" class="w-full h-64 md:h-80 cursor-crosshair block"></canvas>
+      </div>
+
+      <div class="p-3 border-t theme-border flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <button onclick="setBrushColor('#ffffff')" class="w-6 h-6 rounded-full bg-white border border-gray-500"></button>
+          <button onclick="setBrushColor('#ef4444')" class="w-6 h-6 rounded-full bg-red-500"></button>
+          <button onclick="setBrushColor('#22c55e')" class="w-6 h-6 rounded-full bg-green-500"></button>
+          <button onclick="setBrushColor('#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500"></button>
+          <button onclick="setBrushColor('#eab308')" class="w-6 h-6 rounded-full bg-yellow-500"></button>
+          <button onclick="setBrushColor('#ec4899')" class="w-6 h-6 rounded-full bg-pink-500"></button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="clearWhiteboard(true)" class="px-3 py-1.5 rounded-lg theme-input border text-xs font-medium hover:text-rose-400">
+            <i class="fa-solid fa-eraser mr-1"></i> Clear
+          </button>
+          <button onclick="sendCanvasSnapshot()" class="px-3.5 py-1.5 rounded-lg theme-accent text-xs font-semibold">
+            <i class="fa-solid fa-paper-plane mr-1"></i> Send to Chat
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CREATE POLL MODAL ==================== -->
+  <div id="pollModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><i class="fa-solid fa-square-poll-vertical text-indigo-400"></i> Create Live Room Poll</h3>
+        <button onclick="togglePollModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-2.5">
+        <input id="pollQuestionInput" type="text" placeholder="Ask a question..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <input id="pollOpt1Input" type="text" placeholder="Option 1 (e.g. Yes)" class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <input id="pollOpt2Input" type="text" placeholder="Option 2 (e.g. No)" class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <input id="pollOpt3Input" type="text" placeholder="Option 3 (Optional)" class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <button onclick="launchPoll()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold mt-1">
+          Launch Poll in Chat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SPIN THE WHEEL MODAL ==================== -->
+  <div id="wheelModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>🎡</span> Live Decision Roulette</h3>
+        <button onclick="toggleWheelModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-2.5">Enter comma-separated options. Everyone in the room watches the spin live!</p>
+      <div class="space-y-2.5">
+        <input id="wheelTitleInput" type="text" value="Who goes first?" placeholder="Wheel title..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <input id="wheelOptionsInput" type="text" placeholder="e.g. Pizza, Burgers, Biryani, Tacos" class="w-full theme-input border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+        <button onclick="launchSpinWheel()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">
+          🎡 Send & Spin Live Wheel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCRATCH CARD COMPOSER MODAL ==================== -->
+  <div id="scratchModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold flex items-center gap-2"><span>🎟️</span> Send Mystery Scratch Card</h3>
+        <button onclick="toggleScratchModal(false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] theme-muted mb-2.5">Your message is hidden under silver foil—recipients must rub/scratch it off to read!</p>
+      <div class="space-y-2.5">
+        <input id="scratchSecretInput" type="text" placeholder="Hidden surprise, dare, or secret code..." class="w-full theme-input border rounded-xl px-3 py-2.5 text-xs focus:outline-none" />
+        <button onclick="sendScratchCard()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">
+          🎟️ Send Scratch Card
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== FULLSCREEN IMAGE LIGHTBOX ==================== -->
   <div id="imageLightbox" onclick="this.classList.add('hidden')" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-4 cursor-zoom-out">
     <img id="lightboxImg" src="" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain" />
@@ -168,8 +254,8 @@
       <i class="fa-solid fa-bell"></i>
     </div>
     <div class="overflow-hidden">
-      <p class="text-xs font-bold truncate" id="toastTitle">Notification</p>
-      <p class="text-[11px] theme-muted truncate" id="toastBody">Details...</p>
+      <p class="text-xs font-bold truncate" id="toastTitle">New Message</p>
+      <p class="text-[11px] theme-muted truncate" id="toastBody">Message preview...</p>
     </div>
   </div>
 
@@ -187,8 +273,8 @@
           <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0" id="myAvatar">?</div>
           <div class="overflow-hidden">
             <h3 class="text-sm font-semibold truncate" id="myNameLabel">Disconnected</h3>
-            <span class="text-[11px] text-emerald-400 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> AES-256 E2EE
+            <span class="text-[11px] text-emerald-400 flex items-center gap-1" id="lockGuardLabel">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Lock-Guard Active
             </span>
           </div>
         </div>
@@ -201,7 +287,7 @@
       <div class="p-3.5 border-b theme-border">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold tracking-wider theme-muted uppercase">Screen Theme & Color</span>
-          <label class="text-[10px] font-semibold text-indigo-400 cursor-pointer flex items-center gap-1 hover:underline">
+          <label class="text-[10px] font-semibold text-indigo-400 cursor-pointer flex items-center gap-1 hover:underline" title="Pick Custom Accent Color">
             <i class="fa-solid fa-palette"></i> Custom
             <input type="color" id="customAccentInput" onchange="applyCustomAccent(this.value)" class="w-0 h-0 opacity-0 absolute" />
           </label>
@@ -218,23 +304,46 @@
         </div>
       </div>
 
-      <!-- Technical Utilities -->
+      <!-- Exclusive Interactive Activities -->
       <div class="p-3.5 border-b theme-border">
-        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Technical Controls</div>
+        <div class="text-[10px] font-bold tracking-wider theme-muted uppercase mb-2">Exclusive Room Activities</div>
         <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-          <button onclick="toggleTelemetryModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-emerald-500 flex items-center gap-1.5 font-medium">
-            <i class="fa-solid fa-fingerprint text-emerald-400"></i> Verify E2EE
+          <button onclick="openOpponentSelector('rps'); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>🎮</span> RPS Duel
           </button>
-          <button onclick="exportChatTranscript(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
-            <i class="fa-solid fa-file-export text-indigo-400"></i> Export Chat
+          <button onclick="openOpponentSelector('ttt'); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>❌</span> Tic-Tac-Toe
           </button>
-          <button onclick="sendScreenNudge(); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-amber-500 flex items-center gap-1.5 font-medium">
-            <i class="fa-solid fa-bolt text-amber-400"></i> Buzz Peer
+          <button onclick="toggleWhiteboard(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>🎨</span> Whiteboard
           </button>
-          <button onclick="toggleSoundAlerts()" class="p-2 rounded-xl theme-input border flex items-center justify-between font-medium">
-            <span><i class="fa-solid fa-bell text-rose-400 mr-1"></i> Alerts</span>
-            <span id="soundToggleBtn" class="text-[10px] font-bold text-emerald-400">ON</span>
+          <button onclick="toggleWheelModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>🎡</span> Spin Wheel
           </button>
+          <button onclick="toggleScratchModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>🎟️</span> Scratch Card
+          </button>
+          <button onclick="togglePollModal(true); toggleMobileSidebar();" class="p-2 rounded-xl theme-input border hover:border-indigo-500 flex items-center gap-1.5 font-medium">
+            <span>📊</span> Live Poll
+          </button>
+        </div>
+      </div>
+
+      <!-- Sound & Lock-Screen Persistence Status -->
+      <div class="p-3.5 border-b theme-border space-y-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-medium flex items-center gap-2">
+            <i class="fa-solid fa-volume-high text-indigo-400"></i> Sound & Alerts
+          </span>
+          <button id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold">
+            ON
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="font-medium flex items-center gap-2">
+            <i class="fa-solid fa-lock text-emerald-400"></i> Lock Keep-Alive
+          </span>
+          <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">ACTIVE</span>
         </div>
       </div>
 
@@ -266,22 +375,22 @@
             <i class="fa-solid fa-bars text-sm"></i>
           </button>
           
-          <div onclick="toggleTelemetryModal(true)" class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0 cursor-pointer" title="View Encryption & Ping Telemetry">
-            <i class="fa-solid fa-shield-halved"></i>
+          <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold uppercase text-sm shrink-0">
+            <i class="fa-solid fa-comments"></i>
           </div>
           <div class="leading-tight overflow-hidden">
             <h2 class="text-xs md:text-sm font-semibold truncate" id="headerRoomTitle">Encrypted Room</h2>
-            <div class="flex items-center gap-2">
-              <span id="connBadge" class="text-[10px] text-amber-400 font-mono truncate">Waiting for peers...</span>
-              <span id="headerPingBadge" onclick="toggleTelemetryModal(true)" class="hidden sm:inline-block text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 cursor-pointer">-- ms</span>
-            </div>
+            <span id="connBadge" class="text-[10px] text-amber-400 font-mono block truncate">Waiting for peers...</span>
           </div>
         </div>
 
         <!-- Header Action Buttons -->
         <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
-          <button onclick="toggleTelemetryModal(true)" title="Encryption Fingerprint & Latency" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
-            <i class="fa-solid fa-fingerprint text-xs"></i>
+          <button onclick="openOpponentSelector('rps')" title="Challenge Player to RPS" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            🎮
+          </button>
+          <button onclick="sendScreenNudge()" title="Buzz / Shake Screen" class="w-9 h-9 rounded-xl theme-input border hover:scale-105 flex items-center justify-center text-xs transition">
+            ⚡
           </button>
           <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center transition">
             <i class="fa-solid fa-phone text-xs"></i>
@@ -295,19 +404,11 @@
         </div>
       </header>
 
-      <!-- Chunk Transfer Progress Bar -->
-      <div id="transferProgressBar" class="hidden px-4 py-1.5 bg-indigo-950/90 border-b border-indigo-500/30 text-[11px] flex items-center justify-between gap-3">
-        <span id="transferStatusText" class="font-mono text-indigo-300 truncate">Transferring chunks...</span>
-        <div class="w-32 h-1.5 bg-gray-800 rounded-full overflow-hidden shrink-0">
-          <div id="transferProgressFill" class="h-full bg-indigo-500 transition-all duration-150" style="width: 0%"></div>
-        </div>
-      </div>
-
       <!-- Message History -->
       <div id="messagesContainer" class="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 chat-scroll">
         <div class="text-center my-2">
           <span class="text-[10px] md:text-[11px] theme-bubble-in border px-3 py-1 rounded-full">
-            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> AES-256-GCM End-to-End Encrypted • 16KB Chunked Media & File Transfer Ready
+            <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Always-On Locked. Send compressed photos (&lt;1MB), play games, or scratch cards!
           </span>
         </div>
       </div>
@@ -322,50 +423,38 @@
         <span id="typingUserText">Someone is typing...</span>
       </div>
 
-      <!-- EMOJI & STICKER PICKER POPOVER -->
+      <!-- EMOJI, STICKER & EXCLUSIVE APPS PICKER POPOVER -->
       <div id="pickerPopover" class="hidden absolute bottom-16 md:bottom-20 left-3 right-3 md:left-6 md:right-auto md:w-80 theme-panel border rounded-2xl shadow-2xl p-3 z-30">
-        <div class="flex border-b theme-border pb-2 mb-2 gap-1.5">
-          <button onclick="switchPickerTab('emojis')" id="tabEmojis" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-accent">Emojis</button>
-          <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
+        <div class="flex border-b theme-border pb-2 mb-2 gap-1">
+          <button onclick="switchPickerTab('emojis')" id="tabEmojis" class="flex-1 py-1 text-[11px] font-semibold rounded-lg theme-accent">Emojis</button>
+          <button onclick="switchPickerTab('stickers')" id="tabStickers" class="flex-1 py-1 text-[11px] font-semibold rounded-lg theme-muted hover:bg-white/5">Stickers</button>
+          <button onclick="switchPickerTab('surprises')" id="tabSurprises" class="flex-1 py-1 text-[11px] font-semibold rounded-lg theme-muted hover:bg-white/5">Apps & FX</button>
         </div>
+
         <div id="emojisGrid" class="grid grid-cols-7 gap-1.5 max-h-44 overflow-y-auto chat-scroll text-xl text-center"></div>
         <div id="stickersGrid" class="hidden grid grid-cols-4 gap-2 max-h-44 overflow-y-auto chat-scroll text-3xl text-center"></div>
+        <div id="surprisesGrid" class="hidden grid grid-cols-3 gap-2 max-h-48 overflow-y-auto chat-scroll text-center"></div>
       </div>
 
-      <!-- Hidden Inputs for Image & File Transfers -->
+      <!-- Hidden File Input for Image Compression -->
       <input type="file" id="imageFileInput" accept="image/*" onchange="handleImageUpload(event)" class="hidden" />
-      <input type="file" id="docFileInput" onchange="handleFileUpload(event)" class="hidden" />
 
       <!-- Message Input Bar -->
       <div class="p-2.5 md:p-4 border-t theme-header shrink-0">
-        <!-- Quote Reply Preview Banner -->
-        <div id="replyPreviewBanner" class="hidden mb-2 px-3 py-1.5 rounded-xl theme-input border-l-4 border-indigo-500 text-xs flex items-center justify-between">
-          <div class="overflow-hidden">
-            <span class="text-[10px] font-bold text-indigo-400 block" id="replyTargetSender">Replying to...</span>
-            <span class="text-[11px] theme-muted truncate block" id="replyTargetSnippet">Message snippet</span>
-          </div>
-          <button type="button" onclick="cancelReply()" class="theme-muted hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-
-        <!-- Secret Mode Banner -->
         <div id="secretModeBanner" class="hidden mb-2 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] flex items-center justify-between">
           <span><i class="fa-solid fa-bomb mr-1"></i> <b>Secret Mode ON:</b> Self-destructs 10s after reading!</span>
           <button type="button" onclick="toggleSecretMode()" class="underline font-bold">Off</button>
         </div>
 
         <form onsubmit="sendMessage(event)" class="flex items-center gap-1.5 md:gap-2">
-          <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base hover:scale-105 transition shrink-0" title="Emojis & Stickers">
+          <!-- Emoji/Sticker/Apps Button -->
+          <button type="button" onclick="togglePicker()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-base hover:scale-105 transition shrink-0" title="Emojis, Stickers & Games">
             😊
           </button>
 
-          <!-- Chunked Compressed Photo (<200KB) -->
-          <button type="button" onclick="document.getElementById('imageFileInput').click()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-indigo-400 transition shrink-0" title="Send Compressed Image (Chunked P2P)">
+          <!-- Compressed Image Upload (<1MB) -->
+          <button type="button" onclick="document.getElementById('imageFileInput').click()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-indigo-400 transition shrink-0" title="Send Compressed Photo (<1MB)">
             <i class="fa-solid fa-image"></i>
-          </button>
-
-          <!-- Chunked P2P File Transfer (Up to 10MB) -->
-          <button type="button" onclick="document.getElementById('docFileInput').click()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-emerald-400 transition shrink-0" title="Send Document / File (Up to 10MB)">
-            <i class="fa-solid fa-paperclip"></i>
           </button>
 
           <!-- Secret Self-Destruct Toggle -->
@@ -373,12 +462,12 @@
             <i class="fa-solid fa-bomb"></i>
           </button>
 
-          <!-- Voice Note Button -->
+          <!-- Voice Walkie-Talkie Button -->
           <button type="button" id="voiceNoteBtn" onclick="toggleVoiceRecording()" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border flex items-center justify-center text-sm hover:text-rose-400 transition shrink-0" title="Record Instant Voice Note">
             <i class="fa-solid fa-microphone-lines"></i>
           </button>
 
-          <input id="messageInput" oninput="notifyTyping()" type="text" placeholder="Encrypted message..." autocomplete="off" class="flex-1 theme-input border text-sm rounded-xl px-3 py-2.5 focus:outline-none min-w-0" />
+          <input id="messageInput" oninput="notifyTyping()" type="text" placeholder="Type message..." autocomplete="off" class="flex-1 theme-input border text-sm rounded-xl px-3 py-2.5 focus:outline-none min-w-0" />
           
           <button type="submit" class="theme-accent px-3.5 md:px-4 py-2.5 rounded-xl font-medium text-sm transition flex items-center justify-center gap-1.5 shrink-0">
             <span class="hidden sm:inline">Send</span>
@@ -389,31 +478,28 @@
     </main>
   </div>
 
-  <!-- ==================== ACTIVE CALL OVERLAY (WITH SCREEN SHARE) ==================== -->
+  <!-- ==================== ACTIVE CALL OVERLAY ==================== -->
   <div id="callOverlay" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col items-center justify-between p-4 md:p-6">
     <div class="relative w-full max-w-4xl flex-1 bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 flex items-center justify-center">
-      <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-contain"></video>
+      <video id="remoteVideo" autoplay playsinline webkit-playsinline class="w-full h-full object-cover"></video>
       <video id="localVideo" autoplay playsinline webkit-playsinline muted class="absolute bottom-3 right-3 w-28 h-20 md:w-44 md:h-32 object-cover rounded-xl border border-indigo-500 bg-gray-900 shadow-xl"></video>
       
       <div id="audioIndicator" class="hidden absolute flex flex-col items-center justify-center gap-3 text-center">
         <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-400 text-3xl md:text-4xl flex items-center justify-center animate-pulse">
           <i class="fa-solid fa-phone-volume"></i>
         </div>
-        <p class="text-base md:text-lg font-medium text-white">Encrypted Voice Call Active</p>
+        <p class="text-base md:text-lg font-medium text-white">Voice Call Active</p>
       </div>
     </div>
 
     <div class="flex items-center gap-4 py-4">
-      <button onclick="toggleMic()" id="micBtn" title="Mute/Unmute" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
+      <button onclick="toggleMic()" id="micBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-microphone"></i>
       </button>
-      <button onclick="toggleCam()" id="camBtn" title="Camera On/Off" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
+      <button onclick="toggleCam()" id="camBtn" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
         <i class="fa-solid fa-video"></i>
       </button>
-      <button onclick="toggleScreenShare()" id="screenShareBtn" title="Share Screen" class="w-12 h-12 rounded-full bg-gray-800 text-white flex items-center justify-center text-lg">
-        <i class="fa-solid fa-desktop"></i>
-      </button>
-      <button onclick="endCall()" title="End Call" class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center text-lg shadow-lg">
+      <button onclick="endCall()" class="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center text-lg shadow-lg">
         <i class="fa-solid fa-phone-slash"></i>
       </button>
     </div>
@@ -424,29 +510,21 @@
     let myName = "";
     let myPeerId = "";
     let room = "";
-    let rawPassphrase = "";
     let isHost = false;
     let peer = null;
     let intentionalLogout = false;
 
     let connections = {};
+    let roomRoster = []; // [{ id, name }]
     let activeCall = null;
     let pendingIncomingCall = null;
     let localStream = null;
     let isMicMuted = false;
     let isCamDisabled = false;
-    let isScreenSharing = false;
     let soundEnabled = true;
     let ringtoneInterval = null;
     let unreadCount = 0;
     const originalTitle = document.title;
-
-    // Technical Features State
-    let aesCryptoKey = null;
-    let incomingChunkBuffers = {}; // transferId -> { chunks: [], received: 0, total: 0, meta: {} }
-    let chatTranscript = [];
-    let activeReplyContext = null; // { sender, text }
-    let telemetryTimer = null;
 
     // Interactive States
     let isSecretMode = false;
@@ -455,6 +533,13 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecordingVoice = false;
+
+    // Game, Poll & Reaction Trackers
+    let activePolls = {};
+    let rpsGames = {};
+    let tttGames = {};
+    let messageReactions = {}; // msgId -> { emoji: [names] }
+    let pendingGameType = 'rps';
 
     // Background & Lock-Screen Persistence
     let wakeLockSentinel = null;
@@ -486,374 +571,12 @@
       }
     ];
 
-    // ==================== TECHNICAL FEATURE 1: WEB CRYPTO AES-256-GCM ====================
-    async function deriveRoomCryptoKey(passphrase) {
-      const enc = new TextEncoder();
-      const keyMaterial = await window.crypto.subtle.importKey(
-        "raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]
-      );
-
-      aesCryptoKey = await window.crypto.subtle.deriveKey(
-        {
-          name: "PBKDF2",
-          salt: enc.encode("CypherLink_StaticSalt_v2"),
-          iterations: 100000,
-          hash: "SHA-256"
-        },
-        keyMaterial,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
-      );
-
-      // Compute SHA-256 Safety Fingerprint
-      const hashBuffer = await window.crypto.subtle.digest("SHA-256", enc.encode(passphrase + "::FP"));
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fingerprint = hashArray.slice(0, 12).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
-      document.getElementById('safetyFingerprintBox').textContent = fingerprint;
-    }
-
-    async function encryptPayload(plainText) {
-      if (!aesCryptoKey) return { iv: "", cipher: plainText };
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
-      const enc = new TextEncoder();
-      const cipherBuffer = await window.crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        aesCryptoKey,
-        enc.encode(plainText)
-      );
-      return {
-        iv: btoa(String.fromCharCode(...iv)),
-        cipher: btoa(String.fromCharCode(...new Uint8Array(cipherBuffer)))
-      };
-    }
-
-    async function decryptPayload(ivB64, cipherB64) {
-      if (!aesCryptoKey || !ivB64) return cipherB64;
-      try {
-        const iv = Uint8Array.from(atob(ivB64), c => c.charCodeAt(0));
-        const cipherBytes = Uint8Array.from(atob(cipherB64), c => c.charCodeAt(0));
-        const plainBuffer = await window.crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: iv },
-          aesCryptoKey,
-          cipherBytes
-        );
-        return new TextDecoder().decode(plainBuffer);
-      } catch (e) {
-        return "[Decryption Failed — Mismatched Room Key]";
-      }
-    }
-
-    // ==================== CHUNKED FLOW-CONTROLLED P2P TRANSFER (16 KB SLICES) ====================
-    const CHUNK_SIZE = 16384; // 16 KB safe SCTP slice size
-
-    async function sendChunkedPayload(dataUrl, meta) {
-      const transferId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-      const totalChunks = Math.ceil(dataUrl.length / CHUNK_SIZE);
-
-      showTransferProgress(`Sending ${meta.fileName || 'Image'}...`, 5);
-
-      // 1. Announce start of chunked stream
-      broadcastData({
-        type: 'CHUNK_START',
-        transferId,
-        totalChunks,
-        senderId: myPeerId,
-        senderName: myName,
-        meta
-      });
-
-      // 2. Transmit 16 KB slices with buffer drain backpressure
-      for (let i = 0; i < totalChunks; i++) {
-        const slice = dataUrl.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-
-        // Wait if WebRTC send buffer exceeds 256 KB
-        for (const peerObj of Object.values(connections)) {
-          if (peerObj.conn && peerObj.conn.dataChannel) {
-            while (peerObj.conn.dataChannel.bufferedAmount > 262144) {
-              await new Promise(r => setTimeout(r, 25));
-            }
-          }
-        }
-
-        broadcastData({
-          type: 'CHUNK_DATA',
-          transferId,
-          index: i,
-          slice
-        });
-
-        const pct = Math.round(((i + 1) / totalChunks) * 100);
-        showTransferProgress(`Sending (${pct}%)`, pct);
-        await new Promise(r => setTimeout(r, 8)); // Yield event loop for mobile stability
-      }
-
-      // 3. Finalize stream
-      broadcastData({ type: 'CHUNK_END', transferId });
-      hideTransferProgress();
-    }
-
-    function showTransferProgress(label, pct) {
-      const bar = document.getElementById('transferProgressBar');
-      document.getElementById('transferStatusText').textContent = label;
-      document.getElementById('transferProgressFill').style.width = pct + '%';
-      bar.classList.remove('hidden');
-    }
-
-    function hideTransferProgress() {
-      setTimeout(() => {
-        document.getElementById('transferProgressBar').classList.add('hidden');
-      }, 600);
-    }
-
-    // ==================== COMPRESSED IMAGE SHARING (< 200 KB + CHUNKED) ====================
-    async function handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      event.target.value = '';
-
-      if (Object.keys(connections).length === 0) {
-        alert('Wait for at least one participant to join the room before sending images.');
-        return;
-      }
-
-      try {
-        showTransferProgress('Compressing image...', 15);
-        const { dataUrl, sizeKB } = await compressImageSafely(file);
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        // Render locally immediately
-        appendMessage(myName, dataUrl, 'outgoing', time, 'photo', { sizeKB });
-        recordTranscript(myName, `[Sent Compressed Photo: ${sizeKB} KB]`, time);
-
-        // Stream in 16KB chunks over WebRTC so DataChannel never drops
-        await sendChunkedPayload(dataUrl, {
-          msgMode: 'photo',
-          sizeKB: sizeKB,
-          time: time
-        });
-      } catch (err) {
-        hideTransferProgress();
-        alert('Image error: ' + err.message);
-      }
-    }
-
-    function compressImageSafely(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('Could not read file'));
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onerror = () => reject(new Error('Invalid image'));
-          img.onload = () => {
-            const offCanvas = document.createElement('canvas');
-            const maxDim = 960;
-            let w = img.width;
-            let h = img.height;
-
-            if (w > maxDim || h > maxDim) {
-              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-              else { w = Math.round((w * maxDim) / h); h = maxDim; }
-            }
-
-            offCanvas.width = w;
-            offCanvas.height = h;
-            const c = offCanvas.getContext('2d');
-            c.drawImage(img, 0, 0, w, h);
-
-            let quality = 0.72;
-            let dataUrl = offCanvas.toDataURL('image/jpeg', quality);
-            let approxBytes = Math.round((dataUrl.length * 3) / 4);
-
-            // Target <= 220 KB for ultra-fast mobile transmission
-            while (approxBytes > 220 * 1024 && quality > 0.25) {
-              quality -= 0.1;
-              dataUrl = offCanvas.toDataURL('image/jpeg', quality);
-              approxBytes = Math.round((dataUrl.length * 3) / 4);
-            }
-
-            const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
-            resolve({ dataUrl, sizeKB });
-          };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function openLightbox(src) {
-      document.getElementById('lightboxImg').src = src;
-      document.getElementById('imageLightbox').classList.remove('hidden');
-    }
-
-    // ==================== TECHNICAL FEATURE 2: P2P FILE & DOCUMENT TRANSFER ====================
-    async function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      event.target.value = '';
-
-      if (Object.keys(connections).length === 0) {
-        alert('Wait for a participant to join the room first.');
-        return;
-      }
-
-      if (file.size > 10 * 1024 * 1024) {
-        alert('Maximum P2P file size is 10 MB.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target.result;
-        const sizeKB = Math.max(1, Math.round(file.size / 1024));
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        appendMessage(myName, dataUrl, 'outgoing', time, 'file', { fileName: file.name, sizeKB });
-        recordTranscript(myName, `[Sent File: ${file.name} (${sizeKB} KB)]`, time);
-
-        await sendChunkedPayload(dataUrl, {
-          msgMode: 'file',
-          fileName: file.name,
-          sizeKB: sizeKB,
-          time: time
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // ==================== TECHNICAL FEATURE 3: LIVE SCREEN SHARING ====================
-    async function toggleScreenShare() {
-      if (!activeCall) {
-        alert('Start a Voice or Video call first to share your screen.');
-        return;
-      }
-
-      const btn = document.getElementById('screenShareBtn');
-
-      if (!isScreenSharing) {
-        try {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          const screenTrack = screenStream.getVideoTracks()[0];
-
-          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) {
-            await sender.replaceTrack(screenTrack);
-          }
-
-          document.getElementById('localVideo').srcObject = screenStream;
-          document.getElementById('localVideo').classList.remove('hidden');
-          document.getElementById('remoteVideo').classList.remove('hidden');
-          document.getElementById('audioIndicator').classList.add('hidden');
-
-          isScreenSharing = true;
-          btn.classList.add('bg-emerald-600');
-
-          screenTrack.onended = () => {
-            if (isScreenSharing) toggleScreenShare();
-          };
-        } catch (err) {
-          console.warn('Screen share canceled or unsupported on mobile:', err);
-        }
-      } else {
-        if (localStream && localStream.getVideoTracks().length > 0) {
-          const camTrack = localStream.getVideoTracks()[0];
-          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) await sender.replaceTrack(camTrack);
-          document.getElementById('localVideo').srcObject = localStream;
-        }
-        isScreenSharing = false;
-        btn.classList.remove('bg-emerald-600');
-      }
-    }
-
-    // ==================== TECHNICAL FEATURE 4: NETWORK TELEMETRY & PING ====================
-    function toggleTelemetryModal(show) {
-      const m = document.getElementById('telemetryModal');
-      if (show) m.classList.remove('hidden');
-      else m.classList.add('hidden');
-    }
-
-    function startTelemetryMonitor() {
-      if (telemetryTimer) clearInterval(telemetryTimer);
-      telemetryTimer = setInterval(async () => {
-        const peerObjs = Object.values(connections);
-        if (peerObjs.length === 0) {
-          document.getElementById('headerPingBadge').classList.add('hidden');
-          return;
-        }
-
-        // Send ping timestamp
-        broadcastData({ type: 'PING', ts: Date.now(), senderId: myPeerId });
-
-        // Inspect WebRTC ICE candidate pair stats
-        const pc = peerObjs[0].conn?.peerConnection;
-        if (pc) {
-          try {
-            const stats = await pc.getStats();
-            stats.forEach(report => {
-              if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                if (report.currentRoundTripTime) {
-                  const rttMs = Math.round(report.currentRoundTripTime * 1000);
-                  document.getElementById('statPing').textContent = `${rttMs} ms`;
-                  const badge = document.getElementById('headerPingBadge');
-                  badge.textContent = `${rttMs} ms`;
-                  badge.classList.remove('hidden');
-                }
-              }
-              if (report.type === 'local-candidate' && report.candidateType) {
-                const routeText = report.candidateType === 'relay' ? 'Metered TURN Relay' : `Direct (${report.candidateType})`;
-                document.getElementById('statRoute').textContent = routeText;
-              }
-            });
-          } catch (e) {}
-        }
-      }, 3000);
-    }
-
-    // ==================== TECHNICAL FEATURE 5: QUOTE REPLY & EXPORT TRANSCRIPT ====================
-    function setReplyQuote(sender, snippet) {
-      activeReplyContext = { sender, text: snippet.slice(0, 80) };
-      document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`;
-      document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text;
-      document.getElementById('replyPreviewBanner').classList.remove('hidden');
-      document.getElementById('messageInput').focus();
-    }
-
-    function cancelReply() {
-      activeReplyContext = null;
-      document.getElementById('replyPreviewBanner').classList.add('hidden');
-    }
-
-    function recordTranscript(sender, text, time) {
-      chatTranscript.push({ time, sender, text });
-    }
-
-    function exportChatTranscript() {
-      if (chatTranscript.length === 0) {
-        alert('No messages to export yet.');
-        return;
-      }
-      const lines = [
-        `CypherLink AES-256 Encrypted Room Transcript`,
-        `Room: #${room} | Exported: ${new Date().toLocaleString()}`,
-        `--------------------------------------------------`,
-        ...chatTranscript.map(m => `[${m.time}] ${m.sender}: ${m.text}`)
-      ].join('\n');
-
-      const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `CypherLink_${room}_${Date.now()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
     // ==================== ALWAYS-ON LOCK-SCREEN & BACKGROUND GUARD ====================
     async function enableBackgroundPersistence() {
       if ('wakeLock' in navigator) {
         try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (err) {}
       }
+
       try {
         initAudioContext();
         if (!silentKeepAliveOsc) {
@@ -887,7 +610,6 @@
 
     function disableBackgroundPersistence() {
       if (persistenceWatchdog) { clearInterval(persistenceWatchdog); persistenceWatchdog = null; }
-      if (telemetryTimer) { clearInterval(telemetryTimer); telemetryTimer = null; }
       if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
       if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
     }
@@ -986,7 +708,9 @@
       soundEnabled = !soundEnabled;
       const btn = document.getElementById('soundToggleBtn');
       btn.textContent = soundEnabled ? 'ON' : 'OFF';
-      btn.className = soundEnabled ? 'text-[10px] font-bold text-emerald-400' : 'text-[10px] font-bold text-gray-500';
+      btn.className = soundEnabled 
+        ? 'px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold'
+        : 'px-2.5 py-0.5 rounded-lg bg-gray-700 text-gray-300 text-[11px] font-semibold';
       if (soundEnabled) playMessageTone();
     }
 
@@ -1053,7 +777,7 @@
     const savedCustom = localStorage.getItem('cypher_custom_accent');
     if (savedCustom) applyCustomAccent(savedCustom);
 
-    // ==================== EMOJIS & STICKERS ====================
+    // ==================== EMOJIS, STICKERS & APPS PICKER ====================
     const emojiList = ['😀','😂','🥰','😎','🤩','🥳','😭','😡','🤯','🥶','👍','👎','👏','🙌','🙏','🤝','✌️','🤞','🔥','💯','❤️','💔','💖','✨','🎉','🚀','⚡','💡','🛡️','🔒','👀','💀','🤡','👻','🤖','👽','🐶','🐱','🍕','☕'];
     const stickerList = ['🚀','🔥','🎉','❤️','😂','🥳','😎','👑','💎','⚡','🦄','🐶','🐱','🍕','🏆','🎯','💯','🙌','🤝','🛡️','👾','🤖','🌟','🌈'];
 
@@ -1065,24 +789,52 @@
       document.getElementById('stickersGrid').innerHTML = stickerList.map(s => 
         `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded-xl transition hover:scale-110">${s}</button>`
       ).join('');
+
+      document.getElementById('surprisesGrid').innerHTML = `
+        <button type="button" onclick="openOpponentSelector('rps'); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎮</span><span class="text-[10px] font-medium">RPS Duel</span>
+        </button>
+        <button type="button" onclick="openOpponentSelector('ttt'); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">❌</span><span class="text-[10px] font-medium">Tic-Tac-Toe</span>
+        </button>
+        <button type="button" onclick="toggleWheelModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎡</span><span class="text-[10px] font-medium">Spin Wheel</span>
+        </button>
+        <button type="button" onclick="toggleScratchModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎟️</span><span class="text-[10px] font-medium">Scratch Card</span>
+        </button>
+        <button type="button" onclick="toggleWhiteboard(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎨</span><span class="text-[10px] font-medium">Whiteboard</span>
+        </button>
+        <button type="button" onclick="togglePollModal(true); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">📊</span><span class="text-[10px] font-medium">Live Poll</span>
+        </button>
+        <button type="button" onclick="sendScreenNudge(); togglePicker();" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">⚡</span><span class="text-[10px] font-medium">Buzz Screen</span>
+        </button>
+        <button type="button" onclick="triggerSurpriseBlast('🎉')" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">🎉</span><span class="text-[10px] font-medium">Party Rain</span>
+        </button>
+        <button type="button" onclick="triggerSurpriseBlast('❤️')" class="p-2 rounded-xl theme-input border hover:scale-105 transition flex flex-col items-center gap-1">
+          <span class="text-xl">❤️</span><span class="text-[10px] font-medium">Love Rain</span>
+        </button>
+      `;
     }
     initPickers();
 
     function togglePicker() { document.getElementById('pickerPopover').classList.toggle('hidden'); }
 
     function switchPickerTab(tab) {
-      const eGrid = document.getElementById('emojisGrid');
-      const sGrid = document.getElementById('stickersGrid');
-      const tEmojis = document.getElementById('tabEmojis');
-      const tStickers = document.getElementById('tabStickers');
-      if (tab === 'emojis') {
-        eGrid.classList.remove('hidden'); sGrid.classList.add('hidden');
-        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
-        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
-      } else {
-        sGrid.classList.remove('hidden'); eGrid.classList.add('hidden');
-        tStickers.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-accent';
-        tEmojis.className = 'flex-1 py-1 text-xs font-semibold rounded-lg theme-muted hover:bg-white/5';
+      const grids = { emojis: document.getElementById('emojisGrid'), stickers: document.getElementById('stickersGrid'), surprises: document.getElementById('surprisesGrid') };
+      const tabs = { emojis: document.getElementById('tabEmojis'), stickers: document.getElementById('tabStickers'), surprises: document.getElementById('tabSurprises') };
+      for (const key of Object.keys(grids)) {
+        if (key === tab) {
+          grids[key].classList.remove('hidden');
+          tabs[key].className = 'flex-1 py-1 text-[11px] font-semibold rounded-lg theme-accent';
+        } else {
+          grids[key].classList.add('hidden');
+          tabs[key].className = 'flex-1 py-1 text-[11px] font-semibold rounded-lg theme-muted hover:bg-white/5';
+        }
       }
     }
 
@@ -1092,24 +844,653 @@
       input.focus();
     }
 
-    async function sendSticker(sticker) {
+    function sendSticker(sticker) {
       document.getElementById('pickerPopover').classList.add('hidden');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const encrypted = await encryptPayload(sticker);
-      broadcastData({
-        type: 'CHAT_E2EE',
-        msgMode: 'sticker',
-        senderId: myPeerId,
-        senderName: myName,
-        iv: encrypted.iv,
-        cipher: encrypted.cipher,
-        time
-      });
-      appendMessage(myName, sticker, 'outgoing', time, 'sticker');
-      recordTranscript(myName, sticker, time);
+      const msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
+      const payload = { type: 'CHAT', msgId, msgMode: 'sticker', senderId: myPeerId, senderName: myName, content: sticker, time };
+      broadcastData(payload);
+      appendMessage(myName, sticker, 'outgoing', time, 'sticker', msgId);
     }
 
-    // ==================== SCREEN BUZZ, SECRET & VOICE NOTES ====================
+    // ==================== EXCLUSIVE FEATURE 1: COMPRESSED PHOTO SHARING (< 1 MB) ====================
+    async function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      event.target.value = ''; // reset input
+
+      showToast('Compressing Image...', 'Optimizing photo below 1 MB');
+
+      try {
+        const { dataUrl, sizeKB } = await compressImageBelow1MB(file);
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
+
+        const payload = {
+          type: 'CHAT',
+          msgId: msgId,
+          msgMode: 'photo',
+          senderId: myPeerId,
+          senderName: myName,
+          content: dataUrl,
+          sizeKB: sizeKB,
+          time: time
+        };
+
+        broadcastData(payload);
+        appendMessage(myName, dataUrl, 'outgoing', time, 'photo', msgId, sizeKB);
+      } catch (err) {
+        alert('Could not compress image: ' + err.message);
+      }
+    }
+
+    function compressImageBelow1MB(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('File read error'));
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Invalid image file'));
+          img.onload = () => {
+            const offCanvas = document.createElement('canvas');
+            const maxDim = 1280;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            offCanvas.width = width;
+            offCanvas.height = height;
+            const c = offCanvas.getContext('2d');
+            c.drawImage(img, 0, 0, width, height);
+
+            // Iteratively lower JPEG quality until base64 byte length is strictly < 900 KB (< 1 MB)
+            let quality = 0.85;
+            let dataUrl = offCanvas.toDataURL('image/jpeg', quality);
+            let approxBytes = Math.round((dataUrl.length * 3) / 4);
+
+            while (approxBytes > 900 * 1024 && quality > 0.2) {
+              quality -= 0.1;
+              dataUrl = offCanvas.toDataURL('image/jpeg', quality);
+              approxBytes = Math.round((dataUrl.length * 3) / 4);
+            }
+
+            // If still over 900KB (extremely detailed image), downscale dimensions by 65%
+            if (approxBytes > 900 * 1024) {
+              offCanvas.width = Math.round(width * 0.65);
+              offCanvas.height = Math.round(height * 0.65);
+              c.drawImage(img, 0, 0, offCanvas.width, offCanvas.height);
+              dataUrl = offCanvas.toDataURL('image/jpeg', 0.6);
+              approxBytes = Math.round((dataUrl.length * 3) / 4);
+            }
+
+            const sizeKB = Math.max(1, Math.round(approxBytes / 1024));
+            resolve({ dataUrl, sizeKB });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('imageLightbox').classList.remove('hidden');
+    }
+
+    // ==================== FIXED OPPONENT SELECTOR FOR RPS & TIC-TAC-TOE ====================
+    function openOpponentSelector(gameType) {
+      pendingGameType = gameType;
+      const others = roomRoster.filter(m => m.id !== myPeerId);
+
+      if (others.length === 0) {
+        alert('Waiting for at least one more person to join the room first!');
+        return;
+      }
+
+      document.getElementById('opponentModalTitle').innerHTML = gameType === 'rps' 
+        ? '<span>🎮</span> Challenge to RPS Duel' 
+        : '<span>❌</span> Challenge to Tic-Tac-Toe';
+
+      const container = document.getElementById('opponentListContainer');
+      let html = others.map(p => `
+        <button onclick="launchTargetedGame('${p.id}', '${escapeHTML(p.name)}')" class="w-full p-3 rounded-xl theme-input border hover:border-indigo-500 flex items-center justify-between text-xs font-semibold transition">
+          <span class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg theme-accent flex items-center justify-center uppercase">${p.name[0]}</span>
+            <span>${escapeHTML(p.name)}</span>
+          </span>
+          <span class="text-indigo-400">Challenge <i class="fa-solid fa-chevron-right ml-1"></i></span>
+        </button>
+      `).join('');
+
+      if (pendingGameType === 'rps' && others.length > 1) {
+        html += `
+          <button onclick="launchTargetedGame('ANY', 'Anyone in Room')" class="w-full p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold mt-1">
+            ⚡ Open Challenge (First to join plays)
+          </button>
+        `;
+      }
+
+      container.innerHTML = html;
+      document.getElementById('opponentModal').classList.remove('hidden');
+    }
+
+    function closeOpponentModal() {
+      document.getElementById('opponentModal').classList.add('hidden');
+    }
+
+    function launchTargetedGame(targetId, targetName) {
+      closeOpponentModal();
+      if (pendingGameType === 'rps') {
+        startRPSGame(targetId, targetName);
+      } else {
+        startTicTacToeGame(targetId, targetName);
+      }
+    }
+
+    // ==================== FIXED ROCK-PAPER-SCISSORS DUEL ====================
+    function startRPSGame(targetId, targetName) {
+      const gameId = 'rps_' + Date.now();
+      const game = {
+        id: gameId,
+        p1Id: myPeerId,
+        p1Name: myName,
+        p2Id: targetId, // specific peerId or 'ANY'
+        p2Name: targetName,
+        moves: {} // peerId -> { name, move }
+      };
+      rpsGames[gameId] = game;
+      broadcastData({ type: 'RPS_START', game: game });
+      renderRPSCard(game, true);
+    }
+
+    function makeRPSMove(gameId, move) {
+      const game = rpsGames[gameId];
+      if (!game || game.moves[myPeerId]) return;
+
+      // Claim open slot if 'ANY'
+      if (game.p2Id === 'ANY' && myPeerId !== game.p1Id) {
+        game.p2Id = myPeerId;
+        game.p2Name = myName;
+      }
+
+      // Only the 2 challenged players can submit moves
+      if (myPeerId !== game.p1Id && myPeerId !== game.p2Id) return;
+
+      game.moves[myPeerId] = { name: myName, move: move };
+      updateRPSCardUI(gameId);
+      broadcastData({ type: 'RPS_MOVE', gameId: gameId, peerId: myPeerId, name: myName, move: move });
+    }
+
+    function renderRPSCard(game, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div id="${game.id}" class="w-72 md:w-80 theme-panel border rounded-2xl p-3.5 shadow-lg text-center">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1">
+            🎮 Rock • Paper • Scissors
+          </div>
+          <p class="text-xs font-semibold mb-2.5">${escapeHTML(game.p1Name)} <span class="theme-muted">vs</span> ${escapeHTML(game.p2Name)}</p>
+          <div id="${game.id}_body"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      updateRPSCardUI(game.id);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateRPSCardUI(gameId) {
+      const game = rpsGames[gameId];
+      const body = document.getElementById(gameId + '_body');
+      if (!game || !body) return;
+
+      const entries = Object.entries(game.moves);
+      const amIPlayer = (myPeerId === game.p1Id) || (myPeerId === game.p2Id) || (game.p2Id === 'ANY');
+      const myMove = game.moves[myPeerId];
+
+      if (entries.length < 2) {
+        if (!amIPlayer) {
+          body.innerHTML = `<p class="text-[11px] theme-muted py-2">Spectating duel (${entries.length}/2 moves locked)...</p>`;
+        } else if (!myMove) {
+          body.innerHTML = `
+            <div class="flex justify-center gap-3 my-1">
+              <button onclick="makeRPSMove('${gameId}', '🪨')" class="w-12 h-12 rounded-xl theme-input border text-2xl hover:scale-110 active:scale-95 transition">🪨</button>
+              <button onclick="makeRPSMove('${gameId}', '📄')" class="w-12 h-12 rounded-xl theme-input border text-2xl hover:scale-110 active:scale-95 transition">📄</button>
+              <button onclick="makeRPSMove('${gameId}', '✂️')" class="w-12 h-12 rounded-xl theme-input border text-2xl hover:scale-110 active:scale-95 transition">✂️</button>
+            </div>
+            <p class="text-[10px] theme-muted mt-2">Tap weapon (hidden until both pick)</p>
+          `;
+        } else {
+          const waitingFor = myPeerId === game.p1Id ? game.p2Name : game.p1Name;
+          body.innerHTML = `
+            <div class="py-2 text-xs font-semibold text-emerald-400">
+              You locked ${myMove.move} • Waiting for ${escapeHTML(waitingFor)}...
+            </div>
+          `;
+        }
+      } else {
+        const [p1, p2] = [entries[0][1], entries[1][1]];
+        const resultText = evaluateRPS(p1, p2);
+        body.innerHTML = `
+          <div class="flex items-center justify-around py-2 bg-white/5 rounded-xl mb-2">
+            <div>
+              <div class="text-3xl">${p1.move}</div>
+              <div class="text-[10px] font-bold mt-1">${escapeHTML(p1.name)}</div>
+            </div>
+            <div class="text-xs font-bold text-amber-400">VS</div>
+            <div>
+              <div class="text-3xl">${p2.move}</div>
+              <div class="text-[10px] font-bold mt-1">${escapeHTML(p2.name)}</div>
+            </div>
+          </div>
+          <div class="text-xs font-bold text-indigo-400">${resultText}</div>
+        `;
+      }
+    }
+
+    function evaluateRPS(p1, p2) {
+      if (p1.move === p2.move) return "🤝 It's a Tie!";
+      const wins = { '🪨': '✂️', '📄': '🪨', '✂️': '📄' };
+      if (wins[p1.move] === p2.move) {
+        spawnEmojiRain('🏆');
+        return `🏆 ${escapeHTML(p1.name)} Wins!`;
+      } else {
+        spawnEmojiRain('🏆');
+        return `🏆 ${escapeHTML(p2.name)} Wins!`;
+      }
+    }
+
+    // ==================== EXCLUSIVE FEATURE 2: MULTIPLAYER TIC-TAC-TOE ====================
+    function startTicTacToeGame(targetId, targetName) {
+      const gameId = 'ttt_' + Date.now();
+      const game = {
+        id: gameId,
+        xId: myPeerId,
+        xName: myName,
+        oId: targetId,
+        oName: targetName,
+        board: Array(9).fill(''),
+        turnId: myPeerId,
+        winnerText: null
+      };
+      tttGames[gameId] = game;
+      broadcastData({ type: 'TTT_START', game: game });
+      renderTTTCard(game, true);
+    }
+
+    function playTTTCell(gameId, idx) {
+      const game = tttGames[gameId];
+      if (!game || game.winnerText || game.board[idx] !== '' || game.turnId !== myPeerId) return;
+
+      const symbol = myPeerId === game.xId ? '❌' : '⭕';
+      game.board[idx] = symbol;
+      game.turnId = myPeerId === game.xId ? game.oId : game.xId;
+      game.winnerText = checkTTTWinner(game);
+
+      updateTTTCardUI(gameId);
+      broadcastData({ type: 'TTT_MOVE', gameId: gameId, board: game.board, turnId: game.turnId, winnerText: game.winnerText });
+    }
+
+    function checkTTTWinner(game) {
+      const b = game.board;
+      const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for (const [a, c, d] of lines) {
+        if (b[a] && b[a] === b[c] && b[a] === b[d]) {
+          const winName = b[a] === '❌' ? game.xName : game.oName;
+          spawnEmojiRain('🎉');
+          return `🏆 ${escapeHTML(winName)} (${b[a]}) Wins!`;
+        }
+      }
+      if (!b.includes('')) return "🤝 Draw Match!";
+      return null;
+    }
+
+    function renderTTTCard(game, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div id="${game.id}" class="w-64 md:w-72 theme-panel border rounded-2xl p-3.5 shadow-lg text-center">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1">❌⭕ Live Tic-Tac-Toe</div>
+          <p class="text-[11px] font-semibold mb-2">${escapeHTML(game.xName)} (❌) vs ${escapeHTML(game.oName)} (⭕)</p>
+          <div id="${game.id}_grid" class="grid grid-cols-3 gap-1.5 w-48 mx-auto my-2"></div>
+          <div id="${game.id}_status" class="text-[11px] font-bold mt-2"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      updateTTTCardUI(game.id);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updateTTTCardUI(gameId) {
+      const game = tttGames[gameId];
+      const grid = document.getElementById(gameId + '_grid');
+      const status = document.getElementById(gameId + '_status');
+      if (!game || !grid || !status) return;
+
+      grid.innerHTML = game.board.map((cell, i) => `
+        <button onclick="playTTTCell('${gameId}', ${i})" class="h-14 rounded-xl theme-input border text-xl flex items-center justify-center font-bold hover:border-indigo-500 transition">
+          ${cell}
+        </button>
+      `).join('');
+
+      if (game.winnerText) {
+        status.innerHTML = `<span class="text-emerald-400">${game.winnerText}</span>`;
+      } else {
+        const turnName = game.turnId === game.xId ? game.xName : game.oName;
+        status.innerHTML = game.turnId === myPeerId 
+          ? `<span class="text-amber-400 animate-pulse">Your Turn!</span>` 
+          : `<span class="theme-muted">Waiting for ${escapeHTML(turnName)}...</span>`;
+      }
+    }
+
+    // ==================== EXCLUSIVE FEATURE 3: LIVE SPIN THE WHEEL ====================
+    function toggleWheelModal(show) {
+      const m = document.getElementById('wheelModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function launchSpinWheel() {
+      const title = document.getElementById('wheelTitleInput').value.trim() || 'Decision Wheel';
+      const rawOpts = document.getElementById('wheelOptionsInput').value.trim();
+      const items = rawOpts ? rawOpts.split(',').map(s => s.trim()).filter(Boolean) : ['Yes', 'No', 'Maybe', 'Try Again'];
+
+      if (items.length < 2) {
+        alert('Enter at least 2 comma-separated options.');
+        return;
+      }
+
+      const winnerIdx = Math.floor(Math.random() * items.length);
+      const wheelId = 'wheel_' + Date.now();
+      const wheelData = { id: wheelId, creator: myName, title, items, winnerIdx };
+
+      toggleWheelModal(false);
+      broadcastData({ type: 'SPIN_WHEEL', wheel: wheelData });
+      renderSpinWheelCard(wheelData, true);
+    }
+
+    function renderSpinWheelCard(wheel, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div class="w-72 theme-panel border rounded-2xl p-4 shadow-lg text-center">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1">🎡 Spin Roulette by ${escapeHTML(wheel.creator)}</div>
+          <p class="text-xs font-bold mb-3">${escapeHTML(wheel.title)}</p>
+          <div id="${wheel.id}_slot" class="py-4 px-3 rounded-xl theme-input border text-base font-extrabold text-amber-400 tracking-wide">
+            Spinning...
+          </div>
+          <div id="${wheel.id}_sub" class="text-[10px] theme-muted mt-2">Options: ${escapeHTML(wheel.items.join(' • '))}</div>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+
+      // Synchronized slot spin animation landing on exact deterministic winnerIdx
+      const slotEl = document.getElementById(wheel.id + '_slot');
+      let ticks = 0;
+      const totalTicks = 22;
+      const timer = setInterval(() => {
+        const currentItem = wheel.items[ticks % wheel.items.length];
+        if (slotEl) slotEl.textContent = currentItem;
+        ticks++;
+        if (ticks >= totalTicks) {
+          clearInterval(timer);
+          if (slotEl) {
+            slotEl.textContent = `🎉 ${wheel.items[wheel.winnerIdx]} 🎉`;
+            slotEl.classList.add('border-emerald-500', 'text-emerald-400');
+          }
+          playMessageTone();
+        }
+      }, 95);
+    }
+
+    // ==================== EXCLUSIVE FEATURE 4: MYSTERY SCRATCH-OFF CARDS ====================
+    function toggleScratchModal(show) {
+      const m = document.getElementById('scratchModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function sendScratchCard() {
+      const secretText = document.getElementById('scratchSecretInput').value.trim();
+      if (!secretText) return;
+      document.getElementById('scratchSecretInput').value = '';
+      toggleScratchModal(false);
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
+      const payload = { type: 'CHAT', msgId, msgMode: 'scratch', senderId: myPeerId, senderName: myName, content: secretText, time };
+
+      broadcastData(payload);
+      appendMessage(myName, secretText, 'outgoing', time, 'scratch', msgId);
+    }
+
+    function initScratchCanvas(canvasId) {
+      const sc = document.getElementById(canvasId);
+      if (!sc) return;
+      const sctx = sc.getContext('2d');
+
+      // Paint metallic silver scratch foil
+      const grad = sctx.createLinearGradient(0, 0, sc.width, sc.height);
+      grad.addColorStop(0, '#94a3b8');
+      grad.addColorStop(0.5, '#cbd5e1');
+      grad.addColorStop(1, '#64748b');
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, sc.width, sc.height);
+
+      sctx.fillStyle = '#1e293b';
+      sctx.font = 'bold 13px sans-serif';
+      sctx.textAlign = 'center';
+      sctx.fillText('🎟️ RUB HERE TO SCRATCH', sc.width / 2, sc.height / 2 + 5);
+
+      let scratching = false;
+      const scratchAt = (e) => {
+        if (!scratching) return;
+        const rect = sc.getBoundingClientRect();
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+        const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+        const x = cx * (sc.width / rect.width);
+        const y = cy * (sc.height / rect.height);
+
+        sctx.globalCompositeOperation = 'destination-out';
+        sctx.beginPath();
+        sctx.arc(x, y, 18, 0, Math.PI * 2);
+        sctx.fill();
+      };
+
+      sc.addEventListener('mousedown', (e) => { scratching = true; scratchAt(e); });
+      sc.addEventListener('mousemove', scratchAt);
+      window.addEventListener('mouseup', () => scratching = false);
+
+      sc.addEventListener('touchstart', (e) => { e.preventDefault(); scratching = true; scratchAt(e); }, { passive: false });
+      sc.addEventListener('touchmove', (e) => { e.preventDefault(); scratchAt(e); }, { passive: false });
+      sc.addEventListener('touchend', () => scratching = false);
+    }
+
+    // ==================== EXCLUSIVE FEATURE 5: LIVE MESSAGE REACTION CHIPS ====================
+    function reactToMessage(msgId, emoji) {
+      if (!messageReactions[msgId]) messageReactions[msgId] = {};
+      if (!messageReactions[msgId][emoji]) messageReactions[msgId][emoji] = [];
+
+      const idx = messageReactions[msgId][emoji].indexOf(myName);
+      if (idx === -1) messageReactions[msgId][emoji].push(myName);
+      else messageReactions[msgId][emoji].splice(idx, 1);
+
+      renderReactionBadges(msgId);
+      broadcastData({ type: 'MSG_REACT', msgId: msgId, emoji: emoji, userName: myName });
+    }
+
+    function renderReactionBadges(msgId) {
+      const container = document.getElementById(msgId + '_reactions');
+      if (!container || !messageReactions[msgId]) return;
+
+      let html = '';
+      for (const [emoji, users] of Object.entries(messageReactions[msgId])) {
+        if (users.length > 0) {
+          html += `<span onclick="reactToMessage('${msgId}', '${emoji}')" class="px-1.5 py-0.5 rounded-full theme-input border text-[10px] cursor-pointer hover:scale-105 transition">${emoji} ${users.length}</span>`;
+        }
+      }
+      container.innerHTML = html;
+    }
+
+    // ==================== LIVE WHITEBOARD ====================
+    const canvas = document.getElementById('sharedCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false, lastX = 0, lastY = 0, brushColor = '#3b82f6';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 4;
+
+    function toggleWhiteboard(show) {
+      const modal = document.getElementById('whiteboardModal');
+      if (show) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+    function setBrushColor(color) { brushColor = color; }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function drawSegment(x0, y0, x1, y1, color) {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; const p = getCanvasCoords(e); lastX = p.x; lastY = p.y; });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const p = getCanvasCoords(e);
+      drawSegment(lastX, lastY, p.x, p.y, brushColor);
+      broadcastData({ type: 'DRAW_STROKE', x0: lastX, y0: lastY, x1: p.x, y1: p.y, color: brushColor });
+      lastX = p.x; lastY = p.y;
+    });
+    window.addEventListener('mouseup', () => isDrawing = false);
+
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; const p = getCanvasCoords(e); lastX = p.x; lastY = p.y; }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const p = getCanvasCoords(e);
+      drawSegment(lastX, lastY, p.x, p.y, brushColor);
+      broadcastData({ type: 'DRAW_STROKE', x0: lastX, y0: lastY, x1: p.x, y1: p.y, color: brushColor });
+      lastX = p.x; lastY = p.y;
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => isDrawing = false);
+
+    function clearWhiteboard(broadcast = false) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (broadcast) broadcastData({ type: 'DRAW_CLEAR' });
+    }
+
+    function sendCanvasSnapshot() {
+      const dataUrl = canvas.toDataURL('image/png');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const msgId = 'msg_' + Date.now();
+      const payload = { type: 'CHAT', msgId, msgMode: 'image', senderId: myPeerId, senderName: myName, content: dataUrl, time };
+      broadcastData(payload);
+      appendMessage(myName, dataUrl, 'outgoing', time, 'image', msgId);
+      toggleWhiteboard(false);
+    }
+
+    // ==================== INTERACTIVE ROOM POLLS ====================
+    function togglePollModal(show) {
+      const m = document.getElementById('pollModal');
+      if (show) m.classList.remove('hidden');
+      else m.classList.add('hidden');
+    }
+
+    function launchPoll() {
+      const q = document.getElementById('pollQuestionInput').value.trim();
+      const o1 = document.getElementById('pollOpt1Input').value.trim();
+      const o2 = document.getElementById('pollOpt2Input').value.trim();
+      const o3 = document.getElementById('pollOpt3Input').value.trim();
+      if (!q || !o1 || !o2) { alert('Enter a question and at least 2 options.'); return; }
+
+      const options = [o1, o2];
+      if (o3) options.push(o3);
+      const pollId = 'poll_' + Date.now();
+      const pollData = { id: pollId, creator: myName, question: q, options: options.map(text => ({ text, voters: [] })) };
+
+      activePolls[pollId] = pollData;
+      broadcastData({ type: 'NEW_POLL', poll: pollData });
+      renderPollCard(pollData, true);
+
+      document.getElementById('pollQuestionInput').value = '';
+      document.getElementById('pollOpt1Input').value = '';
+      document.getElementById('pollOpt2Input').value = '';
+      document.getElementById('pollOpt3Input').value = '';
+      togglePollModal(false);
+    }
+
+    function castPollVote(pollId, optIdx) {
+      const poll = activePolls[pollId];
+      if (!poll) return;
+      poll.options.forEach(opt => opt.voters = opt.voters.filter(v => v !== myPeerId));
+      poll.options[optIdx].voters.push(myPeerId);
+      updatePollCardUI(pollId);
+      broadcastData({ type: 'POLL_VOTE', pollId, optIdx, voterId: myPeerId });
+    }
+
+    function renderPollCard(poll, isOut) {
+      const container = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+      div.innerHTML = `
+        <div id="${poll.id}" class="w-72 md:w-80 theme-panel border rounded-2xl p-3.5 shadow-lg">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-square-poll-vertical"></i> Live Poll by ${escapeHTML(poll.creator)}
+          </div>
+          <p class="text-xs md:text-sm font-bold mb-3">${escapeHTML(poll.question)}</p>
+          <div id="${poll.id}_opts" class="space-y-2"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      updatePollCardUI(poll.id);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function updatePollCardUI(pollId) {
+      const poll = activePolls[pollId];
+      const optsContainer = document.getElementById(pollId + '_opts');
+      if (!poll || !optsContainer) return;
+      const totalVotes = poll.options.reduce((sum, o) => sum + o.voters.length, 0);
+
+      optsContainer.innerHTML = poll.options.map((opt, idx) => {
+        const count = opt.voters.length;
+        const pct = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
+        const isVoted = opt.voters.includes(myPeerId);
+        return `
+          <button onclick="castPollVote('${pollId}', ${idx})" class="w-full text-left relative overflow-hidden rounded-xl border ${isVoted ? 'border-indigo-500' : 'theme-border'} p-2 text-xs transition">
+            <div class="absolute inset-y-0 left-0 bg-indigo-600/25 transition-all duration-300" style="width: ${pct}%"></div>
+            <div class="relative flex justify-between items-center font-medium">
+              <span>${escapeHTML(opt.text)} ${isVoted ? '✓' : ''}</span>
+              <span class="text-[10px] font-mono opacity-80">${pct}% (${count})</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // ==================== SCREEN BUZZ & SURPRISE RAIN ====================
     function sendScreenNudge() {
       triggerScreenShake();
       playBuzzTone();
@@ -1125,6 +1506,29 @@
       if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 300]);
     }
 
+    function triggerSurpriseBlast(emoji) {
+      document.getElementById('pickerPopover').classList.add('hidden');
+      spawnEmojiRain(emoji);
+      playMessageTone();
+      broadcastData({ type: 'SURPRISE_RAIN', emoji, senderName: myName });
+      appendSystemNotice(`You triggered a ${emoji} screen surprise!`);
+    }
+
+    function spawnEmojiRain(emoji) {
+      for (let i = 0; i < 28; i++) {
+        setTimeout(() => {
+          const drop = document.createElement('div');
+          drop.className = 'emoji-drop';
+          drop.textContent = emoji;
+          drop.style.left = Math.random() * 94 + 'vw';
+          drop.style.animationDuration = (2 + Math.random() * 2) + 's';
+          document.body.appendChild(drop);
+          setTimeout(() => drop.remove(), 4200);
+        }, i * 70);
+      }
+    }
+
+    // ==================== SECRET SELF-DESTRUCT, TYPING & VOICE NOTES ====================
     function toggleSecretMode() {
       isSecretMode = !isSecretMode;
       const banner = document.getElementById('secretModeBanner');
@@ -1138,7 +1542,7 @@
       } else {
         banner.classList.add('hidden');
         btn.classList.remove('text-amber-400', 'border-amber-400');
-        input.placeholder = 'Encrypted message...';
+        input.placeholder = 'Type message...';
       }
     }
 
@@ -1170,12 +1574,13 @@
             stream.getTracks().forEach(t => t.stop());
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const reader = new FileReader();
-            reader.onloadend = async () => {
+            reader.onloadend = () => {
               const base64Audio = reader.result;
               const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              appendMessage(myName, base64Audio, 'outgoing', time, 'audio');
-              recordTranscript(myName, '[Voice Note]', time);
-              await sendChunkedPayload(base64Audio, { msgMode: 'audio', time });
+              const msgId = 'msg_' + Date.now();
+              const payload = { type: 'CHAT', msgId, msgMode: 'audio', senderId: myPeerId, senderName: myName, content: base64Audio, time };
+              broadcastData(payload);
+              appendMessage(myName, base64Audio, 'outgoing', time, 'audio', msgId);
             };
             reader.readAsDataURL(audioBlob);
           };
@@ -1200,24 +1605,21 @@
       document.getElementById('sidebarBackdrop').classList.toggle('hidden');
     }
 
-    async function enterRoom() {
+    function enterRoom() {
       myName = document.getElementById('userNameInput').value.trim();
-      rawPassphrase = document.getElementById('roomNameInput').value.trim();
-      if (!myName || !rawPassphrase) { alert('Please enter both your name and a shared room passphrase.'); return; }
+      const rawRoom = document.getElementById('roomNameInput').value.trim();
+      if (!myName || !rawRoom) { alert('Please enter both your name and a shared room code.'); return; }
 
       intentionalLogout = false;
       initAudioContext();
       requestNotificationPermission();
+      enableBackgroundPersistence();
 
+      room = sanitize(rawRoom);
       const statusEl = document.getElementById('authStatus');
-      statusEl.textContent = 'Deriving 256-bit AES-GCM Key & Locking TURN...';
+      statusEl.textContent = 'Locking Always-On TURN Relay...';
       statusEl.classList.remove('hidden');
 
-      await deriveRoomCryptoKey(rawPassphrase);
-      enableBackgroundPersistence();
-      startTelemetryMonitor();
-
-      room = sanitize(rawPassphrase);
       tryHostRole();
     }
 
@@ -1276,7 +1678,7 @@
         updateParticipantsUI();
       });
 
-      conn.on('data', async (data) => {
+      conn.on('data', (data) => {
         if (data.type === 'JOIN') {
           connections[conn.peer] = { conn: conn, name: data.name };
           appendSystemNotice(`${data.name} connected to room`);
@@ -1285,20 +1687,17 @@
           if (isHost) syncRosterToGuests();
         }
         else if (data.type === 'ROSTER') {
+          roomRoster = data.members;
           renderGuestRoster(data.members);
-        }
-        else if (data.type === 'PING') {
-          conn.send({ type: 'PONG', ts: data.ts });
-        }
-        else if (data.type === 'PONG') {
-          const rtt = Date.now() - data.ts;
-          document.getElementById('statPing').textContent = `${rtt} ms`;
-          const badge = document.getElementById('headerPingBadge');
-          badge.textContent = `${rtt} ms`;
-          badge.classList.remove('hidden');
         }
         else if (data.type === 'TYPING') {
           showRemoteTyping(data.senderName);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'SURPRISE_RAIN') {
+          spawnEmojiRain(data.emoji);
+          playMessageTone();
+          appendSystemNotice(`${data.senderName} sent a ${data.emoji} screen surprise!`);
           if (isHost) relayToOthers(conn.peer, data);
         }
         else if (data.type === 'SCREEN_NUDGE') {
@@ -1308,55 +1707,88 @@
           appendSystemNotice(`⚡ ${data.senderName} buzzed your screen!`);
           if (isHost) relayToOthers(conn.peer, data);
         }
-        // CHUNKED MEDIA & FILE REASSEMBLY
-        else if (data.type === 'CHUNK_START') {
-          incomingChunkBuffers[data.transferId] = {
-            chunks: new Array(data.totalChunks),
-            received: 0,
-            total: data.totalChunks,
-            senderName: data.senderName,
-            meta: data.meta
-          };
-          showTransferProgress(`Receiving ${data.meta.fileName || 'image'}...`, 5);
+        else if (data.type === 'DRAW_STROKE') {
+          drawSegment(data.x0, data.y0, data.x1, data.y1, data.color);
           if (isHost) relayToOthers(conn.peer, data);
         }
-        else if (data.type === 'CHUNK_DATA') {
-          const buf = incomingChunkBuffers[data.transferId];
-          if (buf) {
-            buf.chunks[data.index] = data.slice;
-            buf.received++;
-            const pct = Math.round((buf.received / buf.total) * 100);
-            showTransferProgress(`Receiving (${pct}%)`, pct);
+        else if (data.type === 'DRAW_CLEAR') {
+          clearWhiteboard(false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'NEW_POLL') {
+          activePolls[data.poll.id] = data.poll;
+          renderPollCard(data.poll, false);
+          triggerIncomingNotification('📊 New Room Poll', `${data.poll.creator}: ${data.poll.question}`, false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'POLL_VOTE') {
+          const poll = activePolls[data.pollId];
+          if (poll) {
+            poll.options.forEach(opt => opt.voters = opt.voters.filter(v => v !== data.voterId));
+            poll.options[data.optIdx].voters.push(data.voterId);
+            updatePollCardUI(data.pollId);
           }
           if (isHost) relayToOthers(conn.peer, data);
         }
-        else if (data.type === 'CHUNK_END') {
-          const buf = incomingChunkBuffers[data.transferId];
-          if (buf) {
-            const fullDataUrl = buf.chunks.join('');
-            const m = buf.meta;
-            appendMessage(buf.senderName, fullDataUrl, 'incoming', m.time, m.msgMode, m);
-            
-            const notifBody = m.msgMode === 'photo' ? `🖼️ Sent a compressed photo (${m.sizeKB} KB)`
-                            : m.msgMode === 'file' ? `📎 Sent file: ${m.fileName} (${m.sizeKB} KB)`
-                            : '🎤 Sent a voice note';
-            triggerIncomingNotification(buf.senderName, notifBody, false);
-            recordTranscript(buf.senderName, notifBody, m.time);
-            delete incomingChunkBuffers[data.transferId];
-          }
-          hideTransferProgress();
+        else if (data.type === 'RPS_START') {
+          rpsGames[data.game.id] = data.game;
+          renderRPSCard(data.game, false);
+          triggerIncomingNotification('🎮 RPS Duel Challenge!', `${data.game.p1Name} vs ${data.game.p2Name}`, false);
           if (isHost) relayToOthers(conn.peer, data);
         }
-        // AES-256-GCM ENCRYPTED TEXT / STICKER
-        else if (data.type === 'CHAT_E2EE') {
+        else if (data.type === 'RPS_MOVE') {
+          const game = rpsGames[data.gameId];
+          if (game) {
+            if (game.p2Id === 'ANY' && data.peerId !== game.p1Id) {
+              game.p2Id = data.peerId;
+              game.p2Name = data.name;
+            }
+            game.moves[data.peerId] = { name: data.name, move: data.move };
+            updateRPSCardUI(data.gameId);
+          }
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'TTT_START') {
+          tttGames[data.game.id] = data.game;
+          renderTTTCard(data.game, false);
+          triggerIncomingNotification('❌⭕ Tic-Tac-Toe Challenge!', `${data.game.xName} challenged ${data.game.oName}`, false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'TTT_MOVE') {
+          const game = tttGames[data.gameId];
+          if (game) {
+            game.board = data.board;
+            game.turnId = data.turnId;
+            game.winnerText = data.winnerText;
+            updateTTTCardUI(data.gameId);
+          }
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'SPIN_WHEEL') {
+          renderSpinWheelCard(data.wheel, false);
+          triggerIncomingNotification('🎡 Spin Roulette!', `${data.wheel.creator} spun: ${data.wheel.title}`, false);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'MSG_REACT') {
+          if (!messageReactions[data.msgId]) messageReactions[data.msgId] = {};
+          if (!messageReactions[data.msgId][data.emoji]) messageReactions[data.msgId][data.emoji] = [];
+          const idx = messageReactions[data.msgId][data.emoji].indexOf(data.userName);
+          if (idx === -1) messageReactions[data.msgId][data.emoji].push(data.userName);
+          else messageReactions[data.msgId][data.emoji].splice(idx, 1);
+          renderReactionBadges(data.msgId);
+          if (isHost) relayToOthers(conn.peer, data);
+        }
+        else if (data.type === 'CHAT') {
           document.getElementById('typingIndicatorBar').classList.add('hidden');
-          const decryptedText = await decryptPayload(data.iv, data.cipher);
-          appendMessage(data.senderName, decryptedText, 'incoming', data.time, data.msgMode || 'text', { quote: data.quote });
-          recordTranscript(data.senderName, decryptedText, data.time);
-
-          const preview = data.msgMode === 'sticker' ? `Sent sticker ${decryptedText}`
-                        : data.msgMode === 'secret' ? '💣 Sent a secret message'
-                        : decryptedText;
+          appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, data.sizeKB);
+          
+          const preview = data.msgMode === 'sticker' ? `Sent sticker ${data.content}` 
+                        : data.msgMode === 'audio' ? '🎤 Sent a voice note' 
+                        : data.msgMode === 'photo' ? `🖼️ Sent a photo (${data.sizeKB} KB)`
+                        : data.msgMode === 'image' ? '🎨 Sent a whiteboard sketch'
+                        : data.msgMode === 'scratch' ? '🎟️ Sent a mystery scratch card'
+                        : data.msgMode === 'secret' ? '💣 Sent a secret message' 
+                        : data.content;
           triggerIncomingNotification(data.senderName, preview, false);
 
           if (isHost) relayToOthers(conn.peer, data);
@@ -1382,39 +1814,50 @@
 
     function syncRosterToGuests() {
       const members = [{ id: myPeerId, name: myName }];
-      for (const [id, peerObj] of Object.entries(connections)) members.push({ id, name: peerObj.name });
+      for (const [id, peerObj] of Object.entries(connections)) {
+        members.push({ id: id, name: peerObj.name });
+      }
+      roomRoster = members;
       for (const peerObj of Object.values(connections)) {
-        if (peerObj.conn.open) peerObj.conn.send({ type: 'ROSTER', members });
+        if (peerObj.conn.open) {
+          peerObj.conn.send({ type: 'ROSTER', members: members });
+        }
       }
       renderGuestRoster(members);
     }
 
     function updateParticipantsUI() {
+      const list = document.getElementById('participantsList');
       const badge = document.getElementById('connBadge');
       const countEl = document.getElementById('participantCount');
+
       const peers = Object.values(connections);
       const total = peers.length + 1;
       countEl.textContent = total;
 
       if (peers.length === 0) {
-        badge.textContent = 'AES-256 Ready • Waiting for peers...';
-        badge.className = 'text-[10px] text-amber-400 font-mono truncate';
+        badge.textContent = 'Always-On • Waiting for peers...';
+        badge.className = 'text-[10px] text-amber-400 font-mono block truncate';
       } else {
-        badge.textContent = `${total} Connected • AES-256 E2EE`;
-        badge.className = 'text-[10px] text-emerald-400 font-mono truncate';
+        badge.textContent = `${total} Active • Lock-Guard Connected`;
+        badge.className = 'text-[10px] text-emerald-400 font-mono block truncate';
       }
 
-      if (isHost) syncRosterToGuests();
-      else {
-        const list = [{ id: myPeerId, name: myName }];
-        for (const [id, p] of Object.entries(connections)) list.push({ id, name: p.name });
-        renderGuestRoster(list);
+      if (isHost) {
+        syncRosterToGuests();
+      } else {
+        roomRoster = [{ id: myPeerId, name: myName }];
+        for (const [id, p] of Object.entries(connections)) {
+          roomRoster.push({ id, name: p.name });
+        }
+        renderGuestRoster(roomRoster);
       }
     }
 
     function renderGuestRoster(members) {
       const list = document.getElementById('participantsList');
       document.getElementById('participantCount').textContent = members.length;
+
       list.innerHTML = members.map(m => `
         <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
           <div class="w-7 h-7 rounded-lg ${m.id === myPeerId ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase">
@@ -1427,12 +1870,14 @@
 
     function broadcastData(payload) {
       for (const peerObj of Object.values(connections)) {
-        if (peerObj.conn && peerObj.conn.open) peerObj.conn.send(payload);
+        if (peerObj.conn && peerObj.conn.open) {
+          peerObj.conn.send(payload);
+        }
       }
     }
 
     // ==================== MESSAGING, CLEAR CHAT & LOGOFF ====================
-    async function sendMessage(e) {
+    function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
@@ -1441,44 +1886,34 @@
       document.getElementById('pickerPopover').classList.add('hidden');
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const mode = isSecretMode ? 'secret' : 'text';
-      const quoteData = activeReplyContext ? { ...activeReplyContext } : null;
+      const msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
 
-      const encrypted = await encryptPayload(text);
-
-      broadcastData({
-        type: 'CHAT_E2EE',
-        msgMode: mode,
-        senderId: myPeerId,
-        senderName: myName,
-        iv: encrypted.iv,
-        cipher: encrypted.cipher,
-        quote: quoteData,
-        time
-      });
-
-      appendMessage(myName, text, 'outgoing', time, mode, { quote: quoteData });
-      recordTranscript(myName, text, time);
+      const payload = { type: 'CHAT', msgId, msgMode: mode, senderId: myPeerId, senderName: myName, content: text, time };
+      broadcastData(payload);
+      appendMessage(myName, text, 'outgoing', time, mode, msgId);
       input.value = '';
-      cancelReply();
     }
 
-    function appendMessage(sender, content, direction, time, mode = 'text', meta = {}) {
+    function appendMessage(sender, content, direction, time, mode = 'text', msgId = '', sizeKB = 0) {
       const container = document.getElementById('messagesContainer');
       const isOut = direction === 'outgoing';
+      if (!msgId) msgId = 'msg_' + Date.now() + Math.random().toString(36).substr(2, 4);
 
       const msgDiv = document.createElement('div');
       msgDiv.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'} group`;
 
       const senderTag = !isOut ? `<span class="text-[10px] font-semibold theme-muted mb-1 ml-1">${escapeHTML(sender)}</span>` : '';
-      const safeSnippet = mode === 'text' ? content.replace(/'/g, "\\'").replace(/"/g, '&quot;') : `[${mode}]`;
-      const replyBtn = `<button onclick="setReplyQuote('${escapeHTML(sender)}', '${safeSnippet}')" class="opacity-0 group-hover:opacity-100 text-[10px] theme-muted hover:text-indigo-400 px-1.5 transition" title="Reply"><i class="fa-solid fa-reply"></i></button>`;
-
-      const quoteBlock = meta.quote ? `
-        <div class="mb-1.5 px-2.5 py-1 rounded-lg bg-black/25 border-l-2 border-indigo-400 text-[10px] opacity-85">
-          <div class="font-bold">${escapeHTML(meta.quote.sender)}</div>
-          <div class="truncate">${escapeHTML(meta.quote.text)}</div>
+      const reactionBar = `
+        <div class="flex items-center gap-1 mt-1 ${isOut ? 'justify-end' : 'justify-start'}">
+          <div id="${msgId}_reactions" class="flex flex-wrap gap-1"></div>
+          <div class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex gap-0.5 bg-black/40 px-1.5 py-0.5 rounded-full text-[11px]">
+            <button onclick="reactToMessage('${msgId}', '❤️')" class="hover:scale-125 transition">❤️</button>
+            <button onclick="reactToMessage('${msgId}', '😂')" class="hover:scale-125 transition">😂</button>
+            <button onclick="reactToMessage('${msgId}', '🔥')" class="hover:scale-125 transition">🔥</button>
+            <button onclick="reactToMessage('${msgId}', '👍')" class="hover:scale-125 transition">👍</button>
+          </div>
         </div>
-      ` : '';
+      `;
 
       if (mode === 'sticker') {
         msgDiv.innerHTML = `
@@ -1487,6 +1922,7 @@
             <span class="sticker-anim">${content}</span>
             <div class="text-[9px] theme-muted ${isOut ? 'text-right' : 'text-left'} mt-0.5">${time}</div>
           </div>
+          ${reactionBar}
         `;
       } else if (mode === 'photo') {
         msgDiv.innerHTML = `
@@ -1494,30 +1930,39 @@
           <div class="max-w-[82%] md:max-w-[55%] p-2 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
             <img src="${content}" onclick="openLightbox('${content}')" class="rounded-xl max-h-64 w-full object-cover cursor-zoom-in" />
             <div class="flex items-center justify-between text-[9px] opacity-80 mt-1.5 px-1">
-              <span><i class="fa-solid fa-check-circle mr-1"></i>${meta.sizeKB || ''} KB Chunked</span>
+              <span><i class="fa-solid fa-compress mr-1"></i>${sizeKB} KB</span>
               <span>${time}</span>
             </div>
           </div>
+          ${reactionBar}
         `;
-      } else if (mode === 'file') {
+      } else if (mode === 'image') {
         msgDiv.innerHTML = `
           ${senderTag}
-          <div class="max-w-[85%] md:max-w-[65%] p-3 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-black/25 flex items-center justify-center text-lg shrink-0">
-                <i class="fa-solid fa-file-arrow-down"></i>
-              </div>
-              <div class="overflow-hidden flex-1">
-                <div class="text-xs font-bold truncate">${escapeHTML(meta.fileName || 'Document')}</div>
-                <div class="text-[10px] opacity-75">${meta.sizeKB || ''} KB • P2P Transfer</div>
-              </div>
-              <a href="${content}" download="${escapeHTML(meta.fileName || 'download')}" class="px-2.5 py-1.5 rounded-lg bg-black/30 hover:bg-black/50 text-[11px] font-semibold shrink-0">
-                Save
-              </a>
+          <div class="max-w-[80%] md:max-w-[60%] p-2 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
+            <div class="text-[10px] font-semibold mb-1 opacity-80"><i class="fa-solid fa-paintbrush mr-1"></i> Whiteboard Sketch</div>
+            <img src="${content}" onclick="openLightbox('${content}')" class="rounded-xl bg-[#090d16] max-h-56 object-contain border border-white/10 cursor-zoom-in" />
+            <div class="text-[9px] opacity-75 text-right mt-1">${time}</div>
+          </div>
+          ${reactionBar}
+        `;
+      } else if (mode === 'scratch') {
+        const scratchCanvasId = 'sc_' + Math.random().toString(36).substr(2, 8);
+        msgDiv.innerHTML = `
+          ${senderTag}
+          <div class="w-64 p-2.5 rounded-2xl theme-panel border shadow-lg">
+            <div class="text-[10px] font-bold text-amber-400 mb-1.5">🎟️ Mystery Scratch Card</div>
+            <div class="relative h-20 rounded-xl overflow-hidden bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-center p-2 text-center">
+              <span class="text-xs md:text-sm font-bold text-white break-words">${escapeHTML(content)}</span>
+              <canvas id="${scratchCanvasId}" width="240" height="80" class="absolute inset-0 w-full h-full cursor-pointer touch-none"></canvas>
             </div>
-            <div class="text-[9px] opacity-75 text-right mt-1.5">${time}</div>
+            <div class="text-[9px] theme-muted text-right mt-1">${time}</div>
           </div>
         `;
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+        initScratchCanvas(scratchCanvasId);
+        return;
       } else if (mode === 'audio') {
         msgDiv.innerHTML = `
           ${senderTag}
@@ -1526,6 +1971,7 @@
             <audio controls src="${content}" class="h-8 w-52 md:w-60"></audio>
             <div class="text-[9px] opacity-75 text-right mt-1">${time}</div>
           </div>
+          ${reactionBar}
         `;
       } else if (mode === 'secret') {
         const uniqueId = 'sec_' + Math.random().toString(36).substr(2, 9);
@@ -1543,18 +1989,14 @@
       } else {
         msgDiv.innerHTML = `
           ${senderTag}
-          <div class="flex items-center gap-1 ${isOut ? 'flex-row-reverse' : 'flex-row'} max-w-[88%] md:max-w-[72%]">
-            <div class="px-3.5 py-2.5 rounded-2xl text-xs md:text-sm ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
-              ${quoteBlock}
-              <p class="break-words leading-relaxed">${escapeHTML(content)}</p>
-              <div class="flex items-center justify-end gap-1 text-[9px] opacity-75 mt-1">
-                <i class="fa-solid fa-lock text-[7px]"></i>
-                <span>${time}</span>
-                ${isOut ? '<i class="fa-solid fa-check-double text-[8px]"></i>' : ''}
-              </div>
+          <div class="max-w-[85%] md:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-xs md:text-sm ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow">
+            <p class="break-words leading-relaxed">${escapeHTML(content)}</p>
+            <div class="flex items-center justify-end gap-1 text-[9px] opacity-75 mt-1">
+              <span>${time}</span>
+              ${isOut ? '<i class="fa-solid fa-check-double text-[8px]"></i>' : ''}
             </div>
-            ${replyBtn}
           </div>
+          ${reactionBar}
         `;
       }
 
@@ -1596,11 +2038,10 @@
     }
 
     function escapeHTML(str) {
-      return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
     }
 
     function clearChat() {
-      chatTranscript = [];
       document.getElementById('messagesContainer').innerHTML = `
         <div class="text-center my-2">
           <span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">Chat history cleared locally</span>
@@ -1615,8 +2056,7 @@
       endCall();
       for (const peerObj of Object.values(connections)) { if (peerObj.conn) peerObj.conn.close(); }
       connections = {};
-      incomingChunkBuffers = {};
-      aesCryptoKey = null;
+      roomRoster = [];
       if (peer) { peer.destroy(); peer = null; }
       room = "";
       clearChat();
@@ -1747,8 +2187,6 @@
 
     function endCall() {
       stopRingtone();
-      isScreenSharing = false;
-      document.getElementById('screenShareBtn').classList.remove('bg-emerald-600');
       if (activeCall) activeCall.close();
       if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
       document.getElementById('callOverlay').classList.add('hidden');
