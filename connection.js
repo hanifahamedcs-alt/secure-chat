@@ -625,7 +625,28 @@ function logoutRoom() {
   room = ""; clearChat(false);
   toggleModal('authOverlay', true);
 }
+// ==================== SAFE PICKER TOGGLE & TAB SWITCHER ====================
+function togglePicker() {
+  const pop = document.getElementById('pickerPopover');
+  if (!pop) return;
+  pop.classList.toggle('hidden');
+  if (!pop.classList.contains('hidden') && typeof initPickersSafely === 'function') {
+    initPickersSafely();
+  }
+}
 
+function switchPickerTab(tab) {
+  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
+    const grid = document.getElementById(k + 'Grid');
+    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
+    if (grid) grid.classList.toggle('hidden', k !== tab);
+    if (btn) {
+      btn.className = k === tab
+        ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent'
+        : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
+    }
+  });
+}
 // ==================== HELPERS & CALLS ====================
 function setReplyQuote(sender, snippet) { activeReplyContext = { sender, text: snippet.slice(0, 80) }; document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`; document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text; toggleModal('replyPreviewBanner', true); }
 function cancelReply() { activeReplyContext = null; toggleModal('replyPreviewBanner', false); }
