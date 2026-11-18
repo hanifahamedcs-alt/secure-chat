@@ -179,7 +179,7 @@ pongCanvas.addEventListener('pointermove', (e) => {
   broadcastData({ type: 'PONG_PADDLE', isHostPaddle: isHost, x });
 });
 
-// ==================== RESTORED PREVIOUS GAMES (RPS, TIC-TAC-TOE, TRIVIA, SPIN WHEEL, STORY CHAIN, POLLS, WHITEBOARD, TIMER, WEATHER) ====================
+// ==================== RPS, TIC-TAC-TOE, TRIVIA, SPIN WHEEL, STORY CHAIN, POLLS, WHITEBOARD & TIMER ====================
 let activePolls = {}, rpsGames = {}, tttGames = {}, triviaGames = {}, storyChains = {}, pendingGameType = 'rps';
 
 function openOpponentSelector(gameType) {
@@ -349,7 +349,6 @@ function updatePollCardUI(id) {
   el.innerHTML = p.options.map((o, i) => `<button onclick="castPollVote('${id}',${i})" class="w-full text-left p-2 rounded-xl theme-input border text-xs flex justify-between"><span>${escapeHTML(o.text)}</span><span>${total ? Math.round((o.voters.length / total) * 100) : 0}% (${o.voters.length})</span></button>`).join('');
 }
 
-// Whiteboard, Timer, Weather Aura & Buzz
 const canvas = document.getElementById('sharedCanvas'), ctx = canvas.getContext('2d');
 let isDrawing = false, lastX = 0, lastY = 0, brushColor = '#3b82f6';
 ctx.lineCap = 'round'; ctx.lineWidth = 4;
@@ -359,7 +358,12 @@ canvas.addEventListener('pointerdown', (e) => { isDrawing = true; const r = canv
 canvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; const r = canvas.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 640, y = ((e.clientY - r.top) / r.height) * 380; drawSegment(lastX, lastY, x, y, brushColor); broadcastData({ type: 'DRAW_STROKE', x0: lastX, y0: lastY, x1: x, y1: y, color: brushColor }); lastX = x; lastY = y; });
 window.addEventListener('pointerup', () => isDrawing = false);
 function clearWhiteboard(b) { ctx.clearRect(0, 0, 640, 380); if (b) broadcastData({ type: 'DRAW_CLEAR' }); }
-async function sendCanvasSnapshot() { const url = canvas.toDataURL('image/png'), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); toggleModal('whiteboardModal', false); appendMessage(myName, url, 'outgoing', time, 'image'); await sendChunkedPayload(url, { msgMode: 'image', time }); }
+async function sendCanvasSnapshot() {
+  const url = canvas.toDataURL('image/png'), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  toggleModal('whiteboardModal', false);
+  appendMessage(myName, dataUrlToBlobUrl(url), 'outgoing', time, 'image');
+  await sendChunkedPayload(url, { msgMode: 'image', time });
+}
 
 function launchSharedTimer(s) { toggleModal('timerModal', false); const timer = { id: 'tmr_' + Date.now(), label: document.getElementById('timerLabelInput').value.trim() || 'Timer', seconds: s }; broadcastData({ type: 'SYNC_TIMER', timer }); renderTimerCard(timer, true); }
 function renderTimerCard(timer, isOut) {
@@ -390,26 +394,47 @@ function triggerScreenShake() { const b = document.getElementById('appBody'); b.
 function triggerSurpriseBlast(emoji) { togglePicker(); spawnEmojiRain(emoji); broadcastData({ type: 'SURPRISE_RAIN', emoji }); }
 function spawnEmojiRain(emoji) { for (let i = 0; i < 20; i++) setTimeout(() => { const d = document.createElement('div'); d.className = 'emoji-drop'; d.textContent = emoji; d.style.left = Math.random() * 92 + 'vw'; d.style.animationDuration = '2.5s'; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }, i * 80); }
 
-// ==================== SOUNDSCAPE MIXER, BEAT STUDIO, DUAL SNAP & CURSORS ====================
+// ==================== FIX 2: SOUNDSCAPE MIXER WITH MOBILE AUTOPLAY PROMPT ====================
 const soundscapeNodes = {};
-function updateSoundscapeChannel(ch, val, b = true) {
+async function updateSoundscapeChannel(ch, val, b = true) {
   const num = parseInt(val, 10) || 0;
-  document.getElementById('slider_' + ch).value = num; document.getElementById('volLabel_' + ch).textContent = `${num}%`;
+  document.getElementById('slider_' + ch).value = num;
+  document.getElementById('volLabel_' + ch).textContent = `${num}%`;
+
   if (num > 0 || soundscapeNodes.ready) {
     initAudioContext();
+    if (audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch (e) {}
+    }
+    if (audioCtx.state === 'suspended' && !b) {
+      showToast('🔊 Tap to Enable Room Audio', 'Partner adjusted the ambient soundscape', () => {
+        audioCtx.resume().catch(() => {});
+      });
+    }
+
     if (!soundscapeNodes.ready) {
       const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const mk = (type, f) => { const s = audioCtx.createBufferSource(); s.buffer = buf; s.loop = true; const fl = audioCtx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = audioCtx.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(audioCtx.destination); s.start(); return g; };
-      soundscapeNodes.rain = mk('bandpass', 1100); soundscapeNodes.fire = mk('lowpass', 320); soundscapeNodes.ocean = mk('lowpass', 180); soundscapeNodes.vinyl = mk('highpass', 3800);
+      const mk = (type, f) => {
+        const s = audioCtx.createBufferSource(); s.buffer = buf; s.loop = true;
+        const fl = audioCtx.createBiquadFilter(); fl.type = type; fl.frequency.value = f;
+        const g = audioCtx.createGain(); g.gain.value = 0;
+        s.connect(fl); fl.connect(g); g.connect(audioCtx.destination); s.start();
+        return g;
+      };
+      soundscapeNodes.rain = mk('bandpass', 1100);
+      soundscapeNodes.fire = mk('lowpass', 320);
+      soundscapeNodes.ocean = mk('lowpass', 180);
+      soundscapeNodes.vinyl = mk('highpass', 3800);
       soundscapeNodes.ready = true;
     }
-    soundscapeNodes[ch].gain.setTargetAtTime((num / 100) * 0.22, audioCtx.currentTime, 0.08);
+    soundscapeNodes[ch].gain.setTargetAtTime((num / 100) * 0.25, audioCtx.currentTime, 0.08);
   }
   if (b) broadcastData({ type: 'SOUNDSCAPE_SYNC', channel: ch, val: num });
 }
 function muteAllSoundscapes(b = true) { ['rain', 'fire', 'ocean', 'vinyl'].forEach(c => updateSoundscapeChannel(c, 0, false)); if (b) broadcastData({ type: 'SOUNDSCAPE_MUTE' }); }
 
+// ==================== BEAT STUDIO, DUAL SNAP (BLOB URL) & CURSORS ====================
 let beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false)), beatPlaying = false, beatStep = 0, beatTimer = null;
 function toggleBeatStudio(s) { toggleModal('beatStudioModal', s); if (s) renderSequencerGrid(); }
 function renderSequencerGrid() {
@@ -450,7 +475,7 @@ async function executeDualSnapSequence() {
     ctx.save(); ctx.beginPath(); ctx.arc(115, 115, 80, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(v, 35, 35, 160, 160); ctx.restore();
     closeDualSnapModal();
     const dataUrl = c.toDataURL('image/jpeg', 0.7), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), msgId = 'msg_' + Date.now();
-    appendMessage(myName, dataUrl, 'outgoing', time, 'photo', msgId, { isDual: true });
+    appendMessage(myName, dataUrlToBlobUrl(dataUrl), 'outgoing', time, 'photo', msgId, { isDual: true });
     await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', isDual: true, time });
   } catch (e) { closeDualSnapModal(); }
 }
@@ -482,9 +507,9 @@ function switchPickerTab(tab) {
   });
 }
 function insertEmoji(e) { document.getElementById('messageInput').value += e; }
-function sendSticker(s) { togglePicker(); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'sticker', senderName: myName, content: s, time }); appendMessage(myName, s, 'outgoing', time, 'sticker'); }
+function sendSticker(s) { togglePicker(); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'sticker', senderName: myName, content: s, time }, true); appendMessage(myName, s, 'outgoing', time, 'sticker'); }
 function triggerSoundboard(id, b = true) { playBeatTrackSound(1); if (b) { togglePicker(); broadcastData({ type: 'SOUNDBOARD', soundId: id, senderName: myName }); } }
-function sendScratchCard() { const t = document.getElementById('scratchSecretInput').value.trim(); if (!t) return; toggleModal('scratchModal', false); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'scratch', senderName: myName, content: t, time }); appendMessage(myName, t, 'outgoing', time, 'scratch'); }
+function sendScratchCard() { const t = document.getElementById('scratchSecretInput').value.trim(); if (!t) return; toggleModal('scratchModal', false); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'scratch', senderName: myName, content: t, time }, true); appendMessage(myName, t, 'outgoing', time, 'scratch'); }
 function initScratchCanvas(id) { const sc = document.getElementById(id); if (!sc) return; const c = sc.getContext('2d'); c.fillStyle = '#94a3b8'; c.fillRect(0, 0, 240, 80); sc.addEventListener('pointermove', (e) => { const r = sc.getBoundingClientRect(); c.clearRect(((e.clientX - r.left) / r.width) * 240 - 15, ((e.clientY - r.top) / r.height) * 80 - 15, 30, 30); }); }
 
 // Populate All Pickers & Full Game Suite Menu
