@@ -28,7 +28,105 @@ function toggleMobileSidebar() {
   document.getElementById('sidebarBackdrop').classList.toggle('hidden');
 }
 
-// ==================== FIX 1: BLOB URL CONVERTER FOR ZERO-LEAK IMAGES ====================
+// ==================== MUST-NEED: AUTO-FILL INVITE LINK & SESSION RECOVERY ====================
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const urlRoom = params.get('room');
+  const savedName = sessionStorage.getItem('cypher_name');
+  const savedRoom = urlRoom || sessionStorage.getItem('cypher_room');
+
+  if (savedName) document.getElementById('userNameInput').value = savedName;
+  if (savedRoom) document.getElementById('roomNameInput').value = savedRoom;
+
+  // Inject Force Reconnect & Copy Invite Link buttons into header automatically
+  const headerControls = document.querySelector('header .flex.items-center.gap-1\\.5');
+  if (headerControls) {
+    const inviteBtn = document.createElement('button');
+    inviteBtn.type = 'button';
+    inviteBtn.title = 'Copy Room Invite Link';
+    inviteBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center text-xs transition';
+    inviteBtn.innerHTML = '<i class="fa-solid fa-link"></i>';
+    inviteBtn.onclick = copyRoomInviteLink;
+
+    const syncBtn = document.createElement('button');
+    syncBtn.type = 'button';
+    syncBtn.title = 'Force Reconnect / Sync Room';
+    syncBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center text-xs transition';
+    syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
+    syncBtn.onclick = () => forceRoomReconnect(true);
+
+    headerControls.prepend(syncBtn);
+    headerControls.prepend(inviteBtn);
+  }
+
+  // Auto-rejoin if iOS purged tab from memory while active in a room
+  if (savedName && savedRoom && sessionStorage.getItem('cypher_active') === '1') {
+    enterRoom();
+  }
+});
+
+function copyRoomInviteLink() {
+  if (!room) return;
+  const shareUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      showToast('🔗 Invite Link Copied!', `Share link for #${room} with your partner`);
+    }).catch(() => prompt('Copy this room link:', shareUrl));
+  } else {
+    prompt('Copy this room link:', shareUrl);
+  }
+}
+
+// ==================== iOS BACKGROUND / FOREGROUND RETURN RECOVERY ====================
+function handleAppResume() {
+  unreadCount = 0;
+  document.title = originalTitle;
+  if (intentionalLogout || !room) return;
+
+  initAudioContext();
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').then(s => wakeLockSentinel = s).catch(() => {});
+  }
+
+  const activePeers = Object.values(connections).filter(p => p.conn && p.conn.open);
+  if (!peer || peer.destroyed) {
+    forceRoomReconnect(false);
+  } else if (peer.disconnected) {
+    try {
+      peer.reconnect();
+    } catch (e) {
+      forceRoomReconnect(false);
+    }
+    // If signaling reconnect doesn't restore a peer within 2.5s, re-run role discovery
+    setTimeout(() => {
+      const nowOpen = Object.values(connections).filter(p => p.conn && p.conn.open);
+      if (!intentionalLogout && room && nowOpen.length === 0) {
+        forceRoomReconnect(false);
+      }
+    }, 2500);
+  } else if (activePeers.length === 0) {
+    forceRoomReconnect(false);
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') handleAppResume();
+});
+window.addEventListener('pageshow', () => handleAppResume());
+window.addEventListener('online', () => handleAppResume());
+
+function forceRoomReconnect(notifyUser = true) {
+  if (!room || intentionalLogout) return;
+  if (notifyUser) showToast('🔄 Reconnecting...', 'Refreshing WebRTC TURN link');
+  for (const p of Object.values(connections)) {
+    try { if (p.conn) p.conn.close(); } catch (e) {}
+  }
+  connections = {};
+  updateParticipantsUI();
+  tryHostRole();
+}
+
+// ==================== BLOB URL CONVERTER FOR ZERO-LEAK IMAGES ====================
 function dataUrlToBlobUrl(dataUrl) {
   try {
     if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
@@ -52,19 +150,15 @@ function revokeAllBlobUrls() {
   activeBlobUrls.clear();
 }
 
-// ==================== FIX 2: AUDIO CONTEXT AUTOPLAY UNLOCKER ====================
+// ==================== AUDIO CONTEXT AUTOPLAY UNLOCKER ====================
 function initAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
-  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   return audioCtx;
 }
 
 document.addEventListener('pointerdown', () => {
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
-  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 }, { passive: true });
 
 function playMessageTone() {
@@ -120,10 +214,7 @@ function showToast(title, body, onClickAction = null) {
   const toast = document.getElementById('toastBanner');
   document.getElementById('toastTitle').textContent = title;
   document.getElementById('toastBody').textContent = body;
-  toast.onclick = () => {
-    if (onClickAction) onClickAction();
-    toast.classList.add('hidden');
-  };
+  toast.onclick = () => { if (onClickAction) onClickAction(); toast.classList.add('hidden'); };
   toast.classList.remove('hidden');
   if (toastTimeout) clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => toast.classList.add('hidden'), 3600);
@@ -138,7 +229,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE & FIX 4: AUTO HOST FAILOVER ====================
+// ==================== CONNECTION ENGINE & HOST FAILOVER ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -147,6 +238,10 @@ function enterRoom() {
   if (!myName || !rawRoom) { alert('Enter both your name and room code.'); return; }
   room = sanitize(rawRoom);
   if (!room) { alert('Room code must contain letters or numbers.'); return; }
+
+  sessionStorage.setItem('cypher_name', myName);
+  sessionStorage.setItem('cypher_room', room);
+  sessionStorage.setItem('cypher_active', '1');
 
   intentionalLogout = false;
   initAudioContext();
@@ -162,12 +257,21 @@ function enterRoom() {
 function tryHostRole() {
   if (peer && !peer.destroyed) { try { peer.destroy(); } catch (e) {} }
   peer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+
   peer.on('open', (id) => {
     isHost = true; myPeerId = id; setupInterface(); updateParticipantsUI();
     peer.on('connection', (conn) => registerPeerConnection(conn));
   });
+
+  peer.on('disconnected', () => {
+    if (!intentionalLogout && room) {
+      setTimeout(() => handleAppResume(), 800);
+    }
+  });
+
   peer.on('error', (err) => {
     if (err.type === 'unavailable-id') {
+      // Another peer already claimed [room]-host (e.g., after iOS background switch) -> join seamlessly as guest!
       try { peer.destroy(); } catch (e) {}
       joinAsGuest();
     }
@@ -178,6 +282,7 @@ function tryHostRole() {
 function joinAsGuest() {
   if (peer && !peer.destroyed) { try { peer.destroy(); } catch (e) {} }
   peer = new Peer(room + '-guest-' + Math.floor(1000 + Math.random() * 9000), { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+
   peer.on('open', (id) => {
     isHost = false; myPeerId = id; setupInterface(); updateParticipantsUI();
     const conn = peer.connect(room + '-host', { reliable: true, metadata: { name: myName } });
@@ -190,6 +295,13 @@ function joinAsGuest() {
       }
     }, 4500);
   });
+
+  peer.on('disconnected', () => {
+    if (!intentionalLogout && room) {
+      setTimeout(() => handleAppResume(), 800);
+    }
+  });
+
   peer.on('connection', (conn) => registerPeerConnection(conn));
   setupCallHandler();
 }
@@ -225,6 +337,10 @@ function registerPeerConnection(conn) {
       if (isHost) syncRosterToGuests();
     } else if (data.type === 'ROSTER') {
       roomRoster = data.members; renderGuestRoster(data.members);
+    } else if (data.type === 'CLEAR_ROOM_CHAT') {
+      // Synced Clear Chat & RAM on both ends
+      clearChat(false, data.senderName);
+      if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'TYPING') {
       showRemoteTyping(data.senderName);
       if (isHost) relayToOthers(conn.peer, data);
@@ -281,7 +397,6 @@ function registerPeerConnection(conn) {
     if (isHost) {
       syncRosterToGuests();
     } else if (wasHostConn && !intentionalLogout && room) {
-      // Fix 4: Host dropped—elect new host automatically after randomized jitter
       appendSystemNotice('Host left—migrating room host...');
       const jitter = 1400 + Math.floor(Math.random() * 1000);
       failoverTimer = setTimeout(() => {
@@ -299,7 +414,6 @@ function relayToOthers(excludePeerId, data) {
   }
 }
 
-// ==================== FIX 5: DELIVERY COUNT & OFFLINE OUTBOX QUEUE ====================
 function broadcastData(payload, queueIfOffline = false) {
   let sentCount = 0;
   for (const peerObj of Object.values(connections)) {
@@ -362,7 +476,7 @@ function renderGuestRoster(members) {
   `).join('');
 }
 
-// ==================== 16 KB CHUNKED TRANSFER & FIX 6: BUFFER PURGE ====================
+// ==================== 16 KB CHUNKED TRANSFER ====================
 const CHUNK_SIZE = 16384;
 async function sendChunkedPayload(dataUrl, meta) {
   const transferId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), totalChunks = Math.ceil(dataUrl.length / CHUNK_SIZE);
@@ -412,7 +526,7 @@ async function handleImageUpload(event) {
   reader.readAsDataURL(file);
 }
 
-// ==================== CHAT MESSAGING & MEMORY CLEANUP ====================
+// ==================== CHAT MESSAGING & BOTH-END CLEAR CHAT ====================
 function sendMessage(e) {
   e.preventDefault();
   const input = document.getElementById('messageInput'), text = input.value.trim(); if (!text) return;
@@ -467,15 +581,22 @@ function appendMessage(sender, content, direction, time, mode = 'text', msgId = 
   container.appendChild(msgDiv); container.scrollTop = container.scrollHeight;
 }
 
-function clearChat() {
+function clearChat(broadcastToRoom = true, clearedBy = myName) {
   incomingChunkBuffers = {};
   pendingOutbox = [];
   revokeAllBlobUrls();
-  document.getElementById('messagesContainer').innerHTML = `<div class="text-center my-2"><span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">Chat, Blob URLs & RAM cleared</span></div>`;
+  const label = broadcastToRoom
+    ? '🧹 You cleared chat & RAM for everyone in the room'
+    : `🧹 ${escapeHTML(clearedBy || 'Partner')} cleared chat & RAM for everyone`;
+  document.getElementById('messagesContainer').innerHTML = `<div class="text-center my-2"><span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">${label}</span></div>`;
+  if (broadcastToRoom) {
+    broadcastData({ type: 'CLEAR_ROOM_CHAT', senderName: myName });
+  }
 }
 
 function logoutRoom() {
   intentionalLogout = true;
+  sessionStorage.removeItem('cypher_active');
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (hostCheckTimer) clearTimeout(hostCheckTimer);
   if (failoverTimer) clearTimeout(failoverTimer);
@@ -486,11 +607,11 @@ function logoutRoom() {
   for (const p of Object.values(connections)) { if (p.conn) p.conn.close(); }
   connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = [];
   if (peer) { peer.destroy(); peer = null; }
-  room = ""; clearChat();
+  room = ""; clearChat(false);
   toggleModal('authOverlay', true);
 }
 
-// ==================== HELPERS & FIX 3: SCREEN SHARE FALLBACK ====================
+// ==================== HELPERS & CALLS ====================
 function setReplyQuote(sender, snippet) { activeReplyContext = { sender, text: snippet.slice(0, 80) }; document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`; document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text; toggleModal('replyPreviewBanner', true); }
 function cancelReply() { activeReplyContext = null; toggleModal('replyPreviewBanner', false); }
 function toggleSecretMode() { isSecretMode = !isSecretMode; toggleModal('secretModeBanner', isSecretMode); document.getElementById('secretBtn').classList.toggle('text-amber-400', isSecretMode); }
@@ -539,7 +660,6 @@ async function enableBackgroundPersistence() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = setInterval(() => {
     if (intentionalLogout || !room) return;
-    // Fix 6: Purge stalled chunk buffers older than 30 seconds
     const now = Date.now();
     for (const [txId, buf] of Object.entries(incomingChunkBuffers)) {
       if (now - buf.createdAt > 30000) delete incomingChunkBuffers[txId];
@@ -611,7 +731,6 @@ async function toggleScreenShare() {
       if (sender) {
         await sender.replaceTrack(track);
       } else {
-        // Fix 3: Support adding screen track during an audio-only call
         activeCall.peerConnection.addTrack(track, s);
       }
       document.getElementById('localVideo').srcObject = s;
