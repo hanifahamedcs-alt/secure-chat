@@ -12,9 +12,107 @@ const themes = {
 function applyTheme(k) { const t = themes[k]; if (!t) return; for (const [p, v] of Object.entries(t)) document.documentElement.style.setProperty(p, v); }
 function applyCustomAccent(hex) { document.documentElement.style.setProperty('--accent', hex); document.documentElement.style.setProperty('--accent-hover', hex); }
 
+// ==================== DYNAMIC WOW-FACTOR MODALS & STYLES INJECTION ====================
+(function injectWowFactorUI() {
+  if (document.getElementById('wowFactorInjected')) return;
+  const marker = document.createElement('div');
+  marker.id = 'wowFactorInjected';
+  document.body.appendChild(marker);
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .holo-card {
+      background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(236,72,153,0.35), rgba(16,185,129,0.35));
+      backdrop-filter: blur(12px);
+      transform-style: preserve-3d;
+      transition: transform 0.12s ease-out, box-shadow 0.2s ease;
+      box-shadow: 0 12px 30px rgba(99,102,241,0.25);
+    }
+    @keyframes floatZeroG {
+      0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+      25% { transform: translate(14px, -18px) rotate(3deg); }
+      50% { transform: translate(-12px, -28px) rotate(-3deg); }
+      75% { transform: translate(-16px, -10px) rotate(2deg); }
+    }
+    .zero-g-bubble {
+      animation: floatZeroG 4.5s ease-in-out infinite;
+    }
+    @keyframes cardFlipIn {
+      0% { transform: perspective(600px) rotateY(90deg) scale(0.8); opacity: 0; }
+      100% { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; }
+    }
+    .oracle-flip { animation: cardFlipIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  `;
+  document.head.appendChild(style);
+
+  const modalsHTML = `
+    <!-- WOW 3: 3D HOLOGRAPHIC DECODER CARD MODAL -->
+    <div id="holoModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+      <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-sm font-bold">🪪 3D Hologram Cipher Card</h3>
+          <button onclick="toggleModal('holoModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-[11px] theme-muted mb-2.5">Sends an interactive 3D tilting metallic card that requires tuning the frequency dial to decode!</p>
+        <input id="holoTitleInput" type="text" value="TOP SECRET PASS" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+        <input id="holoSecretInput" type="text" placeholder="Hidden message inside hologram..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+        <button onclick="sendHoloCipherCard()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">🪪 Mint & Send 3D Hologram</button>
+      </div>
+    </div>
+
+    <!-- WOW 4: CO-OP 16x16 PIXEL ART MOSAIC MODAL -->
+    <div id="pixelModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+      <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-sm font-bold">👾 Co-Op Live Pixel Mosaic</h3>
+          <button onclick="toggleModal('pixelModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-[11px] theme-muted mb-2.5">Tap pixels together in real time—then stamp your sprite into chat!</p>
+        <div id="pixelGridBoard" class="grid grid-cols-16 gap-0.5 bg-gray-900 p-1.5 rounded-xl border theme-border mx-auto mb-3" style="grid-template-columns: repeat(16, minmax(0, 1fr)); width: 272px; height: 272px;"></div>
+        <div class="flex justify-center gap-1.5 mb-3">
+          <button onclick="setPixelColor('#ef4444')" class="w-6 h-6 rounded-full bg-red-500 border border-white/40"></button>
+          <button onclick="setPixelColor('#f59e0b')" class="w-6 h-6 rounded-full bg-amber-500 border border-white/40"></button>
+          <button onclick="setPixelColor('#10b981')" class="w-6 h-6 rounded-full bg-emerald-500 border border-white/40"></button>
+          <button onclick="setPixelColor('#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500 border border-white/40"></button>
+          <button onclick="setPixelColor('#a855f7')" class="w-6 h-6 rounded-full bg-purple-500 border border-white/40"></button>
+          <button onclick="setPixelColor('#ffffff')" class="w-6 h-6 rounded-full bg-white border border-gray-400"></button>
+          <button onclick="setPixelColor('#111827')" class="w-6 h-6 rounded-full bg-gray-900 border border-gray-500" title="Eraser"></button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="clearPixelGrid(true)" class="flex-1 py-2 rounded-xl theme-input border text-xs">Clear</button>
+          <button onclick="exportPixelArtToChat()" class="flex-1 py-2 rounded-xl theme-accent text-xs font-bold">Stamp to Chat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WOW 2: LIVE VOICE AURA & KARAOKE VISUALIZER BAR -->
+    <div id="voiceAuraBar" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-40 theme-panel border border-indigo-500/50 rounded-full px-4 py-1.5 shadow-2xl flex items-center gap-3">
+      <span class="text-xs font-bold text-indigo-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span> Voice Aura</span>
+      <div id="voiceVisualizerBars" class="flex items-end gap-1 h-5">
+        <span class="w-1 bg-indigo-400 rounded-full transition-all duration-75" style="height: 20%"></span>
+        <span class="w-1 bg-pink-400 rounded-full transition-all duration-75" style="height: 40%"></span>
+        <span class="w-1 bg-emerald-400 rounded-full transition-all duration-75" style="height: 30%"></span>
+        <span class="w-1 bg-amber-400 rounded-full transition-all duration-75" style="height: 50%"></span>
+        <span class="w-1 bg-cyan-400 rounded-full transition-all duration-75" style="height: 25%"></span>
+      </div>
+      <button onclick="stopVoiceAura()" class="text-[10px] text-rose-400 font-bold hover:underline">Stop</button>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalsHTML);
+})();
+
 // ==================== PACKET ROUTER FROM CONNECTION.JS ====================
 function handleGamePacket(conn, data) {
   switch (data.type) {
+    // 5 New Wow-Factor Packets
+    case 'ZERO_G_TOGGLE': toggleZeroGravity(false, data.active); break;
+    case 'VOICE_AURA_PULSE': renderRemoteVoiceAura(data.level, data.senderName); break;
+    case 'HOLO_CARD': renderHoloCipherCard(data.card, false); break;
+    case 'PIXEL_PAINT': applyPixelCell(data.idx, data.color, false); break;
+    case 'PIXEL_CLEAR': clearPixelGrid(false); break;
+    case 'ORACLE_DRAW': renderOracleCard(data.oracle, false); break;
+
+    // Existing Games & Tools Packets
     case 'TELEPATHY_START': telepathyGames[data.game.id] = data.game; renderTelepathyCard(data.game, false); break;
     case 'TELEPATHY_GUESS': if (telepathyGames[data.gameId]) { telepathyGames[data.gameId].guesses[data.peerId] = { name: data.name, word: data.word }; updateTelepathyUI(data.gameId); } break;
     case 'PONG_OPEN': openPongModal(false); break;
@@ -54,16 +152,237 @@ function handleGamePacket(conn, data) {
   if (isHost) relayToOthers(conn.peer, data);
 }
 
-// ==================== CLEANUP ON LOGOUT ====================
 function stopAllGamesAndLoops() {
   if (beatTimer) { clearInterval(beatTimer); beatTimer = null; beatPlaying = false; }
   if (pongLoopId) { cancelAnimationFrame(pongLoopId); pongLoopId = null; pongActive = false; }
   if (auraAnimId) { cancelAnimationFrame(auraAnimId); auraAnimId = null; }
+  stopVoiceAura();
+  toggleZeroGravity(false, false);
   closeDualSnapModal(); muteAllSoundscapes(false);
   liveCursorsEnabled = false; document.getElementById('cursorsLayer').innerHTML = ''; remoteCursorEls = {};
 }
 
-// ==================== TELEPATHY, BLUFF, JUKEBOX & PULSE PAD ====================
+// ==================== WOW FEATURE 1: ZERO-GRAVITY KINETIC CHAT ROOM ====================
+let zeroGravityActive = false;
+function toggleZeroGravity(broadcast = true, forcedState = null) {
+  zeroGravityActive = forcedState !== null ? forcedState : !zeroGravityActive;
+  const bubbles = document.querySelectorAll('#messagesContainer > div');
+  bubbles.forEach((b, idx) => {
+    if (zeroGravityActive) {
+      b.classList.add('zero-g-bubble');
+      b.style.animationDelay = `${(idx % 5) * 0.35}s`;
+    } else {
+      b.classList.remove('zero-g-bubble');
+      b.style.animationDelay = '';
+    }
+  });
+  if (broadcast) {
+    broadcastData({ type: 'ZERO_G_TOGGLE', active: zeroGravityActive });
+    appendSystemNotice(zeroGravityActive ? '🪐 Zero-Gravity Mode Activated!' : '🌍 Normal Gravity Restored');
+  }
+}
+
+// ==================== WOW FEATURE 2: LIVE VOICE-TO-EMOJI AURA VISUALIZER ====================
+let voiceAuraStream = null, voiceAuraInterval = null;
+async function toggleVoiceAura() {
+  if (voiceAuraInterval) { stopVoiceAura(); return; }
+  try {
+    initAudioContext();
+    voiceAuraStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const src = audioCtx.createMediaStreamSource(voiceAuraStream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    src.connect(analyser);
+    const dataArr = new Uint8Array(analyser.frequencyBinCount);
+
+    toggleModal('voiceAuraBar', true);
+    let lastEmojiBurst = 0;
+
+    voiceAuraInterval = setInterval(() => {
+      analyser.getByteFrequencyData(dataArr);
+      const avg = dataArr.reduce((a, b) => a + b, 0) / dataArr.length;
+      const norm = Math.min(100, Math.round((avg / 128) * 100));
+      updateVisualizerBars(norm);
+
+      if (norm > 18) {
+        broadcastData({ type: 'VOICE_AURA_PULSE', level: norm, senderName: myName });
+        if (norm > 65 && Date.now() - lastEmojiBurst > 1800) {
+          lastEmojiBurst = Date.now();
+          const vibes = ['🔥', '😂', '⚡', '✨', '🎙️'];
+          spawnEmojiRain(vibes[Math.floor(Math.random() * vibes.length)]);
+        }
+      }
+    }, 140);
+  } catch (err) {
+    alert('Microphone access needed for Voice Aura: ' + err.message);
+  }
+}
+
+function stopVoiceAura() {
+  if (voiceAuraInterval) { clearInterval(voiceAuraInterval); voiceAuraInterval = null; }
+  if (voiceAuraStream) { voiceAuraStream.getTracks().forEach(t => t.stop()); voiceAuraStream = null; }
+  toggleModal('voiceAuraBar', false);
+}
+
+function updateVisualizerBars(level) {
+  const bars = document.querySelectorAll('#voiceVisualizerBars span');
+  bars.forEach((bar, i) => {
+    const h = Math.max(18, Math.min(100, level * (0.6 + ((i % 3) * 0.35))));
+    bar.style.height = h + '%';
+  });
+}
+
+function renderRemoteVoiceAura(level, senderName) {
+  toggleModal('voiceAuraBar', true);
+  updateVisualizerBars(level);
+  clearTimeout(window._remoteAuraHide);
+  window._remoteAuraHide = setTimeout(() => {
+    if (!voiceAuraInterval) toggleModal('voiceAuraBar', false);
+  }, 1200);
+}
+
+// ==================== WOW FEATURE 3: 3D HOLOGRAM CIPHER CARD ====================
+function sendHoloCipherCard() {
+  const title = document.getElementById('holoTitleInput').value.trim() || 'HOLO CIPHER';
+  const secret = document.getElementById('holoSecretInput').value.trim();
+  if (!secret) return;
+  document.getElementById('holoSecretInput').value = '';
+  toggleModal('holoModal', false);
+
+  const targetFreq = Math.floor(20 + Math.random() * 65);
+  const card = { id: 'holo_' + Date.now(), sender: myName, title, secret, targetFreq };
+  broadcastData({ type: 'HOLO_CARD', card });
+  renderHoloCipherCard(card, true);
+}
+
+function renderHoloCipherCard(card, isOut) {
+  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
+  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+  const scrambled = card.secret.replace(/[a-zA-Z0-9]/g, () => '◈❖✦⬡⬢'[Math.floor(Math.random() * 5)]);
+
+  div.innerHTML = `
+    <div onmousemove="tiltHoloCard(event, this)" onmouseleave="this.style.transform=''" class="holo-card w-72 border border-white/30 rounded-2xl p-4 text-white shadow-xl">
+      <div class="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest opacity-85 mb-1">
+        <span>🪪 ${escapeHTML(card.title)}</span>
+        <span>${escapeHTML(card.sender)}</span>
+      </div>
+      <div id="${card.id}_msg" class="py-3 px-2.5 my-2 rounded-xl bg-black/40 font-mono text-xs text-center tracking-wider break-words">
+        ${isOut ? escapeHTML(card.secret) : scrambled}
+      </div>
+      ${!isOut ? `
+        <div class="text-[10px] flex justify-between opacity-80 mb-1">
+          <span>Tune Frequency to Decode:</span>
+          <span id="${card.id}_hz">0 MHz</span>
+        </div>
+        <input type="range" min="0" max="100" value="0" oninput="decodeHoloFrequency('${card.id}', this.value, ${card.targetFreq}, '${escapeHTML(card.secret).replace(/'/g, "\\'")}')" class="w-full accent-emerald-400 cursor-pointer" />
+      ` : `<div class="text-[10px] text-center opacity-75">Unlock Frequency: ${card.targetFreq} MHz</div>`}
+    </div>
+  `;
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+function tiltHoloCard(e, el) {
+  const r = el.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width - 0.5) * 18;
+  const y = ((e.clientY - r.top) / r.height - 0.5) * -18;
+  el.style.transform = `perspective(500px) rotateX(${y}deg) rotateY(${x}deg)`;
+}
+
+function decodeHoloFrequency(id, val, target, plainText) {
+  const num = parseInt(val, 10);
+  const hzEl = document.getElementById(id + '_hz');
+  const msgEl = document.getElementById(id + '_msg');
+  if (hzEl) hzEl.textContent = `${num} MHz`;
+  if (!msgEl) return;
+
+  if (Math.abs(num - target) <= 4) {
+    msgEl.textContent = plainText;
+    msgEl.classList.add('text-emerald-300', 'font-bold');
+    playMessageTone();
+  } else {
+    msgEl.classList.remove('text-emerald-300', 'font-bold');
+    msgEl.textContent = plainText.replace(/[a-zA-Z0-9]/g, () => '◈❖✦⬡⬢'[Math.floor(Math.random() * 5)]);
+  }
+}
+
+// ==================== WOW FEATURE 4: CO-OP 16x16 PIXEL ART MOSAIC ====================
+let pixelCells = Array(256).fill('#111827'), currentPixelColor = '#ef4444';
+function openPixelMosaic() {
+  toggleModal('pixelModal', true);
+  renderPixelBoard();
+}
+function setPixelColor(col) { currentPixelColor = col; }
+function renderPixelBoard() {
+  const board = document.getElementById('pixelGridBoard');
+  if (!board) return;
+  board.innerHTML = pixelCells.map((col, idx) =>
+    `<div onpointerdown="paintPixelCell(${idx})" style="background-color:${col}" class="w-full h-full rounded-[2px] cursor-pointer hover:opacity-80"></div>`
+  ).join('');
+}
+function paintPixelCell(idx) {
+  applyPixelCell(idx, currentPixelColor, true);
+}
+function applyPixelCell(idx, color, broadcast = true) {
+  pixelCells[idx] = color;
+  const board = document.getElementById('pixelGridBoard');
+  if (board && board.children[idx]) board.children[idx].style.backgroundColor = color;
+  if (broadcast) broadcastData({ type: 'PIXEL_PAINT', idx, color });
+}
+function clearPixelGrid(broadcast = true) {
+  pixelCells = Array(256).fill('#111827');
+  renderPixelBoard();
+  if (broadcast) broadcastData({ type: 'PIXEL_CLEAR' });
+}
+async function exportPixelArtToChat() {
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = 320;
+  const ctx = c.getContext('2d');
+  for (let i = 0; i < 256; i++) {
+    ctx.fillStyle = pixelCells[i];
+    ctx.fillRect((i % 16) * 20, Math.floor(i / 16) * 20, 20, 20);
+  }
+  const url = c.toDataURL('image/png');
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  toggleModal('pixelModal', false);
+  appendMessage(myName, dataUrlToBlobUrl(url), 'outgoing', time, 'image');
+  await sendChunkedPayload(url, { msgMode: 'image', time });
+}
+
+// ==================== WOW FEATURE 5: MYSTIC VIBE & FORTUNE ORACLE DECK ====================
+const oracleDeck = [
+  { icon: '🌟', title: 'The Cosmic Breakthrough', desc: 'A bold idea you share tonight will spark an unexpected win.' },
+  { icon: '⚡', title: 'The Lightning Shift', desc: 'A sudden change of plans leads directly to your best moment this week.' },
+  { icon: '🧭', title: 'The Midnight Compass', desc: 'Trust your first instinct—the answer is already in front of you.' },
+  { icon: '🔥', title: 'The Phoenix Spark', desc: 'Drop an old hesitation and launch the project you have been delaying.' },
+  { icon: '💎', title: 'The Hidden Gem', desc: 'Someone in this room holds a clue or opportunity you need right now.' },
+  { icon: '🌊', title: 'The Calm Tide', desc: 'Step back, take a breath, and let momentum carry you effortlessly.' }
+];
+
+function drawOracleCard() {
+  const pick = oracleDeck[Math.floor(Math.random() * oracleDeck.length)];
+  const oracle = { id: 'orc_' + Date.now(), drawer: myName, ...pick };
+  broadcastData({ type: 'ORACLE_DRAW', oracle });
+  renderOracleCard(oracle, true);
+}
+
+function renderOracleCard(oracle, isOut) {
+  playMessageTone();
+  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
+  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+  div.innerHTML = `
+    <div class="oracle-flip w-64 rounded-2xl p-4 border border-amber-400/50 bg-gradient-to-b from-indigo-950 via-purple-950 to-slate-950 text-center shadow-2xl">
+      <div class="text-[10px] font-bold uppercase tracking-widest text-amber-400 mb-2">🃏 Destiny Oracle • ${escapeHTML(oracle.drawer)}</div>
+      <div class="text-4xl my-2">${oracle.icon}</div>
+      <div class="text-sm font-extrabold text-white mb-1">${escapeHTML(oracle.title)}</div>
+      <p class="text-[11px] text-indigo-200 leading-relaxed">${escapeHTML(oracle.desc)}</p>
+    </div>
+  `;
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ==================== EXISTING GAMES, SOUNDSCAPE, BEAT STUDIO & DUAL SNAP ====================
 let telepathyGames = {}, bluffGames = {}, jukeboxQueue = [], currentJukeboxTrack = null;
 
 function launchTelepathyGame() {
@@ -144,7 +463,6 @@ function triggerTactilePulseEffect(sender, local) {
   if (navigator.vibrate) navigator.vibrate(140); playBeatTrackSound(0);
 }
 
-// ==================== PONG ARCADE ====================
 let pongActive = false, pongLoopId = null, pongState = { ballX: 160, ballY: 210, vx: 3.2, vy: 3.6, p1X: 120, p2X: 120, paddleW: 80, paddleH: 10, s1: 0, s2: 0 };
 const pongCanvas = document.getElementById('pongCanvas'), pongCtx = pongCanvas.getContext('2d');
 function openPongModal(b = true) {
@@ -179,7 +497,6 @@ pongCanvas.addEventListener('pointermove', (e) => {
   broadcastData({ type: 'PONG_PADDLE', isHostPaddle: isHost, x });
 });
 
-// ==================== RPS, TIC-TAC-TOE, TRIVIA, SPIN WHEEL, STORY CHAIN, POLLS, WHITEBOARD & TIMER ====================
 let activePolls = {}, rpsGames = {}, tttGames = {}, triviaGames = {}, storyChains = {}, pendingGameType = 'rps';
 
 function openOpponentSelector(gameType) {
@@ -394,7 +711,6 @@ function triggerScreenShake() { const b = document.getElementById('appBody'); b.
 function triggerSurpriseBlast(emoji) { togglePicker(); spawnEmojiRain(emoji); broadcastData({ type: 'SURPRISE_RAIN', emoji }); }
 function spawnEmojiRain(emoji) { for (let i = 0; i < 20; i++) setTimeout(() => { const d = document.createElement('div'); d.className = 'emoji-drop'; d.textContent = emoji; d.style.left = Math.random() * 92 + 'vw'; d.style.animationDuration = '2.5s'; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }, i * 80); }
 
-// ==================== FIX 2: SOUNDSCAPE MIXER WITH MOBILE AUTOPLAY PROMPT ====================
 const soundscapeNodes = {};
 async function updateSoundscapeChannel(ch, val, b = true) {
   const num = parseInt(val, 10) || 0;
@@ -434,7 +750,6 @@ async function updateSoundscapeChannel(ch, val, b = true) {
 }
 function muteAllSoundscapes(b = true) { ['rain', 'fire', 'ocean', 'vinyl'].forEach(c => updateSoundscapeChannel(c, 0, false)); if (b) broadcastData({ type: 'SOUNDSCAPE_MUTE' }); }
 
-// ==================== BEAT STUDIO, DUAL SNAP (BLOB URL) & CURSORS ====================
 let beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false)), beatPlaying = false, beatStep = 0, beatTimer = null;
 function toggleBeatStudio(s) { toggleModal('beatStudioModal', s); if (s) renderSequencerGrid(); }
 function renderSequencerGrid() {
@@ -498,6 +813,29 @@ function renderTimeCapsuleCard(cap, isOut) {
   document.getElementById('messagesContainer').appendChild(d);
   let r = cap.seconds; const iv = setInterval(() => { r--; const v = document.getElementById(cap.id + '_v'); if (r > 0 && v) v.textContent = `${r}s remaining`; else { clearInterval(iv); if (v) v.textContent = cap.text; } }, 1000);
 }
+
+function togglePicker() {
+  const pop = document.getElementById('pickerPopover');
+  if (!pop) return;
+  pop.classList.toggle('hidden');
+  if (!pop.classList.contains('hidden')) initPickersSafely();
+}
+
+function switchPickerTab(tab) {
+  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
+    const grid = document.getElementById(k + 'Grid');
+    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
+    if (grid) grid.classList.toggle('hidden', k !== tab);
+    if (btn) btn.className = k === tab ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent' : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
+  });
+}
+
+function insertEmoji(e) { document.getElementById('messageInput').value += e; }
+function sendSticker(s) { togglePicker(); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'sticker', senderName: myName, content: s, time }, true); appendMessage(myName, s, 'outgoing', time, 'sticker'); }
+function triggerSoundboard(id, b = true) { playBeatTrackSound(1); if (b) { togglePicker(); broadcastData({ type: 'SOUNDBOARD', soundId: id, senderName: myName }); } }
+function sendScratchCard() { const t = document.getElementById('scratchSecretInput').value.trim(); if (!t) return; toggleModal('scratchModal', false); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'scratch', senderName: myName, content: t, time }, true); appendMessage(myName, t, 'outgoing', time, 'scratch'); }
+function initScratchCanvas(id) { const sc = document.getElementById(id); if (!sc) return; const c = sc.getContext('2d'); c.fillStyle = '#94a3b8'; c.fillRect(0, 0, 240, 80); sc.addEventListener('pointermove', (e) => { const r = sc.getBoundingClientRect(); c.clearRect(((e.clientX - r.left) / r.width) * 240 - 15, ((e.clientY - r.top) / r.height) * 80 - 15, 30, 30); }); }
+
 function initPickersSafely() {
   const eGrid = document.getElementById('emojisGrid');
   if (!eGrid || eGrid.dataset.ready === '1') return;
@@ -516,6 +854,11 @@ function initPickersSafely() {
 
   const appGrid = document.getElementById('surprisesGrid');
   if (appGrid) appGrid.innerHTML = `
+    <button type="button" onclick="toggleZeroGravity(true);togglePicker()" class="p-2 rounded-xl theme-input border border-indigo-500/40 text-[10px] font-bold">🪐 Zero-G Room</button>
+    <button type="button" onclick="toggleVoiceAura();togglePicker()" class="p-2 rounded-xl theme-input border border-pink-500/40 text-[10px] font-bold">🎙️ Voice Aura</button>
+    <button type="button" onclick="toggleModal('holoModal',true);togglePicker()" class="p-2 rounded-xl theme-input border border-cyan-500/40 text-[10px] font-bold">🪪 3D Hologram</button>
+    <button type="button" onclick="openPixelMosaic();togglePicker()" class="p-2 rounded-xl theme-input border border-emerald-500/40 text-[10px] font-bold">👾 Pixel Mosaic</button>
+    <button type="button" onclick="drawOracleCard();togglePicker()" class="p-2 rounded-xl theme-input border border-amber-500/40 text-[10px] font-bold">🃏 Vibe Oracle</button>
     <button type="button" onclick="openOpponentSelector('rps');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎮 RPS Duel</button>
     <button type="button" onclick="openOpponentSelector('ttt');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">❌ Tic-Tac-Toe</button>
     <button type="button" onclick="launchTriviaQuiz();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🧠 Trivia Quiz</button>
@@ -540,43 +883,3 @@ function initPickersSafely() {
   `;
 }
 initPickersSafely();
-function togglePicker() { document.getElementById('pickerPopover').classList.toggle('hidden'); }
-function switchPickerTab(tab) {
-  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
-    document.getElementById(k + 'Grid').classList.toggle('hidden', k !== tab);
-    document.getElementById('tab' + k[0].toUpperCase() + k.slice(1)).className = k === tab ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent' : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
-  });
-}
-function insertEmoji(e) { document.getElementById('messageInput').value += e; }
-function sendSticker(s) { togglePicker(); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'sticker', senderName: myName, content: s, time }, true); appendMessage(myName, s, 'outgoing', time, 'sticker'); }
-function triggerSoundboard(id, b = true) { playBeatTrackSound(1); if (b) { togglePicker(); broadcastData({ type: 'SOUNDBOARD', soundId: id, senderName: myName }); } }
-function sendScratchCard() { const t = document.getElementById('scratchSecretInput').value.trim(); if (!t) return; toggleModal('scratchModal', false); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'scratch', senderName: myName, content: t, time }, true); appendMessage(myName, t, 'outgoing', time, 'scratch'); }
-function initScratchCanvas(id) { const sc = document.getElementById(id); if (!sc) return; const c = sc.getContext('2d'); c.fillStyle = '#94a3b8'; c.fillRect(0, 0, 240, 80); sc.addEventListener('pointermove', (e) => { const r = sc.getBoundingClientRect(); c.clearRect(((e.clientX - r.left) / r.width) * 240 - 15, ((e.clientY - r.top) / r.height) * 80 - 15, 30, 30); }); }
-
-// Populate All Pickers & Full Game Suite Menu
-document.getElementById('emojisGrid').innerHTML = ['😀','😂','🥰','😎','🥳','😭','🔥','💯','❤️','👍','🎉','🚀','⚡','👀'].map(e => `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded">${e}</button>`).join('');
-document.getElementById('stickersGrid').innerHTML = ['🚀','🔥','🎉','❤️','😂','👑','💎','⚡','🏆','🎯','💯','🌟'].map(s => `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded">${s}</button>`).join('');
-document.getElementById('soundsGrid').innerHTML = ['Drumroll', 'Airhorn', 'Laser', 'Power-Up'].map(s => `<button type="button" onclick="triggerSoundboard('${s}')" class="p-2 rounded-xl theme-input border text-xs">${s}</button>`).join('');
-document.getElementById('surprisesGrid').innerHTML = `
-  <button type="button" onclick="openOpponentSelector('rps');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎮 RPS Duel</button>
-  <button type="button" onclick="openOpponentSelector('ttt');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">❌ Tic-Tac-Toe</button>
-  <button type="button" onclick="launchTriviaQuiz();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🧠 Trivia Quiz</button>
-  <button type="button" onclick="toggleModal('wheelModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎡 Spin Wheel</button>
-  <button type="button" onclick="toggleModal('storyChainModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📖 Story Chain</button>
-  <button type="button" onclick="toggleModal('pollModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📊 Live Poll</button>
-  <button type="button" onclick="toggleModal('whiteboardModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎨 Whiteboard</button>
-  <button type="button" onclick="toggleModal('timerModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏱️ Sync Timer</button>
-  <button type="button" onclick="toggleModal('auraModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🌌 Weather Aura</button>
-  <button type="button" onclick="toggleModal('telepathyModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🔮 Telepathy</button>
-  <button type="button" onclick="openPongModal(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🏓 Live Pong</button>
-  <button type="button" onclick="toggleModal('jukeboxModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📻 Jukebox</button>
-  <button type="button" onclick="toggleModal('bluffModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎭 2 Truths</button>
-  <button type="button" onclick="toggleModal('pulsePadModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">💓 Pulse Pad</button>
-  <button type="button" onclick="openDualSnapModal();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📸 Dual Snap</button>
-  <button type="button" onclick="toggleModal('soundscapeModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎧 Soundscape</button>
-  <button type="button" onclick="toggleBeatStudio(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎹 Beat Studio</button>
-  <button type="button" onclick="toggleModal('capsuleModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏳ Capsule</button>
-  <button type="button" onclick="toggleModal('scratchModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎟️ Scratch</button>
-  <button type="button" onclick="sendScreenNudge();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⚡ Buzz Screen</button>
-  <button type="button" onclick="triggerSurpriseBlast('🎉')" class="p-2 rounded-xl theme-input border text-[10px]">🎉 Party Rain</button>
-`;
