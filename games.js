@@ -498,7 +498,48 @@ function renderTimeCapsuleCard(cap, isOut) {
   document.getElementById('messagesContainer').appendChild(d);
   let r = cap.seconds; const iv = setInterval(() => { r--; const v = document.getElementById(cap.id + '_v'); if (r > 0 && v) v.textContent = `${r}s remaining`; else { clearInterval(iv); if (v) v.textContent = cap.text; } }, 1000);
 }
+function initPickersSafely() {
+  const eGrid = document.getElementById('emojisGrid');
+  if (!eGrid || eGrid.dataset.ready === '1') return;
+  eGrid.dataset.ready = '1';
 
+  eGrid.innerHTML = ['😀','😂','🥰','😎','🥳','😭','🔥','💯','❤️','👍','🎉','🚀','⚡','👀']
+    .map(e => `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded">${e}</button>`).join('');
+
+  const stGrid = document.getElementById('stickersGrid');
+  if (stGrid) stGrid.innerHTML = ['🚀','🔥','🎉','❤️','😂','👑','💎','⚡','🏆','🎯','💯','🌟']
+    .map(s => `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded">${s}</button>`).join('');
+
+  const sndGrid = document.getElementById('soundsGrid');
+  if (sndGrid) sndGrid.innerHTML = ['Drumroll', 'Airhorn', 'Laser', 'Power-Up']
+    .map(s => `<button type="button" onclick="triggerSoundboard('${s}')" class="p-2 rounded-xl theme-input border text-xs">${s}</button>`).join('');
+
+  const appGrid = document.getElementById('surprisesGrid');
+  if (appGrid) appGrid.innerHTML = `
+    <button type="button" onclick="openOpponentSelector('rps');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎮 RPS Duel</button>
+    <button type="button" onclick="openOpponentSelector('ttt');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">❌ Tic-Tac-Toe</button>
+    <button type="button" onclick="launchTriviaQuiz();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🧠 Trivia Quiz</button>
+    <button type="button" onclick="toggleModal('wheelModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎡 Spin Wheel</button>
+    <button type="button" onclick="toggleModal('storyChainModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📖 Story Chain</button>
+    <button type="button" onclick="toggleModal('pollModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📊 Live Poll</button>
+    <button type="button" onclick="toggleModal('whiteboardModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎨 Whiteboard</button>
+    <button type="button" onclick="toggleModal('timerModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏱️ Sync Timer</button>
+    <button type="button" onclick="toggleModal('auraModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🌌 Weather Aura</button>
+    <button type="button" onclick="toggleModal('telepathyModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🔮 Telepathy</button>
+    <button type="button" onclick="openPongModal(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🏓 Live Pong</button>
+    <button type="button" onclick="toggleModal('jukeboxModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📻 Jukebox</button>
+    <button type="button" onclick="toggleModal('bluffModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎭 2 Truths</button>
+    <button type="button" onclick="toggleModal('pulsePadModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">💓 Pulse Pad</button>
+    <button type="button" onclick="openDualSnapModal();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📸 Dual Snap</button>
+    <button type="button" onclick="toggleModal('soundscapeModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎧 Soundscape</button>
+    <button type="button" onclick="toggleBeatStudio(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎹 Beat Studio</button>
+    <button type="button" onclick="toggleModal('capsuleModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏳ Capsule</button>
+    <button type="button" onclick="toggleModal('scratchModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎟️ Scratch</button>
+    <button type="button" onclick="sendScreenNudge();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⚡ Buzz Screen</button>
+    <button type="button" onclick="triggerSurpriseBlast('🎉')" class="p-2 rounded-xl theme-input border text-[10px]">🎉 Party Rain</button>
+  `;
+}
+initPickersSafely();
 function togglePicker() { document.getElementById('pickerPopover').classList.toggle('hidden'); }
 function switchPickerTab(tab) {
   ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
