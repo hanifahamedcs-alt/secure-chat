@@ -1,4 +1,4 @@
-let myName = "", myPeerId = "", room = "", isHost = false, peer = null, intentionalLogout = false;
+let myName = "", myPeerId = "", room = "", isHost = false, peer = null, intentionalLogout = false, isConnecting = false;
 let connections = {}, roomRoster = [], activeCall = null, pendingIncomingCall = null, localStream = null;
 let isMicMuted = false, isCamDisabled = false, isScreenSharing = false, soundEnabled = true;
 let ringtoneInterval = null, unreadCount = 0;
@@ -28,7 +28,7 @@ function toggleMobileSidebar() {
   document.getElementById('sidebarBackdrop').classList.toggle('hidden');
 }
 
-// ==================== MUST-NEED: AUTO-FILL INVITE LINK & SESSION RECOVERY ====================
+// ==================== PRE-FILL SAVED NAME / INVITE LINK (NO AUTO-LOOP) ====================
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const urlRoom = params.get('room');
@@ -38,7 +38,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if (savedName) document.getElementById('userNameInput').value = savedName;
   if (savedRoom) document.getElementById('roomNameInput').value = savedRoom;
 
-  // Inject Force Reconnect & Copy Invite Link buttons into header automatically
   const headerControls = document.querySelector('header .flex.items-center.gap-1\\.5');
   if (headerControls) {
     const inviteBtn = document.createElement('button');
@@ -58,11 +57,6 @@ window.addEventListener('DOMContentLoaded', () => {
     headerControls.prepend(syncBtn);
     headerControls.prepend(inviteBtn);
   }
-
-  // Auto-rejoin if iOS purged tab from memory while active in a room
-  if (savedName && savedRoom && sessionStorage.getItem('cypher_active') === '1') {
-    enterRoom();
-  }
 });
 
 function copyRoomInviteLink() {
@@ -70,20 +64,19 @@ function copyRoomInviteLink() {
   const shareUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showToast('🔗 Invite Link Copied!', `Share link for #${room} with your partner`);
+      showToast('🔗 Invite Link Copied!', `Share link for #${room}`);
     }).catch(() => prompt('Copy this room link:', shareUrl));
   } else {
     prompt('Copy this room link:', shareUrl);
   }
 }
 
-// ==================== iOS BACKGROUND / FOREGROUND RETURN RECOVERY ====================
+// ==================== iOS / DESKTOP FOREGROUND RETURN RECOVERY ====================
 function handleAppResume() {
   unreadCount = 0;
   document.title = originalTitle;
-  if (intentionalLogout || !room) return;
+  if (intentionalLogout || !room || isConnecting) return;
 
-  initAudioContext();
   if ('wakeLock' in navigator) {
     navigator.wakeLock.request('screen').then(s => wakeLockSentinel = s).catch(() => {});
   }
@@ -92,19 +85,14 @@ function handleAppResume() {
   if (!peer || peer.destroyed) {
     forceRoomReconnect(false);
   } else if (peer.disconnected) {
-    try {
-      peer.reconnect();
-    } catch (e) {
-      forceRoomReconnect(false);
-    }
-    // If signaling reconnect doesn't restore a peer within 2.5s, re-run role discovery
+    try { peer.reconnect(); } catch (e) {}
     setTimeout(() => {
       const nowOpen = Object.values(connections).filter(p => p.conn && p.conn.open);
-      if (!intentionalLogout && room && nowOpen.length === 0) {
+      if (!intentionalLogout && room && nowOpen.length === 0 && !isConnecting) {
         forceRoomReconnect(false);
       }
-    }, 2500);
-  } else if (activePeers.length === 0) {
+    }, 3000);
+  } else if (activePeers.length === 0 && !isHost) {
     forceRoomReconnect(false);
   }
 }
@@ -112,11 +100,20 @@ function handleAppResume() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') handleAppResume();
 });
-window.addEventListener('pageshow', () => handleAppResume());
 window.addEventListener('online', () => handleAppResume());
 
+function safelyDestroyPeer() {
+  if (peer) {
+    try {
+      peer.removeAllListeners();
+      peer.destroy();
+    } catch (e) {}
+    peer = null;
+  }
+}
+
 function forceRoomReconnect(notifyUser = true) {
-  if (!room || intentionalLogout) return;
+  if (!room || intentionalLogout || isConnecting) return;
   if (notifyUser) showToast('🔄 Reconnecting...', 'Refreshing WebRTC TURN link');
   for (const p of Object.values(connections)) {
     try { if (p.conn) p.conn.close(); } catch (e) {}
@@ -150,16 +147,12 @@ function revokeAllBlobUrls() {
   activeBlobUrls.clear();
 }
 
-// ==================== AUDIO CONTEXT AUTOPLAY UNLOCKER ====================
+// ==================== AUDIO CONTEXT (GESTURE-SAFE) ====================
 function initAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   return audioCtx;
 }
-
-document.addEventListener('pointerdown', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-}, { passive: true });
 
 function playMessageTone() {
   if (!soundEnabled) return;
@@ -229,7 +222,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE & HOST FAILOVER ====================
+// ==================== CONNECTION ENGINE (RACE-FREE) ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -241,7 +234,6 @@ function enterRoom() {
 
   sessionStorage.setItem('cypher_name', myName);
   sessionStorage.setItem('cypher_room', room);
-  sessionStorage.setItem('cypher_active', '1');
 
   intentionalLogout = false;
   initAudioContext();
@@ -255,55 +247,78 @@ function enterRoom() {
 }
 
 function tryHostRole() {
-  if (peer && !peer.destroyed) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  if (isConnecting) return;
+  isConnecting = true;
+  safelyDestroyPeer();
 
-  peer.on('open', (id) => {
-    isHost = true; myPeerId = id; setupInterface(); updateParticipantsUI();
-    peer.on('connection', (conn) => registerPeerConnection(conn));
+  const activePeer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  peer = activePeer;
+
+  activePeer.on('open', (id) => {
+    if (peer !== activePeer) return;
+    isConnecting = false;
+    isHost = true;
+    myPeerId = id;
+    setupInterface();
+    updateParticipantsUI();
+    activePeer.on('connection', (conn) => registerPeerConnection(conn));
+    setupCallHandler(activePeer);
   });
 
-  peer.on('disconnected', () => {
-    if (!intentionalLogout && room) {
-      setTimeout(() => handleAppResume(), 800);
-    }
-  });
-
-  peer.on('error', (err) => {
+  activePeer.on('error', (err) => {
+    if (peer !== activePeer) return;
+    isConnecting = false;
     if (err.type === 'unavailable-id') {
-      // Another peer already claimed [room]-host (e.g., after iOS background switch) -> join seamlessly as guest!
-      try { peer.destroy(); } catch (e) {}
       joinAsGuest();
+    } else {
+      const statusEl = document.getElementById('authStatus');
+      if (statusEl) {
+        statusEl.textContent = `Relay notice (${err.type}) — retrying...`;
+        statusEl.classList.remove('hidden');
+      }
     }
   });
-  setupCallHandler();
 }
 
 function joinAsGuest() {
-  if (peer && !peer.destroyed) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer(room + '-guest-' + Math.floor(1000 + Math.random() * 9000), { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  if (isConnecting) return;
+  isConnecting = true;
+  safelyDestroyPeer();
 
-  peer.on('open', (id) => {
-    isHost = false; myPeerId = id; setupInterface(); updateParticipantsUI();
-    const conn = peer.connect(room + '-host', { reliable: true, metadata: { name: myName } });
+  const guestId = room + '-guest-' + Math.floor(1000 + Math.random() * 9000);
+  const activePeer = new Peer(guestId, { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  peer = activePeer;
+
+  activePeer.on('open', (id) => {
+    if (peer !== activePeer) return;
+    isConnecting = false;
+    isHost = false;
+    myPeerId = id;
+    setupInterface();
+    updateParticipantsUI();
+
+    const conn = activePeer.connect(room + '-host', { reliable: true, metadata: { name: myName } });
     registerPeerConnection(conn);
+    activePeer.on('connection', (c) => registerPeerConnection(c));
+    setupCallHandler(activePeer);
 
     if (hostCheckTimer) clearTimeout(hostCheckTimer);
     hostCheckTimer = setTimeout(() => {
-      if (!intentionalLogout && Object.keys(connections).length === 0) {
+      if (!intentionalLogout && room && Object.keys(connections).length === 0 && !isConnecting) {
         tryHostRole();
       }
-    }, 4500);
+    }, 5000);
   });
 
-  peer.on('disconnected', () => {
-    if (!intentionalLogout && room) {
-      setTimeout(() => handleAppResume(), 800);
+  activePeer.on('error', (err) => {
+    if (peer !== activePeer) return;
+    isConnecting = false;
+    const statusEl = document.getElementById('authStatus');
+    if (statusEl) {
+      statusEl.textContent = `Connection issue (${err.type}) — tap Connect again`;
+      statusEl.classList.remove('hidden');
     }
   });
-
-  peer.on('connection', (conn) => registerPeerConnection(conn));
-  setupCallHandler();
 }
 
 function setupInterface() {
@@ -338,7 +353,6 @@ function registerPeerConnection(conn) {
     } else if (data.type === 'ROSTER') {
       roomRoster = data.members; renderGuestRoster(data.members);
     } else if (data.type === 'CLEAR_ROOM_CHAT') {
-      // Synced Clear Chat & RAM on both ends
       clearChat(false, data.senderName);
       if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'TYPING') {
@@ -398,9 +412,10 @@ function registerPeerConnection(conn) {
       syncRosterToGuests();
     } else if (wasHostConn && !intentionalLogout && room) {
       appendSystemNotice('Host left—migrating room host...');
-      const jitter = 1400 + Math.floor(Math.random() * 1000);
+      if (failoverTimer) clearTimeout(failoverTimer);
+      const jitter = 1500 + Math.floor(Math.random() * 1000);
       failoverTimer = setTimeout(() => {
-        if (!intentionalLogout && room && Object.keys(connections).length === 0) {
+        if (!intentionalLogout && room && Object.keys(connections).length === 0 && !isConnecting) {
           tryHostRole();
         }
       }, jitter);
@@ -596,7 +611,7 @@ function clearChat(broadcastToRoom = true, clearedBy = myName) {
 
 function logoutRoom() {
   intentionalLogout = true;
-  sessionStorage.removeItem('cypher_active');
+  isConnecting = false;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (hostCheckTimer) clearTimeout(hostCheckTimer);
   if (failoverTimer) clearTimeout(failoverTimer);
@@ -604,9 +619,9 @@ function logoutRoom() {
   if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
   if (typeof stopAllGamesAndLoops === 'function') stopAllGamesAndLoops();
   stopRingtone(); endCall();
-  for (const p of Object.values(connections)) { if (p.conn) p.conn.close(); }
+  for (const p of Object.values(connections)) { try { if (p.conn) p.conn.close(); } catch (e) {} }
   connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = [];
-  if (peer) { peer.destroy(); peer = null; }
+  safelyDestroyPeer();
   room = ""; clearChat(false);
   toggleModal('authOverlay', true);
 }
@@ -665,12 +680,13 @@ async function enableBackgroundPersistence() {
       if (now - buf.createdAt > 30000) delete incomingChunkBuffers[txId];
     }
     if (peer && !peer.destroyed && peer.socket && peer.socket._open) peer.socket.send({ type: 'HEARTBEAT' });
-    if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
-  }, 10000);
+  }, 15000);
 }
 
-function setupCallHandler() {
-  peer.on('call', (call) => {
+function setupCallHandler(activePeerInstance) {
+  const targetPeer = activePeerInstance || peer;
+  if (!targetPeer) return;
+  targetPeer.on('call', (call) => {
     pendingIncomingCall = call;
     const isVideo = call.metadata?.video !== false;
     document.getElementById('incomingCallerName').textContent = call.metadata?.callerName || 'Peer';
@@ -728,11 +744,8 @@ async function toggleScreenShare() {
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({ video: true }), track = s.getVideoTracks()[0];
       const sender = activeCall.peerConnection.getSenders().find(x => x.track && x.track.kind === 'video');
-      if (sender) {
-        await sender.replaceTrack(track);
-      } else {
-        activeCall.peerConnection.addTrack(track, s);
-      }
+      if (sender) await sender.replaceTrack(track);
+      else activeCall.peerConnection.addTrack(track, s);
       document.getElementById('localVideo').srcObject = s;
       toggleModal('localVideo', true);
       toggleModal('remoteVideo', true);
