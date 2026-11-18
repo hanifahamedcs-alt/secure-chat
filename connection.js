@@ -8,8 +8,9 @@ let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
+let lastPeerPongMap = {}; // Tracks live Android DataChannel responsiveness
 
-// Dedicated Metered TURN Servers
+// Dedicated Metered TURN Servers (UDP + TCP + TLS 443 for strict mobile carriers)
 const iceServersConfig = [
   { urls: "stun:stun.relay.metered.ca:80" },
   { urls: "turn:global.relay.metered.ca:80", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
@@ -28,7 +29,7 @@ function toggleMobileSidebar() {
   document.getElementById('sidebarBackdrop').classList.toggle('hidden');
 }
 
-// ==================== PRE-FILL SAVED NAME / INVITE LINK (NO AUTO-LOOP) ====================
+// ==================== PRE-FILL SAVED NAME / INVITE LINK ====================
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const urlRoom = params.get('room');
@@ -71,7 +72,7 @@ function copyRoomInviteLink() {
   }
 }
 
-// ==================== iOS / DESKTOP FOREGROUND RETURN RECOVERY ====================
+// ==================== ANDROID / iOS NETWORK & FOREGROUND RECOVERY ====================
 function handleAppResume() {
   unreadCount = 0;
   document.title = originalTitle;
@@ -91,7 +92,7 @@ function handleAppResume() {
       if (!intentionalLogout && room && nowOpen.length === 0 && !isConnecting) {
         forceRoomReconnect(false);
       }
-    }, 3000);
+    }, 2500);
   } else if (activePeers.length === 0 && !isHost) {
     forceRoomReconnect(false);
   }
@@ -100,7 +101,19 @@ function handleAppResume() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') handleAppResume();
 });
-window.addEventListener('online', () => handleAppResume());
+window.addEventListener('online', () => {
+  if (!intentionalLogout && room) {
+    appendSystemNotice('📶 Network changed — re-syncing TURN link...');
+    setTimeout(() => forceRoomReconnect(false), 1000);
+  }
+});
+if (navigator.connection) {
+  navigator.connection.addEventListener('change', () => {
+    if (!intentionalLogout && room) {
+      setTimeout(() => handleAppResume(), 1200);
+    }
+  });
+}
 
 function safelyDestroyPeer() {
   if (peer) {
@@ -119,6 +132,7 @@ function forceRoomReconnect(notifyUser = true) {
     try { if (p.conn) p.conn.close(); } catch (e) {}
   }
   connections = {};
+  lastPeerPongMap = {};
   updateParticipantsUI();
   tryHostRole();
 }
@@ -222,7 +236,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE (RACE-FREE) ====================
+// ==================== CONNECTION ENGINE WITH ANDROID ICE & PING WATCHDOG ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -263,6 +277,12 @@ function tryHostRole() {
     updateParticipantsUI();
     activePeer.on('connection', (conn) => registerPeerConnection(conn));
     setupCallHandler(activePeer);
+  });
+
+  activePeer.on('disconnected', () => {
+    if (!intentionalLogout && room) {
+      setTimeout(() => handleAppResume(), 800);
+    }
   });
 
   activePeer.on('error', (err) => {
@@ -310,6 +330,12 @@ function joinAsGuest() {
     }, 5000);
   });
 
+  activePeer.on('disconnected', () => {
+    if (!intentionalLogout && room) {
+      setTimeout(() => handleAppResume(), 800);
+    }
+  });
+
   activePeer.on('error', (err) => {
     if (peer !== activePeer) return;
     isConnecting = false;
@@ -330,11 +356,31 @@ function setupInterface() {
 }
 
 function registerPeerConnection(conn) {
+  // Monitor underlying WebRTC ICE state for Android Wi-Fi/4G handoff drops
+  const attachIceWatcher = () => {
+    if (!conn.peerConnection) return;
+    conn.peerConnection.oniceconnectionstatechange = () => {
+      const state = conn.peerConnection.iceConnectionState;
+      if (state === 'failed') {
+        conn.close();
+      } else if (state === 'disconnected') {
+        setTimeout(() => {
+          if (conn.peerConnection && conn.peerConnection.iceConnectionState === 'disconnected') {
+            conn.close();
+          }
+        }, 3500);
+      }
+    };
+  };
+  attachIceWatcher();
+  setTimeout(attachIceWatcher, 500);
+
   conn.on('open', () => {
     if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
     if (failoverTimer) { clearTimeout(failoverTimer); failoverTimer = null; }
 
     connections[conn.peer] = { conn, name: conn.metadata?.name || 'Host' };
+    lastPeerPongMap[conn.peer] = Date.now();
     conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
     if (!isHost) conn.send({ type: 'REQ_ROSTER' });
     updateParticipantsUI();
@@ -342,6 +388,16 @@ function registerPeerConnection(conn) {
   });
 
   conn.on('data', (data) => {
+    lastPeerPongMap[conn.peer] = Date.now();
+
+    if (data.type === 'PING') {
+      if (conn.open) conn.send({ type: 'PONG' });
+      return;
+    }
+    if (data.type === 'PONG') {
+      return;
+    }
+
     if (data.type === 'JOIN') {
       connections[conn.peer] = { conn, name: data.name };
       appendSystemNotice(`${data.name} connected`);
@@ -405,13 +461,14 @@ function registerPeerConnection(conn) {
     const wasHostConn = conn.peer === room + '-host';
     if (typeof cleanupRemoteCursor === 'function') cleanupRemoteCursor(conn.peer);
     delete connections[conn.peer];
+    delete lastPeerPongMap[conn.peer];
     appendSystemNotice(`${leftName} disconnected`);
     updateParticipantsUI();
 
     if (isHost) {
       syncRosterToGuests();
     } else if (wasHostConn && !intentionalLogout && room) {
-      appendSystemNotice('Host left—migrating room host...');
+      appendSystemNotice('Reconnecting to room...');
       if (failoverTimer) clearTimeout(failoverTimer);
       const jitter = 1500 + Math.floor(Math.random() * 1000);
       failoverTimer = setTimeout(() => {
@@ -620,34 +677,13 @@ function logoutRoom() {
   if (typeof stopAllGamesAndLoops === 'function') stopAllGamesAndLoops();
   stopRingtone(); endCall();
   for (const p of Object.values(connections)) { try { if (p.conn) p.conn.close(); } catch (e) {} }
-  connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = [];
+  connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = []; lastPeerPongMap = {};
   safelyDestroyPeer();
   room = ""; clearChat(false);
   toggleModal('authOverlay', true);
 }
-// ==================== SAFE PICKER TOGGLE & TAB SWITCHER ====================
-function togglePicker() {
-  const pop = document.getElementById('pickerPopover');
-  if (!pop) return;
-  pop.classList.toggle('hidden');
-  if (!pop.classList.contains('hidden') && typeof initPickersSafely === 'function') {
-    initPickersSafely();
-  }
-}
 
-function switchPickerTab(tab) {
-  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
-    const grid = document.getElementById(k + 'Grid');
-    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
-    if (grid) grid.classList.toggle('hidden', k !== tab);
-    if (btn) {
-      btn.className = k === tab
-        ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent'
-        : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
-    }
-  });
-}
-// ==================== HELPERS & CALLS ====================
+// ==================== HELPERS, ANDROID PING WATCHDOG & CALLS ====================
 function setReplyQuote(sender, snippet) { activeReplyContext = { sender, text: snippet.slice(0, 80) }; document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`; document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text; toggleModal('replyPreviewBanner', true); }
 function cancelReply() { activeReplyContext = null; toggleModal('replyPreviewBanner', false); }
 function toggleSecretMode() { isSecretMode = !isSecretMode; toggleModal('secretModeBanner', isSecretMode); document.getElementById('secretBtn').classList.toggle('text-amber-400', isSecretMode); }
@@ -694,14 +730,30 @@ async function enableBackgroundPersistence() {
     }
   } catch (e) {}
   if (heartbeatTimer) clearInterval(heartbeatTimer);
+
+  // 5-second Android Keep-Alive Ping & Dead-Socket Watchdog
   heartbeatTimer = setInterval(() => {
     if (intentionalLogout || !room) return;
     const now = Date.now();
+
     for (const [txId, buf] of Object.entries(incomingChunkBuffers)) {
       if (now - buf.createdAt > 30000) delete incomingChunkBuffers[txId];
     }
-    if (peer && !peer.destroyed && peer.socket && peer.socket._open) peer.socket.send({ type: 'HEARTBEAT' });
-  }, 15000);
+
+    // Keep Android NAT/TURN ports warm and detect silent mobile drops within 12s
+    for (const [peerId, peerObj] of Object.entries(connections)) {
+      if (peerObj.conn && peerObj.conn.open) {
+        try { peerObj.conn.send({ type: 'PING' }); } catch (e) {}
+        if (lastPeerPongMap[peerId] && (now - lastPeerPongMap[peerId] > 14000)) {
+          try { peerObj.conn.close(); } catch (e) {}
+        }
+      }
+    }
+
+    if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
+      peer.socket.send({ type: 'HEARTBEAT' });
+    }
+  }, 5000);
 }
 
 function setupCallHandler(activePeerInstance) {
