@@ -8,9 +8,9 @@ let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
-let lastPeerPongMap = {}; // Tracks live Android DataChannel responsiveness
+let lastPeerPongMap = {};
 
-// Dedicated Metered TURN Servers (UDP + TCP + TLS 443 for strict mobile carriers)
+// Dedicated Metered TURN Servers (UDP + TCP + TLS 443)
 const iceServersConfig = [
   { urls: "stun:stun.relay.metered.ca:80" },
   { urls: "turn:global.relay.metered.ca:80", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
@@ -356,7 +356,6 @@ function setupInterface() {
 }
 
 function registerPeerConnection(conn) {
-  // Monitor underlying WebRTC ICE state for Android Wi-Fi/4G handoff drops
   const attachIceWatcher = () => {
     if (!conn.peerConnection) return;
     conn.peerConnection.oniceconnectionstatechange = () => {
@@ -397,24 +396,29 @@ function registerPeerConnection(conn) {
     if (data.type === 'PONG') {
       return;
     }
-if (data.type === 'JOIN') {
+
+    if (data.type === 'JOIN') {
       connections[conn.peer] = { conn, name: data.name };
       appendSystemNotice(`${data.name} connected`);
       playMessageTone(); updateParticipantsUI();
       if (isHost) {
         syncRosterToGuests();
-        // Only a licensed Host can grant Pro session access to joining Guests
-        if (window.hasPermanentProLicense && window.hostAllowGuestPro) {
-          conn.send({ type: 'HOST_GUEST_PASS', granted: true });
+        // Re-sync Pro access if this guest was previously approved by the Host
+        if (window.hasPermanentProLicense && window.approvedProGuests && window.approvedProGuests.has(conn.peer)) {
+          conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, granted: true });
         }
       }
       flushPendingOutbox();
-    } else if (data.type === 'HOST_GUEST_PASS') {
-      if (typeof applyHostGuestPass === 'function') {
+    } else if (data.type === 'REQ_ROSTER') {
+      if (isHost) syncRosterToGuests();
+    } else if (data.type === 'ROSTER') {
+      roomRoster = data.members; renderGuestRoster(data.members);
+    } else if (data.type === 'GRANT_GUEST_PRO') {
+      if (data.targetId === myPeerId && typeof applyHostGuestPass === 'function') {
         applyHostGuestPass(!!data.granted);
       }
-    }
-   else if (data.type === 'CLEAR_ROOM_CHAT') {
+      if (isHost) relayToOthers(conn.peer, data);
+    } else if (data.type === 'CLEAR_ROOM_CHAT') {
       clearChat(false, data.senderName);
       if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'TYPING') {
@@ -466,16 +470,16 @@ if (data.type === 'JOIN') {
     const leftName = connections[conn.peer]?.name || 'Peer';
     const wasHostConn = conn.peer === room + '-host';
     if (typeof cleanupRemoteCursor === 'function') cleanupRemoteCursor(conn.peer);
+    if (window.approvedProGuests) window.approvedProGuests.delete(conn.peer);
     delete connections[conn.peer];
     delete lastPeerPongMap[conn.peer];
     appendSystemNotice(`${leftName} disconnected`);
     updateParticipantsUI();
-if (!isHost && wasHostConn && typeof revokeSessionGuestPass === 'function') {
-      revokeSessionGuestPass();
-    }
+
     if (isHost) {
       syncRosterToGuests();
     } else if (wasHostConn && !intentionalLogout && room) {
+      if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
       appendSystemNotice('Reconnecting to room...');
       if (failoverTimer) clearTimeout(failoverTimer);
       const jitter = 1500 + Math.floor(Math.random() * 1000);
@@ -548,12 +552,29 @@ function updateParticipantsUI() {
 
 function renderGuestRoster(members) {
   document.getElementById('participantCount').textContent = members.length;
-  document.getElementById('participantsList').innerHTML = members.map(m => `
-    <div class="flex items-center gap-2.5 p-2 rounded-xl theme-input border">
-      <div class="w-7 h-7 rounded-lg ${m.id === myPeerId ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">${m.name[0]}</div>
-      <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${m.id === myPeerId ? '(You)' : ''}</span>
-    </div>
-  `).join('');
+  const canGrantGuests = Boolean(isHost && window.hasPermanentProLicense);
+
+  document.getElementById('participantsList').innerHTML = members.map(m => {
+    const isMe = m.id === myPeerId;
+    const isApproved = window.approvedProGuests && window.approvedProGuests.has(m.id);
+    const grantBtn = (!isMe && canGrantGuests)
+      ? `<button type="button" onclick="toggleSpecificGuestPro('${m.id}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
+          isApproved
+            ? 'bg-emerald-600 text-white shadow'
+            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+        }">${isApproved ? '👑 Pro ON' : 'Grant Pro'}</button>`
+      : '';
+
+    return `
+      <div class="flex items-center justify-between gap-2 p-2 rounded-xl theme-input border">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <div class="w-7 h-7 rounded-lg ${isMe ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">${escapeHTML(m.name[0] || '?')}</div>
+          <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${isMe ? '(You)' : ''}</span>
+        </div>
+        ${grantBtn}
+      </div>
+    `;
+  }).join('');
 }
 
 // ==================== 16 KB CHUNKED TRANSFER ====================
@@ -688,10 +709,31 @@ function logoutRoom() {
   connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = []; lastPeerPongMap = {};
   safelyDestroyPeer();
   room = ""; clearChat(false);
-if (typeof revokeSessionGuestPass === 'function') {
-    revokeSessionGuestPass();
-  }
+  if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
   toggleModal('authOverlay', true);
+}
+
+// ==================== SAFE PICKER TOGGLE & TAB SWITCHER ====================
+function togglePicker() {
+  const pop = document.getElementById('pickerPopover');
+  if (!pop) return;
+  pop.classList.toggle('hidden');
+  if (!pop.classList.contains('hidden') && typeof initPickersSafely === 'function') {
+    initPickersSafely();
+  }
+}
+
+function switchPickerTab(tab) {
+  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
+    const grid = document.getElementById(k + 'Grid');
+    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
+    if (grid) grid.classList.toggle('hidden', k !== tab);
+    if (btn) {
+      btn.className = k === tab
+        ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent'
+        : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
+    }
+  });
 }
 
 // ==================== HELPERS, ANDROID PING WATCHDOG & CALLS ====================
@@ -742,7 +784,6 @@ async function enableBackgroundPersistence() {
   } catch (e) {}
   if (heartbeatTimer) clearInterval(heartbeatTimer);
 
-  // 5-second Android Keep-Alive Ping & Dead-Socket Watchdog
   heartbeatTimer = setInterval(() => {
     if (intentionalLogout || !room) return;
     const now = Date.now();
@@ -751,7 +792,6 @@ async function enableBackgroundPersistence() {
       if (now - buf.createdAt > 30000) delete incomingChunkBuffers[txId];
     }
 
-    // Keep Android NAT/TURN ports warm and detect silent mobile drops within 12s
     for (const [peerId, peerObj] of Object.entries(connections)) {
       if (peerObj.conn && peerObj.conn.open) {
         try { peerObj.conn.send({ type: 'PING' }); } catch (e) {}
