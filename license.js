@@ -1,8 +1,11 @@
-// ==================== CYPHERLINK PRO LICENSE MANAGER (OPTION 3: HOST-LAUNCH GATE) ====================
+
+// ==================== CYPHERLINK PRO LICENSE MANAGER (PER-GUEST HOST SELECTOR) ====================
 const LICENSE_STORAGE_KEY = 'cypherlink_pro_license';
 const LICENSE_SALT = 'CYPHER-2026-TRICHY-PRO-SECRET';
 
+window.hasPermanentProLicense = false;
 window.isProUnlocked = false;
+window.approvedProGuests = new Set(); // Tracks specific peerIds approved by the licensed Host
 
 async function computeKeySignature(payload) {
   const enc = new TextEncoder();
@@ -20,25 +23,21 @@ async function verifyLicenseKey(rawKey) {
   return parts[3] === expectedSig;
 }
 
-// Guard helper: wraps any Pro launch action so Basic users see the upgrade modal,
-// while incoming WebRTC game packets from a Pro Host still execute normally!
-window.requireProFeature = function(featureName, actionFn) {
-  if (window.isProUnlocked) {
-    return actionFn();
-  }
+window.requireProFeature = function(featureName) {
+  if (window.isProUnlocked) return true;
   const msgEl = document.getElementById('licenseStatusMsg');
   if (msgEl) {
     msgEl.className = 'text-[11px] text-amber-300 font-medium mb-3';
-    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license to host/launch. (You can still join & play when a Pro Host starts it!)`;
+    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license—or ask your Room Host to enable Pro access for you.`;
     msgEl.classList.remove('hidden');
   }
   toggleModal('licenseModal', true);
+  return false;
 };
 
-function setProUIState(unlocked) {
+function setProUIState(unlocked, isGuestPass = false) {
   window.isProUnlocked = unlocked;
 
-  // Pro-only launch triggers (visible with subtle lock badge in Basic so users see what Pro offers)
   const proLaunchSelectors = [
     '[onclick*="jukeboxModal"]',
     '[onclick*="pulsePadModal"]',
@@ -69,23 +68,85 @@ function setProUIState(unlocked) {
 
   const upgradeBtn = document.getElementById('openLicenseModalBtn');
   if (upgradeBtn) {
-    upgradeBtn.innerHTML = unlocked
-      ? '<i class="fa-solid fa-crown text-amber-400"></i> Advance Pro Active'
-      : '<i class="fa-solid fa-key text-amber-400"></i> Unlock Advance Pro';
+    if (window.hasPermanentProLicense) {
+      upgradeBtn.innerHTML = '<i class="fa-solid fa-crown text-amber-400"></i> Advance Pro Owner';
+    } else if (unlocked && isGuestPass) {
+      upgradeBtn.innerHTML = '<i class="fa-solid fa-ticket text-emerald-400"></i> Guest Pro Pass Active';
+    } else {
+      upgradeBtn.innerHTML = '<i class="fa-solid fa-key text-amber-400"></i> Enter Pro License Key';
+    }
+  }
+
+  // Re-render participant list so Host's per-guest Pro toggle buttons update immediately
+  if (typeof renderGuestRoster === 'function' && Array.isArray(roomRoster)) {
+    renderGuestRoster(roomRoster);
   }
 }
 
-// Intercept clicks on Pro launch buttons when running in Basic mode
+// Host clicks the toggle button next to a specific guest in the sidebar
+window.toggleSpecificGuestPro = function(targetPeerId) {
+  if (!window.hasPermanentProLicense || typeof isHost === 'undefined' || !isHost) return;
+
+  const willGrant = !window.approvedProGuests.has(targetPeerId);
+  if (willGrant) {
+    window.approvedProGuests.add(targetPeerId);
+  } else {
+    window.approvedProGuests.delete(targetPeerId);
+  }
+
+  // Send targeted grant/revoke packet to the room (only targetPeerId applies it)
+  if (typeof broadcastData === 'function') {
+    broadcastData({
+      type: 'GRANT_GUEST_PRO',
+      targetId: targetPeerId,
+      granted: willGrant
+    });
+  }
+
+  if (typeof renderGuestRoster === 'function' && Array.isArray(roomRoster)) {
+    renderGuestRoster(roomRoster);
+  }
+};
+
+// Applied on the Guest's device when the Host selects them
+window.applyHostGuestPass = function(granted) {
+  if (window.hasPermanentProLicense) return;
+  if (granted) {
+    setProUIState(true, true);
+    if (typeof showToast === 'function') {
+      showToast('👑 Host Unlocked Full Version!', 'You now have Advance Pro access for this room session');
+    }
+  } else {
+    setProUIState(false, false);
+    if (typeof showToast === 'function') {
+      showToast('🔒 Switched to Basic Mode', 'Host revoked temporary Pro guest access');
+    }
+  }
+};
+
+// Automatically revokes temporary Guest pass on logout or Host disconnect
+window.revokeSessionGuestPass = function() {
+  window.approvedProGuests.clear();
+  if (!window.hasPermanentProLicense) {
+    setProUIState(false, false);
+  }
+};
+
+// Intercept clicks on Pro tools when running in Basic mode (never auto-opens on login)
 document.addEventListener('click', (e) => {
   if (window.isProUnlocked) return;
+
   const lockedTarget = e.target.closest('[data-pro-locked="1"]');
-  if (lockedTarget) {
+  const appGridBtn = e.target.closest('#surprisesGrid button, #soundsGrid button');
+
+  if (lockedTarget || appGridBtn) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    const label = lockedTarget.textContent.trim() || lockedTarget.title || 'This Pro Tool';
-    window.requireProFeature(label, () => {});
+    const target = lockedTarget || appGridBtn;
+    const label = target.textContent.trim() || target.title || 'This Pro Feature';
+    window.requireProFeature(label);
   }
-}, true); // Capture phase intercepts before inline onclick fires
+}, true);
 
 function injectLicenseModalAndButton() {
   if (document.getElementById('licenseModal')) return;
@@ -96,8 +157,8 @@ function injectLicenseModalAndButton() {
         <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl mx-auto mb-3 border border-amber-500/30">
           <i class="fa-solid fa-crown"></i>
         </div>
-        <h3 class="text-base font-bold mb-1">Advance Pro Host License</h3>
-        <p class="text-[11px] theme-muted mb-4">Unlock launching all 26 live games, Beat Studio, Soundscape Mixer, Dual Snap, Screen Share, and Secret Messages. Invited guests play free!</p>
+        <h3 class="text-base font-bold mb-1">Advance Pro License</h3>
+        <p class="text-[11px] theme-muted mb-4">Guests can join any room free without a key. Enter a Pro License Key only if you want to host Pro rooms and grant access to your guests.</p>
         <input id="licenseKeyInput" type="text" placeholder="CYPHER-PRO-XXXX-XXXXXXXX" class="w-full theme-input border rounded-xl px-3.5 py-2.5 text-xs font-mono uppercase text-center tracking-wider mb-3 focus:outline-none focus:border-amber-400" />
         <p id="licenseStatusMsg" class="text-[11px] mb-3 hidden"></p>
         <div class="flex gap-2">
@@ -120,7 +181,7 @@ function injectLicenseModalAndButton() {
       toggleModal('licenseModal', true);
     };
     proBtn.className = 'w-full py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition mb-1.5';
-    proBtn.innerHTML = '<i class="fa-solid fa-key text-amber-400"></i> Unlock Advance Pro';
+    proBtn.innerHTML = '<i class="fa-solid fa-key text-amber-400"></i> Enter Pro License Key';
     sidebarFooter.prepend(proBtn);
   }
 }
@@ -132,9 +193,10 @@ async function activateEnteredLicense() {
 
   if (await verifyLicenseKey(input)) {
     localStorage.setItem(LICENSE_STORAGE_KEY, input);
+    window.hasPermanentProLicense = true;
     status.className = 'text-[11px] text-emerald-400 font-semibold mb-3';
-    status.textContent = '✅ Advance Pro Unlocked! All host launch controls enabled.';
-    setProUIState(true);
+    status.textContent = '✅ Advance Pro Unlocked! Select any guest in the sidebar to grant them full access.';
+    setProUIState(true, false);
     setTimeout(() => toggleModal('licenseModal', false), 900);
   } else {
     status.className = 'text-[11px] text-rose-400 font-semibold mb-3';
@@ -144,10 +206,15 @@ async function activateEnteredLicense() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   injectLicenseModalAndButton();
+  // Ensure modal stays strictly hidden on initial load / guest login
+  toggleModal('licenseModal', false);
+
   const savedKey = localStorage.getItem(LICENSE_STORAGE_KEY);
   if (savedKey && await verifyLicenseKey(savedKey)) {
-    setProUIState(true);
+    window.hasPermanentProLicense = true;
+    setProUIState(true, false);
   } else {
-    setProUIState(false);
+    window.hasPermanentProLicense = false;
+    setProUIState(false, false);
   }
 });
