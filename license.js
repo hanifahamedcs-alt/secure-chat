@@ -1,10 +1,10 @@
-// ==================== CYPHERLINK PRO LICENSE MANAGER (PER-GUEST HOST SELECTOR) ====================
+// ==================== CYPHERLINK PRO LICENSE MANAGER (FIXED & RACE-FREE) ====================
 const LICENSE_STORAGE_KEY = 'cypherlink_pro_license';
 const LICENSE_SALT = 'CYPHER-2026-TRICHY-PRO-SECRET';
 
 window.hasPermanentProLicense = false;
 window.isProUnlocked = false;
-window.approvedProGuests = new Set(); // Tracks specific peerIds approved by the licensed Host
+window.approvedProGuests = new Set();
 
 async function computeKeySignature(payload) {
   const enc = new TextEncoder();
@@ -23,11 +23,11 @@ async function verifyLicenseKey(rawKey) {
 }
 
 window.requireProFeature = function(featureName) {
-  if (window.isProUnlocked) return true;
+  if (window.isProUnlocked || window.hasPermanentProLicense) return true;
   const msgEl = document.getElementById('licenseStatusMsg');
   if (msgEl) {
     msgEl.className = 'text-[11px] text-amber-300 font-medium mb-3';
-    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license—or ask your Room Host to enable Pro access for you.`;
+    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license—or ask your Room Host to grant you access.`;
     msgEl.classList.remove('hidden');
   }
   toggleModal('licenseModal', true);
@@ -35,6 +35,11 @@ window.requireProFeature = function(featureName) {
 };
 
 function setProUIState(unlocked, isGuestPass = false) {
+  // Never downgrade an owner who holds a valid permanent license
+  if (window.hasPermanentProLicense) {
+    unlocked = true;
+    isGuestPass = false;
+  }
   window.isProUnlocked = unlocked;
 
   const proLaunchSelectors = [
@@ -76,15 +81,17 @@ function setProUIState(unlocked, isGuestPass = false) {
     }
   }
 
-  // Re-render participant list so Host's per-guest Pro toggle buttons update immediately
   if (typeof renderGuestRoster === 'function' && Array.isArray(roomRoster)) {
     renderGuestRoster(roomRoster);
   }
 }
 
-// Host clicks the toggle button next to a specific guest in the sidebar
+// Licensed Owner toggles Pro access for a specific guest in the room
 window.toggleSpecificGuestPro = function(targetPeerId) {
-  if (!window.hasPermanentProLicense || typeof isHost === 'undefined' || !isHost) return;
+  if (!window.hasPermanentProLicense) {
+    toggleModal('licenseModal', true);
+    return;
+  }
 
   const willGrant = !window.approvedProGuests.has(targetPeerId);
   if (willGrant) {
@@ -93,7 +100,6 @@ window.toggleSpecificGuestPro = function(targetPeerId) {
     window.approvedProGuests.delete(targetPeerId);
   }
 
-  // Send targeted grant/revoke packet to the room (only targetPeerId applies it)
   if (typeof broadcastData === 'function') {
     broadcastData({
       type: 'GRANT_GUEST_PRO',
@@ -107,7 +113,6 @@ window.toggleSpecificGuestPro = function(targetPeerId) {
   }
 };
 
-// Applied on the Guest's device when the Host selects them
 window.applyHostGuestPass = function(granted) {
   if (window.hasPermanentProLicense) return;
   if (granted) {
@@ -123,7 +128,6 @@ window.applyHostGuestPass = function(granted) {
   }
 };
 
-// Automatically revokes temporary Guest pass on logout or Host disconnect
 window.revokeSessionGuestPass = function() {
   window.approvedProGuests.clear();
   if (!window.hasPermanentProLicense) {
@@ -131,9 +135,10 @@ window.revokeSessionGuestPass = function() {
   }
 };
 
-// Intercept clicks on Pro tools when running in Basic mode (never auto-opens on login)
+// Capture-phase interceptor (explicitly ignores participant list & license controls)
 document.addEventListener('click', (e) => {
-  if (window.isProUnlocked) return;
+  if (window.isProUnlocked || window.hasPermanentProLicense) return;
+  if (e.target.closest('#participantsList, #licenseModal, #openLicenseModalBtn')) return;
 
   const lockedTarget = e.target.closest('[data-pro-locked="1"]');
   const appGridBtn = e.target.closest('#surprisesGrid button, #soundsGrid button');
@@ -157,7 +162,7 @@ function injectLicenseModalAndButton() {
           <i class="fa-solid fa-crown"></i>
         </div>
         <h3 class="text-base font-bold mb-1">Advance Pro License</h3>
-        <p class="text-[11px] theme-muted mb-4">Guests can join any room free without a key. Enter a Pro License Key only if you want to host Pro rooms and grant access to your guests.</p>
+        <p class="text-[11px] theme-muted mb-4">Guests join free without a key. Enter your Pro License Key to host Pro rooms and grant access to your guests.</p>
         <input id="licenseKeyInput" type="text" placeholder="CYPHER-PRO-XXXX-XXXXXXXX" class="w-full theme-input border rounded-xl px-3.5 py-2.5 text-xs font-mono uppercase text-center tracking-wider mb-3 focus:outline-none focus:border-amber-400" />
         <p id="licenseStatusMsg" class="text-[11px] mb-3 hidden"></p>
         <div class="flex gap-2">
@@ -203,9 +208,8 @@ async function activateEnteredLicense() {
   }
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+async function bootstrapLicenseState() {
   injectLicenseModalAndButton();
-  // Ensure modal stays strictly hidden on initial load / guest login
   toggleModal('licenseModal', false);
 
   const savedKey = localStorage.getItem(LICENSE_STORAGE_KEY);
@@ -216,4 +220,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.hasPermanentProLicense = false;
     setProUIState(false, false);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', bootstrapLicenseState);
+} else {
+  bootstrapLicenseState();
+}
