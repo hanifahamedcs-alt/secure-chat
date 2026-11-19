@@ -1,4 +1,3 @@
-
 // ==================== CYPHERLINK PRO LICENSE MANAGER (PER-GUEST HOST SELECTOR) ====================
 const LICENSE_STORAGE_KEY = 'cypherlink_pro_license';
 const LICENSE_SALT = 'CYPHER-2026-TRICHY-PRO-SECRET';
