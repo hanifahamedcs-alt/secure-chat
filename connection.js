@@ -397,18 +397,24 @@ function registerPeerConnection(conn) {
     if (data.type === 'PONG') {
       return;
     }
-
-    if (data.type === 'JOIN') {
+if (data.type === 'JOIN') {
       connections[conn.peer] = { conn, name: data.name };
       appendSystemNotice(`${data.name} connected`);
       playMessageTone(); updateParticipantsUI();
-      if (isHost) syncRosterToGuests();
+      if (isHost) {
+        syncRosterToGuests();
+        // Only a licensed Host can grant Pro session access to joining Guests
+        if (window.hasPermanentProLicense && window.hostAllowGuestPro) {
+          conn.send({ type: 'HOST_GUEST_PASS', granted: true });
+        }
+      }
       flushPendingOutbox();
-    } else if (data.type === 'REQ_ROSTER') {
-      if (isHost) syncRosterToGuests();
-    } else if (data.type === 'ROSTER') {
-      roomRoster = data.members; renderGuestRoster(data.members);
-    } else if (data.type === 'CLEAR_ROOM_CHAT') {
+    } else if (data.type === 'HOST_GUEST_PASS') {
+      if (typeof applyHostGuestPass === 'function') {
+        applyHostGuestPass(!!data.granted);
+      }
+    }
+   else if (data.type === 'CLEAR_ROOM_CHAT') {
       clearChat(false, data.senderName);
       if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'TYPING') {
@@ -464,7 +470,9 @@ function registerPeerConnection(conn) {
     delete lastPeerPongMap[conn.peer];
     appendSystemNotice(`${leftName} disconnected`);
     updateParticipantsUI();
-
+if (!isHost && wasHostConn && typeof revokeSessionGuestPass === 'function') {
+      revokeSessionGuestPass();
+    }
     if (isHost) {
       syncRosterToGuests();
     } else if (wasHostConn && !intentionalLogout && room) {
@@ -680,6 +688,9 @@ function logoutRoom() {
   connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = []; lastPeerPongMap = {};
   safelyDestroyPeer();
   room = ""; clearChat(false);
+if (typeof revokeSessionGuestPass === 'function') {
+    revokeSessionGuestPass();
+  }
   toggleModal('authOverlay', true);
 }
 
