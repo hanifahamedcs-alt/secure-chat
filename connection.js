@@ -403,9 +403,9 @@ function registerPeerConnection(conn) {
       playMessageTone(); updateParticipantsUI();
       if (isHost) {
         syncRosterToGuests();
-        // Re-sync Pro access if this guest was previously approved by the Host
-        if (window.hasPermanentProLicense && window.approvedProGuests && window.approvedProGuests.has(conn.peer)) {
-          conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, granted: true });
+        const nameKey = 'name:' + (data.name || '').trim().toLowerCase();
+        if (window.hasPermanentProLicense && window.approvedProGuests && (window.approvedProGuests.has(conn.peer) || window.approvedProGuests.has(nameKey))) {
+          conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, targetName: data.name, granted: true });
         }
       }
       flushPendingOutbox();
@@ -414,7 +414,9 @@ function registerPeerConnection(conn) {
     } else if (data.type === 'ROSTER') {
       roomRoster = data.members; renderGuestRoster(data.members);
     } else if (data.type === 'GRANT_GUEST_PRO') {
-      if (data.targetId === myPeerId && typeof applyHostGuestPass === 'function') {
+      const isMyId = data.targetId && data.targetId === myPeerId;
+      const isMyName = data.targetName && myName && data.targetName.trim().toLowerCase() === myName.trim().toLowerCase();
+      if ((isMyId || isMyName) && typeof applyHostGuestPass === 'function') {
         applyHostGuestPass(!!data.granted);
       }
       if (isHost) relayToOthers(conn.peer, data);
@@ -534,40 +536,15 @@ function syncRosterToGuests() {
   for (const [id, peerObj] of Object.entries(connections)) {
     if (peerObj.conn && peerObj.conn.open) {
       peerObj.conn.send({ type: 'ROSTER', members });
-      if (window.hasPermanentProLicense && window.approvedProGuests && window.approvedProGuests.has(id)) {
-        peerObj.conn.send({ type: 'GRANT_GUEST_PRO', targetId: id, granted: true });
+      const nameKey = 'name:' + (peerObj.name || '').trim().toLowerCase();
+      if (window.hasPermanentProLicense && window.approvedProGuests && (window.approvedProGuests.has(id) || window.approvedProGuests.has(nameKey))) {
+        peerObj.conn.send({ type: 'GRANT_GUEST_PRO', targetId: id, targetName: peerObj.name, granted: true });
       }
     }
   }
   renderGuestRoster(members);
 }
 
-function renderGuestRoster(members) {
-  document.getElementById('participantCount').textContent = members.length;
-  const canGrantGuests = Boolean(window.hasPermanentProLicense);
-
-  document.getElementById('participantsList').innerHTML = members.map(m => {
-    const isMe = m.id === myPeerId;
-    const isApproved = window.approvedProGuests && window.approvedProGuests.has(m.id);
-    const grantBtn = (!isMe && canGrantGuests)
-      ? `<button type="button" onclick="event.stopPropagation(); toggleSpecificGuestPro('${m.id}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
-          isApproved
-            ? 'bg-emerald-600 text-white shadow'
-            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
-        }">${isApproved ? '👑 Pro ON' : 'Grant Pro'}</button>`
-      : '';
-
-    return `
-      <div class="flex items-center justify-between gap-2 p-2 rounded-xl theme-input border">
-        <div class="flex items-center gap-2 overflow-hidden">
-          <div class="w-7 h-7 rounded-lg ${isMe ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">${escapeHTML(m.name[0] || '?')}</div>
-          <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${isMe ? '(You)' : ''}</span>
-        </div>
-        ${grantBtn}
-      </div>
-    `;
-  }).join('');
-}
 function updateParticipantsUI() {
   const badge = document.getElementById('connBadge'), countEl = document.getElementById('participantCount');
   const peers = Object.values(connections), total = peers.length + 1;
@@ -585,13 +562,15 @@ function updateParticipantsUI() {
 
 function renderGuestRoster(members) {
   document.getElementById('participantCount').textContent = members.length;
-  const canGrantGuests = Boolean(isHost && window.hasPermanentProLicense);
+  const canGrantGuests = Boolean(window.hasPermanentProLicense);
 
   document.getElementById('participantsList').innerHTML = members.map(m => {
     const isMe = m.id === myPeerId;
-    const isApproved = window.approvedProGuests && window.approvedProGuests.has(m.id);
+    const nameKey = 'name:' + (m.name || '').trim().toLowerCase();
+    const isApproved = window.approvedProGuests && (window.approvedProGuests.has(m.id) || window.approvedProGuests.has(nameKey));
+    const safeNameAttr = escapeHTML(m.name || '').replace(/'/g, "\\'");
     const grantBtn = (!isMe && canGrantGuests)
-      ? `<button type="button" onclick="toggleSpecificGuestPro('${m.id}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
+      ? `<button type="button" onclick="event.stopPropagation(); toggleSpecificGuestPro('${m.id}', '${safeNameAttr}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
           isApproved
             ? 'bg-emerald-600 text-white shadow'
             : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
