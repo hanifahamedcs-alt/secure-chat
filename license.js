@@ -1,10 +1,10 @@
-// ==================== CYPHERLINK PRO LICENSE MANAGER (FIXED & RACE-FREE) ====================
+// ==================== CYPHERLINK PRO LICENSE MANAGER (BULLETPROOF GUEST GRANT) ====================
 const LICENSE_STORAGE_KEY = 'cypherlink_pro_license';
 const LICENSE_SALT = 'CYPHER-2026-TRICHY-PRO-SECRET';
 
 window.hasPermanentProLicense = false;
 window.isProUnlocked = false;
-window.approvedProGuests = new Set();
+window.approvedProGuests = new Set(); // Stores peerIds AND lowercase names
 
 async function computeKeySignature(payload) {
   const enc = new TextEncoder();
@@ -27,7 +27,7 @@ window.requireProFeature = function(featureName) {
   const msgEl = document.getElementById('licenseStatusMsg');
   if (msgEl) {
     msgEl.className = 'text-[11px] text-amber-300 font-medium mb-3';
-    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license—or ask your Room Host to grant you access.`;
+    msgEl.textContent = `🔒 "${featureName}" requires an Advance Pro license—or ask your Room Host to click "Grant Pro" next to your name.`;
     msgEl.classList.remove('hidden');
   }
   toggleModal('licenseModal', true);
@@ -35,7 +35,6 @@ window.requireProFeature = function(featureName) {
 };
 
 function setProUIState(unlocked, isGuestPass = false) {
-  // Never downgrade an owner who holds a valid permanent license
   if (window.hasPermanentProLicense) {
     unlocked = true;
     isGuestPass = false;
@@ -86,26 +85,45 @@ function setProUIState(unlocked, isGuestPass = false) {
   }
 }
 
-// Licensed Owner toggles Pro access for a specific guest in the room
-window.toggleSpecificGuestPro = function(targetPeerId) {
+// Licensed Owner toggles Pro access for a specific guest (matches by peerId AND name)
+window.toggleSpecificGuestPro = function(targetPeerId, targetName = '') {
   if (!window.hasPermanentProLicense) {
     toggleModal('licenseModal', true);
     return;
   }
 
-  const willGrant = !window.approvedProGuests.has(targetPeerId);
+  const nameKey = 'name:' + (targetName || '').trim().toLowerCase();
+  const currentlyApproved = window.approvedProGuests.has(targetPeerId) || (targetName && window.approvedProGuests.has(nameKey));
+  const willGrant = !currentlyApproved;
+
   if (willGrant) {
     window.approvedProGuests.add(targetPeerId);
+    if (targetName) window.approvedProGuests.add(nameKey);
   } else {
     window.approvedProGuests.delete(targetPeerId);
+    if (targetName) window.approvedProGuests.delete(nameKey);
   }
 
+  const payload = {
+    type: 'GRANT_GUEST_PRO',
+    targetId: targetPeerId,
+    targetName: targetName,
+    granted: willGrant
+  };
+
+  // Send directly if connection exists, AND broadcast to room
+  if (typeof connections !== 'undefined' && connections[targetPeerId]?.conn?.open) {
+    connections[targetPeerId].conn.send(payload);
+  }
   if (typeof broadcastData === 'function') {
-    broadcastData({
-      type: 'GRANT_GUEST_PRO',
-      targetId: targetPeerId,
-      granted: willGrant
-    });
+    broadcastData(payload);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(
+      willGrant ? `👑 Granted Pro to ${targetName || 'Guest'}` : `🔒 Revoked Pro from ${targetName || 'Guest'}`,
+      willGrant ? 'Guest now has full Advance Pro access!' : 'Guest returned to Basic mode'
+    );
   }
 
   if (typeof renderGuestRoster === 'function' && Array.isArray(roomRoster)) {
@@ -118,7 +136,10 @@ window.applyHostGuestPass = function(granted) {
   if (granted) {
     setProUIState(true, true);
     if (typeof showToast === 'function') {
-      showToast('👑 Host Unlocked Full Version!', 'You now have Advance Pro access for this room session');
+      showToast('👑 Host Unlocked Full Version!', 'All 26 games & Pro tools are now active!');
+    }
+    if (typeof appendSystemNotice === 'function') {
+      appendSystemNotice('👑 Host granted you Advance Pro access for this session!');
     }
   } else {
     setProUIState(false, false);
@@ -135,7 +156,7 @@ window.revokeSessionGuestPass = function() {
   }
 };
 
-// Capture-phase interceptor (explicitly ignores participant list & license controls)
+// Capture-phase interceptor (only blocks unlicensed users)
 document.addEventListener('click', (e) => {
   if (window.isProUnlocked || window.hasPermanentProLicense) return;
   if (e.target.closest('#participantsList, #licenseModal, #openLicenseModalBtn')) return;
@@ -199,7 +220,7 @@ async function activateEnteredLicense() {
     localStorage.setItem(LICENSE_STORAGE_KEY, input);
     window.hasPermanentProLicense = true;
     status.className = 'text-[11px] text-emerald-400 font-semibold mb-3';
-    status.textContent = '✅ Advance Pro Unlocked! Select any guest in the sidebar to grant them full access.';
+    status.textContent = '✅ Advance Pro Unlocked! Click "Grant Pro" next to any guest in the sidebar.';
     setProUIState(true, false);
     setTimeout(() => toggleModal('licenseModal', false), 900);
   } else {
