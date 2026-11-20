@@ -5,6 +5,7 @@ let ringtoneInterval = null, unreadCount = 0;
 const originalTitle = document.title;
 
 let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
+let roomChatHistory = [], renderedMsgIds = new Set(); // In-memory P2P history buffer & deduplicator
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
@@ -50,7 +51,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const syncBtn = document.createElement('button');
     syncBtn.type = 'button';
-    syncBtn.title = 'Force Reconnect / Sync Room';
+    syncBtn.title = 'Force Reconnect & Restore Chats';
     syncBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center text-xs transition';
     syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
     syncBtn.onclick = () => forceRoomReconnect(true);
@@ -95,6 +96,9 @@ function handleAppResume() {
     }, 2500);
   } else if (activePeers.length === 0 && !isHost) {
     forceRoomReconnect(false);
+  } else {
+    // Even if socket stayed alive, request any missed messages while backgrounded
+    requestHistoryFromPeers();
   }
 }
 
@@ -103,7 +107,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('online', () => {
   if (!intentionalLogout && room) {
-    appendSystemNotice('📶 Network changed — re-syncing TURN link...');
+    appendSystemNotice('📶 Network restored — reconnecting & syncing chats...');
     setTimeout(() => forceRoomReconnect(false), 1000);
   }
 });
@@ -126,8 +130,13 @@ function safelyDestroyPeer() {
 }
 
 function forceRoomReconnect(notifyUser = true) {
-  if (!room || intentionalLogout || isConnecting) return;
-  if (notifyUser) showToast('🔄 Reconnecting...', 'Refreshing WebRTC TURN link');
+  if (!room || intentionalLogout) return;
+  isConnecting = false; // Allow immediate manual force-reconnect even if a previous attempt stalled
+  if (notifyUser) showToast('🔄 Reconnecting...', 'Restoring TURN link & chat history');
+
+  // Re-hydrate any locally cached room history first so screen is never blank
+  restoreLocalCachedHistory();
+
   for (const p of Object.values(connections)) {
     try { if (p.conn) p.conn.close(); } catch (e) {}
   }
@@ -135,6 +144,79 @@ function forceRoomReconnect(notifyUser = true) {
   lastPeerPongMap = {};
   updateParticipantsUI();
   tryHostRole();
+}
+
+// ==================== P2P CHAT HISTORY BUFFER & RESTORE ====================
+function recordHistoryEntry(entry) {
+  if (!entry || !entry.msgId) return;
+  if (roomChatHistory.some(item => item.msgId === entry.msgId)) return;
+
+  // Keep memory lean: store full text/stickers/quotes, and store lightweight placeholder for large binary blobs
+  const safeEntry = { ...entry };
+  if (safeEntry.content && safeEntry.content.length > 180000) {
+    safeEntry.content = '[Media attachment — re-shared in live session]';
+    safeEntry.msgMode = 'text';
+  }
+
+  roomChatHistory.push(safeEntry);
+  if (roomChatHistory.length > 80) roomChatHistory.shift();
+
+  try {
+    sessionStorage.setItem(`cypher_hist_${room}`, JSON.stringify(roomChatHistory));
+  } catch (e) {}
+}
+
+function restoreLocalCachedHistory() {
+  if (!room) return;
+  try {
+    if (roomChatHistory.length === 0) {
+      const raw = sessionStorage.getItem(`cypher_hist_${room}`);
+      if (raw) roomChatHistory = JSON.parse(raw);
+    }
+  } catch (e) {}
+
+  if (roomChatHistory.length > 0) {
+    applySyncedHistory(roomChatHistory, false);
+  }
+}
+
+function requestHistoryFromPeers() {
+  const openPeers = Object.values(connections).filter(p => p.conn && p.conn.open);
+  if (openPeers.length === 0) return;
+  openPeers[0].conn.send({
+    type: 'REQ_HISTORY',
+    knownIds: Array.from(renderedMsgIds)
+  });
+}
+
+function applySyncedHistory(historyList, showNotice = true) {
+  if (!Array.isArray(historyList) || historyList.length === 0) return;
+  let restoredCount = 0;
+
+  // Sort chronologically by timestamp if available
+  const sorted = [...historyList].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  for (const item of sorted) {
+    if (!item || !item.msgId) continue;
+    recordHistoryEntry(item);
+    if (renderedMsgIds.has(item.msgId)) continue;
+
+    const isMine = (item.senderId && item.senderId === myPeerId) ||
+                   (item.senderName && myName && item.senderName.trim().toLowerCase() === myName.trim().toLowerCase());
+    const dir = isMine ? 'outgoing' : 'incoming';
+    const src = (item.msgMode === 'photo' || item.msgMode === 'image') ? dataUrlToBlobUrl(item.content) : item.content;
+
+    appendMessage(item.senderName || 'Peer', src, dir, item.time || '', item.msgMode || 'text', item.msgId, {
+      quote: item.quote || null,
+      isDual: item.isDual || false,
+      skipHistoryRecord: true
+    });
+    restoredCount++;
+  }
+
+  if (restoredCount > 0 && showNotice) {
+    appendSystemNotice(`🔄 Restored ${restoredCount} previous message${restoredCount > 1 ? 's' : ''}`);
+  }
 }
 
 // ==================== BLOB URL CONVERTER FOR ZERO-LEAK IMAGES ====================
@@ -236,15 +318,22 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE WITH ANDROID ICE & PING WATCHDOG ====================
+// ==================== CONNECTION ENGINE WITH ANDROID ICE & HISTORY SYNC ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
   myName = document.getElementById('userNameInput').value.trim();
   const rawRoom = document.getElementById('roomNameInput').value.trim();
   if (!myName || !rawRoom) { alert('Enter both your name and room code.'); return; }
-  room = sanitize(rawRoom);
-  if (!room) { alert('Room code must contain letters or numbers.'); return; }
+  const nextRoom = sanitize(rawRoom);
+  if (!nextRoom) { alert('Room code must contain letters or numbers.'); return; }
+
+  // Reset history only if switching to a brand-new room name
+  if (room && room !== nextRoom) {
+    roomChatHistory = [];
+    renderedMsgIds.clear();
+  }
+  room = nextRoom;
 
   sessionStorage.setItem('cypher_name', myName);
   sessionStorage.setItem('cypher_room', room);
@@ -274,6 +363,7 @@ function tryHostRole() {
     isHost = true;
     myPeerId = id;
     setupInterface();
+    restoreLocalCachedHistory();
     updateParticipantsUI();
     activePeer.on('connection', (conn) => registerPeerConnection(conn));
     setupCallHandler(activePeer);
@@ -315,6 +405,7 @@ function joinAsGuest() {
     isHost = false;
     myPeerId = id;
     setupInterface();
+    restoreLocalCachedHistory();
     updateParticipantsUI();
 
     const conn = activePeer.connect(room + '-host', { reliable: true, metadata: { name: myName } });
@@ -382,6 +473,10 @@ function registerPeerConnection(conn) {
     lastPeerPongMap[conn.peer] = Date.now();
     conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
     if (!isHost) conn.send({ type: 'REQ_ROSTER' });
+
+    // Automatically request full chat history upon connection or force-reconnect
+    conn.send({ type: 'REQ_HISTORY', knownIds: Array.from(renderedMsgIds) });
+
     updateParticipantsUI();
     flushPendingOutbox();
   });
@@ -408,7 +503,17 @@ function registerPeerConnection(conn) {
           conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, targetName: data.name, granted: true });
         }
       }
+      // Push our stored chat history to the newly joined/reconnected peer
+      if (roomChatHistory.length > 0) {
+        conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory });
+      }
       flushPendingOutbox();
+    } else if (data.type === 'REQ_HISTORY') {
+      if (roomChatHistory.length > 0 && conn.open) {
+        conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory });
+      }
+    } else if (data.type === 'SYNC_HISTORY') {
+      applySyncedHistory(data.history, true);
     } else if (data.type === 'REQ_ROSTER') {
       if (isHost) syncRosterToGuests();
     } else if (data.type === 'ROSTER') {
@@ -431,6 +536,7 @@ function registerPeerConnection(conn) {
         chunks: new Array(data.totalChunks),
         received: 0,
         total: data.totalChunks,
+        senderId: data.senderId,
         senderName: data.senderName,
         meta: data.meta,
         createdAt: Date.now()
@@ -452,7 +558,7 @@ function registerPeerConnection(conn) {
         const fullDataUrl = buf.chunks.join('');
         const m = buf.meta;
         const displaySrc = (m.msgMode === 'photo' || m.msgMode === 'image') ? dataUrlToBlobUrl(fullDataUrl) : fullDataUrl;
-        appendMessage(buf.senderName, displaySrc, 'incoming', m.time, m.msgMode, m.msgId, m);
+        appendMessage(buf.senderName, displaySrc, 'incoming', m.time, m.msgMode, m.msgId, { ...m, senderId: buf.senderId, rawContent: fullDataUrl });
         triggerIncomingNotification(buf.senderName, m.isDual ? '📸 Split-Reality Dual Snap' : m.msgMode === 'photo' ? '🖼️ Photo' : '🎤 Voice Note', false);
         delete incomingChunkBuffers[data.transferId];
       }
@@ -460,7 +566,7 @@ function registerPeerConnection(conn) {
       if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'CHAT') {
       document.getElementById('typingIndicatorBar').classList.add('hidden');
-      appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote });
+      appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote, senderId: data.senderId, ts: data.ts });
       triggerIncomingNotification(data.senderName, data.msgMode === 'secret' ? '💣 Secret message' : data.content, false);
       if (isHost) relayToOthers(conn.peer, data);
     } else if (typeof handleGamePacket === 'function') {
@@ -631,7 +737,7 @@ async function handleImageUpload(event) {
       while (Math.round((dataUrl.length * 3) / 4) > 220 * 1024 && q > 0.25) { q -= 0.1; dataUrl = c.toDataURL('image/jpeg', q); }
       const sizeKB = Math.max(1, Math.round((dataUrl.length * 3) / 4096)), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), msgId = 'msg_' + Date.now();
       const blobUrl = dataUrlToBlobUrl(dataUrl);
-      appendMessage(myName, blobUrl, 'outgoing', time, 'photo', msgId, { sizeKB });
+      appendMessage(myName, blobUrl, 'outgoing', time, 'photo', msgId, { sizeKB, rawContent: dataUrl });
       await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', sizeKB, time });
     };
     img.src = e.target.result;
@@ -644,17 +750,37 @@ function sendMessage(e) {
   e.preventDefault();
   const input = document.getElementById('messageInput'), text = input.value.trim(); if (!text) return;
   toggleModal('pickerPopover', false);
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), mode = isSecretMode ? 'secret' : 'text', msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+  const ts = Date.now();
+  const time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const mode = isSecretMode ? 'secret' : 'text';
+  const msgId = 'msg_' + ts + '_' + Math.random().toString(36).substr(2, 4);
   const quoteData = activeReplyContext ? { ...activeReplyContext } : null;
 
-  const sentCount = broadcastData({ type: 'CHAT', msgId, msgMode: mode, senderId: myPeerId, senderName: myName, content: text, quote: quoteData, time }, true);
-  appendMessage(myName, text, 'outgoing', time, mode, msgId, { quote: quoteData, queued: sentCount === 0 });
+  const sentCount = broadcastData({ type: 'CHAT', msgId, msgMode: mode, senderId: myPeerId, senderName: myName, content: text, quote: quoteData, time, ts }, true);
+  appendMessage(myName, text, 'outgoing', time, mode, msgId, { quote: quoteData, queued: sentCount === 0, ts });
   input.value = ''; cancelReply();
 }
 
 function appendMessage(sender, content, direction, time, mode = 'text', msgId = '', meta = {}) {
   const container = document.getElementById('messagesContainer'), isOut = direction === 'outgoing';
-  if (!msgId) msgId = 'msg_' + Date.now();
+  if (!msgId) msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+
+  if (renderedMsgIds.has(msgId)) return;
+  renderedMsgIds.add(msgId);
+
+  if (!meta.skipHistoryRecord) {
+    recordHistoryEntry({
+      msgId,
+      senderId: meta.senderId || (isOut ? myPeerId : ''),
+      senderName: sender,
+      content: meta.rawContent || content,
+      msgMode: mode,
+      time,
+      ts: meta.ts || Date.now(),
+      quote: meta.quote || null,
+      isDual: meta.isDual || false
+    });
+  }
 
   while (container.children.length > 120) {
     const oldest = container.firstChild;
@@ -697,6 +823,11 @@ function appendMessage(sender, content, direction, time, mode = 'text', msgId = 
 function clearChat(broadcastToRoom = true, clearedBy = myName) {
   incomingChunkBuffers = {};
   pendingOutbox = [];
+  roomChatHistory = [];
+  renderedMsgIds.clear();
+  if (room) {
+    try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
+  }
   revokeAllBlobUrls();
   const label = broadcastToRoom
     ? '🧹 You cleared chat & RAM for everyone in the room'
@@ -720,7 +851,8 @@ function logoutRoom() {
   for (const p of Object.values(connections)) { try { if (p.conn) p.conn.close(); } catch (e) {} }
   connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = []; lastPeerPongMap = {};
   safelyDestroyPeer();
-  room = ""; clearChat(false);
+  clearChat(false);
+  room = "";
   if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
   toggleModal('authOverlay', true);
 }
