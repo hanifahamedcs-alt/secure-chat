@@ -569,7 +569,9 @@ function registerPeerConnection(conn) {
       appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote, senderId: data.senderId, ts: data.ts });
       triggerIncomingNotification(data.senderName, data.msgMode === 'secret' ? '💣 Secret message' : data.content, false);
       if (isHost) relayToOthers(conn.peer, data);
-    } else if (typeof handleGamePacket === 'function') {
+    } } else if (typeof handleAfterHoursPacket === 'function' && handleAfterHoursPacket(data)) {
+  // Handled by stealth couples vault
+    else if (typeof handleGamePacket === 'function') {
       handleGamePacket(conn, data);
     }
   });
@@ -828,6 +830,7 @@ function clearChat(broadcastToRoom = true, clearedBy = myName) {
   if (room) {
     try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
   }
+  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
   revokeAllBlobUrls();
   const label = broadcastToRoom
     ? '🧹 You cleared chat & RAM for everyone in the room'
@@ -844,6 +847,7 @@ function logoutRoom() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (hostCheckTimer) clearTimeout(hostCheckTimer);
   if (failoverTimer) clearTimeout(failoverTimer);
+  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
   if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
   if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
   if (typeof stopAllGamesAndLoops === 'function') stopAllGamesAndLoops();
