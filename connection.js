@@ -5,7 +5,7 @@ let ringtoneInterval = null, unreadCount = 0;
 const originalTitle = document.title;
 
 let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
-let roomChatHistory = [], renderedMsgIds = new Set(); // In-memory P2P history buffer & deduplicator
+let roomChatHistory = [], renderedMsgIds = new Set();
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
@@ -97,7 +97,6 @@ function handleAppResume() {
   } else if (activePeers.length === 0 && !isHost) {
     forceRoomReconnect(false);
   } else {
-    // Even if socket stayed alive, request any missed messages while backgrounded
     requestHistoryFromPeers();
   }
 }
@@ -131,10 +130,9 @@ function safelyDestroyPeer() {
 
 function forceRoomReconnect(notifyUser = true) {
   if (!room || intentionalLogout) return;
-  isConnecting = false; // Allow immediate manual force-reconnect even if a previous attempt stalled
+  isConnecting = false;
   if (notifyUser) showToast('🔄 Reconnecting...', 'Restoring TURN link & chat history');
 
-  // Re-hydrate any locally cached room history first so screen is never blank
   restoreLocalCachedHistory();
 
   for (const p of Object.values(connections)) {
@@ -151,7 +149,6 @@ function recordHistoryEntry(entry) {
   if (!entry || !entry.msgId) return;
   if (roomChatHistory.some(item => item.msgId === entry.msgId)) return;
 
-  // Keep memory lean: store full text/stickers/quotes, and store lightweight placeholder for large binary blobs
   const safeEntry = { ...entry };
   if (safeEntry.content && safeEntry.content.length > 180000) {
     safeEntry.content = '[Media attachment — re-shared in live session]';
@@ -193,7 +190,6 @@ function applySyncedHistory(historyList, showNotice = true) {
   if (!Array.isArray(historyList) || historyList.length === 0) return;
   let restoredCount = 0;
 
-  // Sort chronologically by timestamp if available
   const sorted = [...historyList].sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
   for (const item of sorted) {
@@ -328,7 +324,6 @@ function enterRoom() {
   const nextRoom = sanitize(rawRoom);
   if (!nextRoom) { alert('Room code must contain letters or numbers.'); return; }
 
-  // Reset history only if switching to a brand-new room name
   if (room && room !== nextRoom) {
     roomChatHistory = [];
     renderedMsgIds.clear();
@@ -473,8 +468,6 @@ function registerPeerConnection(conn) {
     lastPeerPongMap[conn.peer] = Date.now();
     conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
     if (!isHost) conn.send({ type: 'REQ_ROSTER' });
-
-    // Automatically request full chat history upon connection or force-reconnect
     conn.send({ type: 'REQ_HISTORY', knownIds: Array.from(renderedMsgIds) });
 
     updateParticipantsUI();
@@ -503,7 +496,6 @@ function registerPeerConnection(conn) {
           conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, targetName: data.name, granted: true });
         }
       }
-      // Push our stored chat history to the newly joined/reconnected peer
       if (roomChatHistory.length > 0) {
         conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory });
       }
@@ -569,9 +561,9 @@ function registerPeerConnection(conn) {
       appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote, senderId: data.senderId, ts: data.ts });
       triggerIncomingNotification(data.senderName, data.msgMode === 'secret' ? '💣 Secret message' : data.content, false);
       if (isHost) relayToOthers(conn.peer, data);
-    } } else if (typeof handleAfterHoursPacket === 'function' && handleAfterHoursPacket(data)) {
-  // Handled by stealth couples vault
-    else if (typeof handleGamePacket === 'function') {
+    } else if (typeof handleAfterHoursPacket === 'function' && handleAfterHoursPacket(data)) {
+      if (isHost) relayToOthers(conn.peer, data);
+    } else if (typeof handleGamePacket === 'function') {
       handleGamePacket(conn, data);
     }
   });
@@ -830,8 +822,8 @@ function clearChat(broadcastToRoom = true, clearedBy = myName) {
   if (room) {
     try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
   }
-
   revokeAllBlobUrls();
+  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
   const label = broadcastToRoom
     ? '🧹 You cleared chat & RAM for everyone in the room'
     : `🧹 ${escapeHTML(clearedBy || 'Partner')} cleared chat & RAM for everyone`;
@@ -847,7 +839,6 @@ function logoutRoom() {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (hostCheckTimer) clearTimeout(hostCheckTimer);
   if (failoverTimer) clearTimeout(failoverTimer);
-  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
   if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
   if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
   if (typeof stopAllGamesAndLoops === 'function') stopAllGamesAndLoops();
@@ -858,6 +849,7 @@ function logoutRoom() {
   clearChat(false);
   room = "";
   if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
+  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
   toggleModal('authOverlay', true);
 }
 
@@ -882,6 +874,10 @@ function switchPickerTab(tab) {
         : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
     }
   });
+  const ahGrid = document.getElementById('afterHoursGrid');
+  const ahBtn = document.getElementById('tabAfterHours');
+  if (ahGrid) ahGrid.classList.add('hidden');
+  if (ahBtn) ahBtn.className = 'flex-1 py-1 text-[10px] font-bold rounded-lg text-rose-400';
 }
 
 // ==================== HELPERS, ANDROID PING WATCHDOG & CALLS ====================
