@@ -830,7 +830,7 @@ function clearChat(broadcastToRoom = true, clearedBy = myName) {
   if (room) {
     try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
   }
-  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
+
   revokeAllBlobUrls();
   const label = broadcastToRoom
     ? '🧹 You cleared chat & RAM for everyone in the room'
