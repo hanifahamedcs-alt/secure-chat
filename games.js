@@ -1,947 +1,1027 @@
-// ==================== THEMES ====================
-const themes = {
-  indigo: { '--bg-main': '#0b0e14', '--bg-panel': '#0f172a', '--bg-header': '#0e131f', '--bg-input': '#1a2333', '--bg-bubble-in': '#1e293b', '--border-color': '#1f2937', '--text-main': '#f3f4f6', '--text-muted': '#9ca3af', '--accent': '#4f46e5', '--accent-hover': '#4338ca' },
-  emerald: { '--bg-main': '#06110d', '--bg-panel': '#0a1c16', '--bg-header': '#081712', '--bg-input': '#112921', '--bg-bubble-in': '#133127', '--border-color': '#1b4335', '--text-main': '#ecfdf5', '--text-muted': '#6ee7b7', '--accent': '#059669', '--accent-hover': '#047857' },
-  rose: { '--bg-main': '#13080c', '--bg-panel': '#1f0d14', '--bg-header': '#190a10', '--bg-input': '#2d131d', '--bg-bubble-in': '#361723', '--border-color': '#4c1d2e', '--text-main': '#fff1f2', '--text-muted': '#fda4af', '--accent': '#e11d48', '--accent-hover': '#be123c' },
-  amber: { '--bg-main': '#120e06', '--bg-panel': '#1c160a', '--bg-header': '#171208', '--bg-input': '#29200e', '--bg-bubble-in': '#332712', '--border-color': '#453518', '--text-main': '#fffbeb', '--text-muted': '#fcd34d', '--accent': '#d97706', '--accent-hover': '#b45309' },
-  violet: { '--bg-main': '#0f071a', '--bg-panel': '#180c29', '--bg-header': '#140a22', '--bg-input': '#24133d', '--bg-bubble-in': '#2e184d', '--border-color': '#3f2269', '--text-main': '#f5f3ff', '--text-muted': '#c4b5fd', '--accent': '#7c3aed', '--accent-hover': '#6d28d9' },
-  cyan: { '--bg-main': '#061217', '--bg-panel': '#0a1e26', '--bg-header': '#08181f', '--bg-input': '#102d38', '--bg-bubble-in': '#153947', '--border-color': '#1d4e61', '--text-main': '#ecfeff', '--text-muted': '#67e8f9', '--accent': '#0891b2', '--accent-hover': '#0e7490' },
-  obsidian: { '--bg-main': '#09090b', '--bg-panel': '#121215', '--bg-header': '#0e0e11', '--bg-input': '#1c1c21', '--bg-bubble-in': '#24242b', '--border-color': '#2e2e38', '--text-main': '#fafafa', '--text-muted': '#a1a1aa', '--accent': '#52525b', '--accent-hover': '#3f3f46' },
-  light: { '--bg-main': '#f1f5f9', '--bg-panel': '#ffffff', '--bg-header': '#ffffff', '--bg-input': '#f8fafc', '--bg-bubble-in': '#e2e8f0', '--border-color': '#cbd5e1', '--text-main': '#0f172a', '--text-muted': '#475569', '--accent': '#2563eb', '--accent-hover': '#1d4ed8' }
-};
-function applyTheme(k) { const t = themes[k]; if (!t) return; for (const [p, v] of Object.entries(t)) document.documentElement.style.setProperty(p, v); }
-function applyCustomAccent(hex) { document.documentElement.style.setProperty('--accent', hex); document.documentElement.style.setProperty('--accent-hover', hex); }
+// ==================== ONE CHAT — COMPLETE 26-FEATURE MULTIPLAYER ENGINE ====================
+// Fully synchronized with index.html modals, connection.js star-hub relay, and license.js
 
-// ==================== DYNAMIC WOW-FACTOR MODALS & STYLES INJECTION ====================
-(function injectWowFactorUI() {
-  if (document.getElementById('wowFactorInjected')) return;
-  const marker = document.createElement('div');
-  marker.id = 'wowFactorInjected';
-  document.body.appendChild(marker);
+const EMOJI_BANK = [
+  '😀','😂','🥰','😍','🤩','😘','😜','🤪','😎','🥳','🤯','🥺','😭','😡','😱','😴',
+  '👍','👎','👏','🙌','🤝','🙏','💪','✌️','🤞','🤟','🫶','❤️','🧡','💛','💚','💙',
+  '💜','🖤','🔥','✨','💫','🎉','🎊','🎁','🎈','🏆','🥇','🎯','🎲','🎮','🎵','☕',
+  '🍕','🍔','🍟','🍦','🍩','🍫','🍿','🥂','🌹','🌸','🌈','⚡','❄️','🌙','☀️','🚀'
+];
 
-  const style = document.createElement('style');
-  style.textContent = `
-    .holo-card {
-      background: linear-gradient(135deg, rgba(99,102,241,0.35), rgba(236,72,153,0.35), rgba(16,185,129,0.35));
-      backdrop-filter: blur(12px);
-      transform-style: preserve-3d;
-      transition: transform 0.12s ease-out, box-shadow 0.2s ease;
-      box-shadow: 0 12px 30px rgba(99,102,241,0.25);
-    }
-    @keyframes floatZeroG {
-      0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
-      25% { transform: translate(14px, -18px) rotate(3deg); }
-      50% { transform: translate(-12px, -28px) rotate(-3deg); }
-      75% { transform: translate(-16px, -10px) rotate(2deg); }
-    }
-    .zero-g-bubble {
-      animation: floatZeroG 4.5s ease-in-out infinite;
-    }
-    @keyframes cardFlipIn {
-      0% { transform: perspective(600px) rotateY(90deg) scale(0.8); opacity: 0; }
-      100% { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; }
-    }
-    .oracle-flip { animation: cardFlipIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-  `;
-  document.head.appendChild(style);
+const STICKER_BANK = [
+  { emoji: '🚀', label: 'Let’s Go!' },
+  { emoji: '🔥', label: 'On Fire' },
+  { emoji: '👑', label: 'King/Queen' },
+  { emoji: '🫶', label: 'Love This' },
+  { emoji: '😂', label: 'Hilarious' },
+  { emoji: '🎉', label: 'Celebrate' },
+  { emoji: '☕', label: 'Coffee Break' },
+  { emoji: '🎮', label: 'Game On' },
+  { emoji: '💣', label: 'Mind Blown' },
+  { emoji: '👻', label: 'Zero Trace' },
+  { emoji: '🥂', label: 'Cheers!' },
+  { emoji: '😴', label: 'Sleepy' }
+];
 
-  const modalsHTML = `
-    <!-- WOW 3: 3D HOLOGRAPHIC DECODER CARD MODAL -->
-    <div id="holoModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-      <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="text-sm font-bold">🪪 3D Hologram Cipher Card</h3>
-          <button onclick="toggleModal('holoModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <p class="text-[11px] theme-muted mb-2.5">Sends an interactive 3D tilting metallic card that requires tuning the frequency dial to decode!</p>
-        <input id="holoTitleInput" type="text" value="TOP SECRET PASS" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
-        <input id="holoSecretInput" type="text" placeholder="Hidden message inside hologram..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
-        <button onclick="sendHoloCipherCard()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-semibold">🪪 Mint & Send 3D Hologram</button>
-      </div>
-    </div>
+const SOUND_FX_BANK = [
+  { id: 'airhorn', label: '📯 Airhorn', freq: 440, type: 'sawtooth', dur: 0.45 },
+  { id: 'applause', label: '👏 Victory Chime', freq: 660, type: 'triangle', dur: 0.35 },
+  { id: 'laser', label: '🔫 Sci-Fi Laser', freq: 980, type: 'sine', dur: 0.25 },
+  { id: 'drum', label: '🥁 Ba-Dum-Tss', freq: 160, type: 'square', dur: 0.3 },
+  { id: 'magic', label: '✨ Magic Sparkle', freq: 1120, type: 'sine', dur: 0.4 },
+  { id: 'buzz', label: '⚡ Buzz Screen', freq: 130, type: 'sawtooth', dur: 0.5 }
+];
 
-    <!-- WOW 4: CO-OP 16x16 PIXEL ART MOSAIC MODAL -->
-    <div id="pixelModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-      <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
-        <div class="flex justify-between items-center mb-2">
-          <h3 class="text-sm font-bold">👾 Co-Op Live Pixel Mosaic</h3>
-          <button onclick="toggleModal('pixelModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <p class="text-[11px] theme-muted mb-2.5">Tap pixels together in real time—then stamp your sprite into chat!</p>
-        <div id="pixelGridBoard" class="grid grid-cols-16 gap-0.5 bg-gray-900 p-1.5 rounded-xl border theme-border mx-auto mb-3" style="grid-template-columns: repeat(16, minmax(0, 1fr)); width: 272px; height: 272px;"></div>
-        <div class="flex justify-center gap-1.5 mb-3">
-          <button onclick="setPixelColor('#ef4444')" class="w-6 h-6 rounded-full bg-red-500 border border-white/40"></button>
-          <button onclick="setPixelColor('#f59e0b')" class="w-6 h-6 rounded-full bg-amber-500 border border-white/40"></button>
-          <button onclick="setPixelColor('#10b981')" class="w-6 h-6 rounded-full bg-emerald-500 border border-white/40"></button>
-          <button onclick="setPixelColor('#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500 border border-white/40"></button>
-          <button onclick="setPixelColor('#a855f7')" class="w-6 h-6 rounded-full bg-purple-500 border border-white/40"></button>
-          <button onclick="setPixelColor('#ffffff')" class="w-6 h-6 rounded-full bg-white border border-gray-400"></button>
-          <button onclick="setPixelColor('#111827')" class="w-6 h-6 rounded-full bg-gray-900 border border-gray-500" title="Eraser"></button>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="clearPixelGrid(true)" class="flex-1 py-2 rounded-xl theme-input border text-xs">Clear</button>
-          <button onclick="exportPixelArtToChat()" class="flex-1 py-2 rounded-xl theme-accent text-xs font-bold">Stamp to Chat</button>
-        </div>
-      </div>
-    </div>
+const THEME_PRESETS = [
+  { name: 'Aurora', accent: '#6366f1', bg: '#070b14' },
+  { name: 'Emerald', accent: '#10b981', bg: '#04120e' },
+  { name: 'Rose', accent: '#f43f5e', bg: '#14060b' },
+  { name: 'Amber', accent: '#f59e0b', bg: '#140e04' },
+  { name: 'Cyan', accent: '#06b6d4', bg: '#041116' },
+  { name: 'Violet', accent: '#8b5cf6', bg: '#0d0717' },
+  { name: 'Crimson', accent: '#ef4444', bg: '#140707' },
+  { name: 'Slate', accent: '#64748b', bg: '#0b0f17' }
+];
 
-    <!-- WOW 2: LIVE VOICE AURA & KARAOKE VISUALIZER BAR -->
-    <div id="voiceAuraBar" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-40 theme-panel border border-indigo-500/50 rounded-full px-4 py-1.5 shadow-2xl flex items-center gap-3">
-      <span class="text-xs font-bold text-indigo-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span> Voice Aura</span>
-      <div id="voiceVisualizerBars" class="flex items-end gap-1 h-5">
-        <span class="w-1 bg-indigo-400 rounded-full transition-all duration-75" style="height: 20%"></span>
-        <span class="w-1 bg-pink-400 rounded-full transition-all duration-75" style="height: 40%"></span>
-        <span class="w-1 bg-emerald-400 rounded-full transition-all duration-75" style="height: 30%"></span>
-        <span class="w-1 bg-amber-400 rounded-full transition-all duration-75" style="height: 50%"></span>
-        <span class="w-1 bg-cyan-400 rounded-full transition-all duration-75" style="height: 25%"></span>
-      </div>
-      <button onclick="stopVoiceAura()" class="text-[10px] text-rose-400 font-bold hover:underline">Stop</button>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', modalsHTML);
-})();
-
-// ==================== PACKET ROUTER FROM CONNECTION.JS ====================
-function handleGamePacket(conn, data) {
-  switch (data.type) {
-    // 5 New Wow-Factor Packets
-    case 'ZERO_G_TOGGLE': toggleZeroGravity(false, data.active); break;
-    case 'VOICE_AURA_PULSE': renderRemoteVoiceAura(data.level, data.senderName); break;
-    case 'HOLO_CARD': renderHoloCipherCard(data.card, false); break;
-    case 'PIXEL_PAINT': applyPixelCell(data.idx, data.color, false); break;
-    case 'PIXEL_CLEAR': clearPixelGrid(false); break;
-    case 'ORACLE_DRAW': renderOracleCard(data.oracle, false); break;
-
-    // Existing Games & Tools Packets
-    case 'TELEPATHY_START': telepathyGames[data.game.id] = data.game; renderTelepathyCard(data.game, false); break;
-    case 'TELEPATHY_GUESS': if (telepathyGames[data.gameId]) { telepathyGames[data.gameId].guesses[data.peerId] = { name: data.name, word: data.word }; updateTelepathyUI(data.gameId); } break;
-    case 'PONG_OPEN': openPongModal(false); break;
-    case 'PONG_CLOSE': closePongModal(false); break;
-    case 'PONG_PADDLE': if (data.isHostPaddle) pongState.p1X = data.x; else pongState.p2X = data.x; break;
-    case 'PONG_SYNC': pongState.ballX = data.bx; pongState.ballY = data.by; pongState.s1 = data.s1; pongState.s2 = data.s2; break;
-    case 'JUKEBOX_SYNC': jukeboxQueue = data.queue; currentJukeboxTrack = data.current; renderJukeboxUI(); break;
-    case 'BLUFF_START': bluffGames[data.game.id] = data.game; renderBluffCard(data.game, false); break;
-    case 'BLUFF_GUESS': if (bluffGames[data.gameId]) { bluffGames[data.gameId].guesses[data.peerId] = { name: data.name, idx: data.idx }; updateBluffUI(data.gameId); } break;
-    case 'TACTILE_PULSE': triggerTactilePulseEffect(data.senderName, false); break;
-    case 'SOUNDSCAPE_SYNC': updateSoundscapeChannel(data.channel, data.val, false); break;
-    case 'SOUNDSCAPE_MUTE': muteAllSoundscapes(false); break;
-    case 'BEAT_CELL': beatMatrix[data.r][data.c] = data.val; if (data.val) playBeatTrackSound(data.r); renderSequencerGrid(); break;
-    case 'BEAT_CLEAR': clearBeatGrid(false); break;
-    case 'BEAT_STATE': if (beatPlaying !== data.playing) toggleBeatPlayback(false); break;
-    case 'CURSOR_MOVE': updateRemoteCursor(data.peerId, data.name, data.nx, data.ny); break;
-    case 'LASER_PING': spawnLaserRing(data.nx * window.innerWidth, data.ny * window.innerHeight); break;
-    case 'TIME_CAPSULE': renderTimeCapsuleCard(data.capsule, false); break;
-    case 'ROOM_AURA': setRoomAura(data.mode, false); break;
-    case 'STORY_CHAIN_UPDATE': { const ex = !!storyChains[data.chain.id]; storyChains[data.chain.id] = data.chain; ex ? updateStoryChainUI(data.chain.id) : renderStoryChainCard(data.chain, false); break; }
-    case 'SOUNDBOARD': triggerSoundboard(data.soundId, false); break;
-    case 'SYNC_TIMER': renderTimerCard(data.timer, false); break;
-    case 'SCREEN_NUDGE': triggerScreenShake(); playBuzzTone(); appendSystemNotice(`⚡ ${data.senderName} buzzed your screen!`); break;
-    case 'SURPRISE_RAIN': spawnEmojiRain(data.emoji); playMessageTone(); break;
-    case 'DRAW_STROKE': drawSegment(data.x0, data.y0, data.x1, data.y1, data.color); break;
-    case 'DRAW_CLEAR': clearWhiteboard(false); break;
-    case 'NEW_POLL': activePolls[data.poll.id] = data.poll; renderPollCard(data.poll, false); break;
-    case 'POLL_VOTE': if (activePolls[data.pollId]) { activePolls[data.pollId].options.forEach(o => o.voters = o.voters.filter(v => v !== data.voterId)); activePolls[data.pollId].options[data.optIdx].voters.push(data.voterId); updatePollCardUI(data.pollId); } break;
-    case 'RPS_START': rpsGames[data.game.id] = data.game; renderRPSCard(data.game, false); break;
-    case 'RPS_MOVE': if (rpsGames[data.gameId]) { if (rpsGames[data.gameId].p2Id === 'ANY' && data.peerId !== rpsGames[data.gameId].p1Id) { rpsGames[data.gameId].p2Id = data.peerId; rpsGames[data.gameId].p2Name = data.name; } rpsGames[data.gameId].moves[data.peerId] = { name: data.name, move: data.move }; updateRPSCardUI(data.gameId); } break;
-    case 'TTT_START': tttGames[data.game.id] = data.game; renderTTTCard(data.game, false); break;
-    case 'TTT_MOVE': if (tttGames[data.gameId]) { Object.assign(tttGames[data.gameId], { board: data.board, turnId: data.turnId, winnerText: data.winnerText }); updateTTTCardUI(data.gameId); } break;
-    case 'TRIVIA_START': triviaGames[data.quiz.id] = data.quiz; renderTriviaCard(data.quiz, false); break;
-    case 'TRIVIA_ANSWER': if (triviaGames[data.qId]) { triviaGames[data.qId].answers[data.peerId] = { name: data.name, idx: data.idx }; updateTriviaUI(data.qId); } break;
-    case 'SPIN_WHEEL': renderSpinWheelCard(data.wheel, false); break;
+// ==================== 1. PICKERS, THEMES & SOUND FX ====================
+function initPickersSafely() {
+  const themeGrid = document.getElementById('themeGrid');
+  if (themeGrid && themeGrid.children.length === 0) {
+    themeGrid.innerHTML = THEME_PRESETS.map(t => `
+      <button type="button" onclick="applyThemePreset('${t.accent}', '${t.bg}')"
+        class="py-1.5 px-1 rounded-lg theme-input border text-[9px] font-bold truncate hover:brightness-110 transition"
+        style="border-color: ${t.accent}66">${t.name}</button>
+    `).join('');
   }
-  if (isHost) relayToOthers(conn.peer, data);
-}
 
-function stopAllGamesAndLoops() {
-  if (beatTimer) { clearInterval(beatTimer); beatTimer = null; beatPlaying = false; }
-  if (pongLoopId) { cancelAnimationFrame(pongLoopId); pongLoopId = null; pongActive = false; }
-  if (auraAnimId) { cancelAnimationFrame(auraAnimId); auraAnimId = null; }
-  stopVoiceAura();
-  toggleZeroGravity(false, false);
-  closeDualSnapModal(); muteAllSoundscapes(false);
-  liveCursorsEnabled = false; document.getElementById('cursorsLayer').innerHTML = ''; remoteCursorEls = {};
-}
-
-// ==================== WOW FEATURE 1: ZERO-GRAVITY KINETIC CHAT ROOM ====================
-let zeroGravityActive = false;
-function toggleZeroGravity(broadcast = true, forcedState = null) {
-  zeroGravityActive = forcedState !== null ? forcedState : !zeroGravityActive;
-  const bubbles = document.querySelectorAll('#messagesContainer > div');
-  bubbles.forEach((b, idx) => {
-    if (zeroGravityActive) {
-      b.classList.add('zero-g-bubble');
-      b.style.animationDelay = `${(idx % 5) * 0.35}s`;
-    } else {
-      b.classList.remove('zero-g-bubble');
-      b.style.animationDelay = '';
-    }
-  });
-  if (broadcast) {
-    broadcastData({ type: 'ZERO_G_TOGGLE', active: zeroGravityActive });
-    appendSystemNotice(zeroGravityActive ? '🪐 Zero-Gravity Mode Activated!' : '🌍 Normal Gravity Restored');
+  const emojisGrid = document.getElementById('emojisGrid');
+  if (emojisGrid && emojisGrid.children.length === 0) {
+    emojisGrid.innerHTML = EMOJI_BANK.map(em => `
+      <button type="button" onclick="insertEmojiToInput('${em}')" class="p-1.5 rounded-lg hover:bg-white/10 text-lg transition">${em}</button>
+    `).join('');
   }
-}
 
-// ==================== WOW FEATURE 2: LIVE VOICE-TO-EMOJI AURA VISUALIZER ====================
-let voiceAuraStream = null, voiceAuraInterval = null;
-async function toggleVoiceAura() {
-  if (voiceAuraInterval) { stopVoiceAura(); return; }
-  try {
-    initAudioContext();
-    voiceAuraStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const src = audioCtx.createMediaStreamSource(voiceAuraStream);
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64;
-    src.connect(analyser);
-    const dataArr = new Uint8Array(analyser.frequencyBinCount);
-
-    toggleModal('voiceAuraBar', true);
-    let lastEmojiBurst = 0;
-
-    voiceAuraInterval = setInterval(() => {
-      analyser.getByteFrequencyData(dataArr);
-      const avg = dataArr.reduce((a, b) => a + b, 0) / dataArr.length;
-      const norm = Math.min(100, Math.round((avg / 128) * 100));
-      updateVisualizerBars(norm);
-
-      if (norm > 18) {
-        broadcastData({ type: 'VOICE_AURA_PULSE', level: norm, senderName: myName });
-        if (norm > 65 && Date.now() - lastEmojiBurst > 1800) {
-          lastEmojiBurst = Date.now();
-          const vibes = ['🔥', '😂', '⚡', '✨', '🎙️'];
-          spawnEmojiRain(vibes[Math.floor(Math.random() * vibes.length)]);
-        }
-      }
-    }, 140);
-  } catch (err) {
-    alert('Microphone access needed for Voice Aura: ' + err.message);
+  const stickersGrid = document.getElementById('stickersGrid');
+  if (stickersGrid && stickersGrid.children.length === 0) {
+    stickersGrid.innerHTML = STICKER_BANK.map(s => `
+      <button type="button" onclick="sendSticker('${s.emoji}')" class="p-2 rounded-xl theme-input border hover:border-indigo-400/50 flex flex-col items-center gap-1 transition">
+        <span class="text-2xl">${s.emoji}</span>
+        <span class="text-[9px] theme-muted truncate w-full text-center">${s.label}</span>
+      </button>
+    `).join('');
   }
+
+  const soundsGrid = document.getElementById('soundsGrid');
+  if (soundsGrid && soundsGrid.children.length === 0) {
+    soundsGrid.innerHTML = SOUND_FX_BANK.map(fx => `
+      <button type="button" onclick="triggerSoundFX('${fx.id}')" class="p-2.5 rounded-xl theme-input border hover:border-amber-400/50 text-[11px] font-semibold text-left truncate transition">${fx.label}</button>
+    `).join('');
+  }
+
+  const surprisesGrid = document.getElementById('surprisesGrid');
+  if (surprisesGrid && surprisesGrid.children.length === 0) {
+    const apps = [
+      ['✊ RPS Duel', "openRPSModal()"],
+      ['❌⭕ Tic-Tac-Toe', "openTTTModal()"],
+      ['📖 Story Chain', "openStoryModal()"],
+      ['🧠 Trivia Quiz', "openTriviaModal()"],
+      ['🎡 Spin Wheel', "toggleModal('spinWheelModal',true);togglePicker()"],
+      ['📊 Live Poll', "toggleModal('pollModal',true);togglePicker()"],
+      ['🎨 Whiteboard', "openWhiteboardModal()"],
+      ['⏱️ Sync Timer', "toggleModal('timerModal',true);togglePicker()"],
+      ['🎵 YT Jukebox', "toggleModal('jukeboxModal',true);togglePicker()"],
+      ['💓 Pulse Pad', "toggleModal('pulsePadModal',true);togglePicker()"],
+      ['🔮 Telepathy', "toggleModal('telepathyModal',true);togglePicker()"],
+      ['🏓 Live Pong', "openPongModal()"],
+      ['🕵️ 2 Truths 1 Lie', "toggleModal('bluffModal',true);togglePicker()"],
+      ['📸 Dual Snap', "openDualSnapModal()"],
+      ['🎧 Soundscape', "toggleModal('soundscapeModal',true);togglePicker()"],
+      ['🎹 Beat Studio', "toggleBeatStudio()"],
+      ['⏳ Time Capsule', "toggleModal('capsuleModal',true);togglePicker()"],
+      ['👾 Pixel Art', "openPixelArtModal()"],
+      ['🧊 3D Hologram', "toggleModal('hologramModal',true);togglePicker()"],
+      ['🪄 Vibe Oracle', "toggleModal('oracleModal',true);togglePicker()"],
+      ['🌧️ Petal / Rain FX', "triggerWeatherAura('petals')"],
+      ['🚀 Zero-G Room', "triggerZeroGRoom()"]
+    ];
+    surprisesGrid.innerHTML = apps.map(([label, action]) => `
+      <button type="button" onclick="${action}" class="p-2 rounded-xl theme-input border hover:border-indigo-400/50 text-[10px] font-semibold text-left truncate transition">${label}</button>
+    `).join('');
+  }
+
+  buildTTTBoardUI();
+  buildPixelGridUI();
+  buildBeatStudioUI();
 }
 
-function stopVoiceAura() {
-  if (voiceAuraInterval) { clearInterval(voiceAuraInterval); voiceAuraInterval = null; }
-  if (voiceAuraStream) { voiceAuraStream.getTracks().forEach(t => t.stop()); voiceAuraStream = null; }
-  toggleModal('voiceAuraBar', false);
-}
-
-function updateVisualizerBars(level) {
-  const bars = document.querySelectorAll('#voiceVisualizerBars span');
-  bars.forEach((bar, i) => {
-    const h = Math.max(18, Math.min(100, level * (0.6 + ((i % 3) * 0.35))));
-    bar.style.height = h + '%';
+function applyThemePreset(accent, bg) {
+  document.documentElement.style.setProperty('--accent', accent);
+  document.documentElement.style.setProperty('--bg-main', bg);
+  document.querySelectorAll('.theme-accent').forEach(el => {
+    el.style.background = `linear-gradient(135deg, ${accent} 0%, #4f46e5 100%)`;
   });
 }
 
-function renderRemoteVoiceAura(level, senderName) {
-  toggleModal('voiceAuraBar', true);
-  updateVisualizerBars(level);
-  clearTimeout(window._remoteAuraHide);
-  window._remoteAuraHide = setTimeout(() => {
-    if (!voiceAuraInterval) toggleModal('voiceAuraBar', false);
-  }, 1200);
+function applyCustomAccent(hex) {
+  applyThemePreset(hex, '#070b14');
 }
 
-// ==================== WOW FEATURE 3: 3D HOLOGRAM CIPHER CARD ====================
-function sendHoloCipherCard() {
-  const title = document.getElementById('holoTitleInput').value.trim() || 'HOLO CIPHER';
-  const secret = document.getElementById('holoSecretInput').value.trim();
-  if (!secret) return;
-  document.getElementById('holoSecretInput').value = '';
-  toggleModal('holoModal', false);
-
-  const targetFreq = Math.floor(20 + Math.random() * 65);
-  const card = { id: 'holo_' + Date.now(), sender: myName, title, secret, targetFreq };
-  broadcastData({ type: 'HOLO_CARD', card });
-  renderHoloCipherCard(card, true);
+function insertEmojiToInput(em) {
+  const input = document.getElementById('messageInput');
+  if (!input) return;
+  input.value += em;
+  input.focus();
 }
 
-function renderHoloCipherCard(card, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  const scrambled = card.secret.replace(/[a-zA-Z0-9]/g, () => '◈❖✦⬡⬢'[Math.floor(Math.random() * 5)]);
-
-  div.innerHTML = `
-    <div onmousemove="tiltHoloCard(event, this)" onmouseleave="this.style.transform=''" class="holo-card w-72 border border-white/30 rounded-2xl p-4 text-white shadow-xl">
-      <div class="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest opacity-85 mb-1">
-        <span>🪪 ${escapeHTML(card.title)}</span>
-        <span>${escapeHTML(card.sender)}</span>
-      </div>
-      <div id="${card.id}_msg" class="py-3 px-2.5 my-2 rounded-xl bg-black/40 font-mono text-xs text-center tracking-wider break-words">
-        ${isOut ? escapeHTML(card.secret) : scrambled}
-      </div>
-      ${!isOut ? `
-        <div class="text-[10px] flex justify-between opacity-80 mb-1">
-          <span>Tune Frequency to Decode:</span>
-          <span id="${card.id}_hz">0 MHz</span>
-        </div>
-        <input type="range" min="0" max="100" value="0" oninput="decodeHoloFrequency('${card.id}', this.value, ${card.targetFreq}, '${escapeHTML(card.secret).replace(/'/g, "\\'")}')" class="w-full accent-emerald-400 cursor-pointer" />
-      ` : `<div class="text-[10px] text-center opacity-75">Unlock Frequency: ${card.targetFreq} MHz</div>`}
-    </div>
-  `;
-  c.appendChild(div);
-  c.scrollTop = c.scrollHeight;
+function sendSticker(emoji) {
+  toggleModal('pickerPopover', false);
+  const ts = Date.now();
+  const time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msgId = 'msg_' + ts + '_' + Math.random().toString(36).substr(2, 4);
+  broadcastData({ type: 'CHAT', msgId, msgMode: 'sticker', senderId: myPeerId, senderName: myName, content: emoji, time, ts }, true);
+  appendMessage(myName, emoji, 'outgoing', time, 'sticker', msgId, { ts });
 }
 
-function tiltHoloCard(e, el) {
-  const r = el.getBoundingClientRect();
-  const x = ((e.clientX - r.left) / r.width - 0.5) * 18;
-  const y = ((e.clientY - r.top) / r.height - 0.5) * -18;
-  el.style.transform = `perspective(500px) rotateX(${y}deg) rotateY(${x}deg)`;
-}
-
-function decodeHoloFrequency(id, val, target, plainText) {
-  const num = parseInt(val, 10);
-  const hzEl = document.getElementById(id + '_hz');
-  const msgEl = document.getElementById(id + '_msg');
-  if (hzEl) hzEl.textContent = `${num} MHz`;
-  if (!msgEl) return;
-
-  if (Math.abs(num - target) <= 4) {
-    msgEl.textContent = plainText;
-    msgEl.classList.add('text-emerald-300', 'font-bold');
-    playMessageTone();
-  } else {
-    msgEl.classList.remove('text-emerald-300', 'font-bold');
-    msgEl.textContent = plainText.replace(/[a-zA-Z0-9]/g, () => '◈❖✦⬡⬢'[Math.floor(Math.random() * 5)]);
+function triggerSoundFX(fxId) {
+  toggleModal('pickerPopover', false);
+  if (fxId === 'buzz') {
+    triggerScreenBuzz(true);
+    return;
   }
+  playSynthFX(fxId);
+  broadcastData({ type: 'GAME_FX', fxId, sender: myName });
+  appendSystemNotice(`🔊 You played ${fxId.toUpperCase()} sound effect`);
 }
 
-// ==================== WOW FEATURE 4: CO-OP 16x16 PIXEL ART MOSAIC ====================
-let pixelCells = Array(256).fill('#111827'), currentPixelColor = '#ef4444';
-function openPixelMosaic() {
-  toggleModal('pixelModal', true);
-  renderPixelBoard();
-}
-function setPixelColor(col) { currentPixelColor = col; }
-function renderPixelBoard() {
-  const board = document.getElementById('pixelGridBoard');
-  if (!board) return;
-  board.innerHTML = pixelCells.map((col, idx) =>
-    `<div onpointerdown="paintPixelCell(${idx})" style="background-color:${col}" class="w-full h-full rounded-[2px] cursor-pointer hover:opacity-80"></div>`
-  ).join('');
-}
-function paintPixelCell(idx) {
-  applyPixelCell(idx, currentPixelColor, true);
-}
-function applyPixelCell(idx, color, broadcast = true) {
-  pixelCells[idx] = color;
-  const board = document.getElementById('pixelGridBoard');
-  if (board && board.children[idx]) board.children[idx].style.backgroundColor = color;
-  if (broadcast) broadcastData({ type: 'PIXEL_PAINT', idx, color });
-}
-function clearPixelGrid(broadcast = true) {
-  pixelCells = Array(256).fill('#111827');
-  renderPixelBoard();
-  if (broadcast) broadcastData({ type: 'PIXEL_CLEAR' });
-}
-async function exportPixelArtToChat() {
-  const c = document.createElement('canvas');
-  c.width = 320; c.height = 320;
-  const ctx = c.getContext('2d');
-  for (let i = 0; i < 256; i++) {
-    ctx.fillStyle = pixelCells[i];
-    ctx.fillRect((i % 16) * 20, Math.floor(i / 16) * 20, 20, 20);
-  }
-  const url = c.toDataURL('image/png');
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  toggleModal('pixelModal', false);
-  appendMessage(myName, dataUrlToBlobUrl(url), 'outgoing', time, 'image');
-  await sendChunkedPayload(url, { msgMode: 'image', time });
-}
-
-// ==================== WOW FEATURE 5: MYSTIC VIBE & FORTUNE ORACLE DECK ====================
-const oracleDeck = [
-  { icon: '🌟', title: 'The Cosmic Breakthrough', desc: 'A bold idea you share tonight will spark an unexpected win.' },
-  { icon: '⚡', title: 'The Lightning Shift', desc: 'A sudden change of plans leads directly to your best moment this week.' },
-  { icon: '🧭', title: 'The Midnight Compass', desc: 'Trust your first instinct—the answer is already in front of you.' },
-  { icon: '🔥', title: 'The Phoenix Spark', desc: 'Drop an old hesitation and launch the project you have been delaying.' },
-  { icon: '💎', title: 'The Hidden Gem', desc: 'Someone in this room holds a clue or opportunity you need right now.' },
-  { icon: '🌊', title: 'The Calm Tide', desc: 'Step back, take a breath, and let momentum carry you effortlessly.' }
-];
-
-function drawOracleCard() {
-  const pick = oracleDeck[Math.floor(Math.random() * oracleDeck.length)];
-  const oracle = { id: 'orc_' + Date.now(), drawer: myName, ...pick };
-  broadcastData({ type: 'ORACLE_DRAW', oracle });
-  renderOracleCard(oracle, true);
-}
-
-function renderOracleCard(oracle, isOut) {
-  playMessageTone();
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `
-    <div class="oracle-flip w-64 rounded-2xl p-4 border border-amber-400/50 bg-gradient-to-b from-indigo-950 via-purple-950 to-slate-950 text-center shadow-2xl">
-      <div class="text-[10px] font-bold uppercase tracking-widest text-amber-400 mb-2">🃏 Destiny Oracle • ${escapeHTML(oracle.drawer)}</div>
-      <div class="text-4xl my-2">${oracle.icon}</div>
-      <div class="text-sm font-extrabold text-white mb-1">${escapeHTML(oracle.title)}</div>
-      <p class="text-[11px] text-indigo-200 leading-relaxed">${escapeHTML(oracle.desc)}</p>
-    </div>
-  `;
-  c.appendChild(div);
-  c.scrollTop = c.scrollHeight;
-}
-
-// ==================== EXISTING GAMES, SOUNDSCAPE, BEAT STUDIO & DUAL SNAP ====================
-let telepathyGames = {}, bluffGames = {}, jukeboxQueue = [], currentJukeboxTrack = null;
-
-function launchTelepathyGame() {
-  const topic = document.getElementById('telepathyTopicInput').value.trim() || 'Anything';
-  toggleModal('telepathyModal', false);
-  const game = { id: 'tele_' + Date.now(), topic, guesses: {} };
-  telepathyGames[game.id] = game; broadcastData({ type: 'TELEPATHY_START', game }); renderTelepathyCard(game, true);
-}
-function submitTelepathyWord(id) {
-  const w = document.getElementById(id + '_input')?.value.trim(); if (!w || !telepathyGames[id]) return;
-  telepathyGames[id].guesses[myPeerId] = { name: myName, word: w }; updateTelepathyUI(id);
-  broadcastData({ type: 'TELEPATHY_GUESS', gameId: id, peerId: myPeerId, name: myName, word: w });
-}
-function renderTelepathyCard(game, isOut) {
-  const c = document.getElementById('messagesContainer'), d = document.createElement('div');
-  d.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  d.innerHTML = `<div class="w-72 theme-panel border border-purple-500/40 rounded-2xl p-3.5 text-center"><div class="text-[10px] font-bold text-purple-400">🔮 Telepathy Sync</div><p class="text-xs font-bold mb-2">Topic: ${escapeHTML(game.topic)}</p><div id="${game.id}_body"></div></div>`;
-  c.appendChild(d); updateTelepathyUI(game.id); c.scrollTop = c.scrollHeight;
-}
-function updateTelepathyUI(id) {
-  const g = telepathyGames[id], b = document.getElementById(id + '_body'); if (!g || !b) return;
-  const entries = Object.entries(g.guesses);
-  if (entries.length < 2) {
-    b.innerHTML = g.guesses[myPeerId] ? `<p class="text-xs text-emerald-400">Locked "${escapeHTML(g.guesses[myPeerId].word)}"...</p>` : `<div class="flex gap-1"><input id="${id}_input" class="flex-1 theme-input border rounded-lg px-2 py-1 text-xs" placeholder="1 word..." /><button onclick="submitTelepathyWord('${id}')" class="px-2.5 py-1 rounded-lg theme-accent text-xs">Lock</button></div>`;
-  } else {
-    const [p1, p2] = [entries[0][1], entries[1][1]], match = p1.word.toLowerCase() === p2.word.toLowerCase();
-    if (match) spawnEmojiRain('🔮');
-    b.innerHTML = `<div class="flex justify-around py-2 bg-white/5 rounded-xl mb-1"><div><b>${escapeHTML(p1.word)}</b><div class="text-[10px]">${escapeHTML(p1.name)}</div></div><div><b>${escapeHTML(p2.word)}</b><div class="text-[10px]">${escapeHTML(p2.name)}</div></div></div><div class="text-xs font-bold ${match ? 'text-emerald-400' : 'text-amber-400'}">${match ? '🎉 MATCH!' : 'Try another round!'}</div>`;
-  }
-}
-
-function launchBluffCard() {
-  const s0 = document.getElementById('bluffStmt0').value.trim(), s1 = document.getElementById('bluffStmt1').value.trim(), s2 = document.getElementById('bluffStmt2').value.trim();
-  if (!s0 || !s1 || !s2) return;
-  const lieIdx = parseInt(document.querySelector('input[name="lieIndex"]:checked').value, 10);
-  toggleModal('bluffModal', false);
-  const game = { id: 'bluff_' + Date.now(), author: myName, statements: [s0, s1, s2], lieIdx, guesses: {} };
-  bluffGames[game.id] = game; broadcastData({ type: 'BLUFF_START', game }); renderBluffCard(game, true);
-}
-function guessBluffLie(id, idx) {
-  if (!bluffGames[id] || bluffGames[id].guesses[myPeerId] !== undefined) return;
-  bluffGames[id].guesses[myPeerId] = { name: myName, idx }; updateBluffUI(id);
-  broadcastData({ type: 'BLUFF_GUESS', gameId: id, peerId: myPeerId, name: myName, idx });
-}
-function renderBluffCard(game, isOut) {
-  const c = document.getElementById('messagesContainer'), d = document.createElement('div');
-  d.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  d.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5"><div class="text-[10px] font-bold text-amber-400 mb-1">🎭 Two Truths & A Lie • ${escapeHTML(game.author)}</div><div id="${game.id}_opts" class="space-y-1.5"></div><div id="${game.id}_res" class="text-[10px] theme-muted mt-2"></div></div>`;
-  c.appendChild(d); updateBluffUI(game.id); c.scrollTop = c.scrollHeight;
-}
-function updateBluffUI(id) {
-  const g = bluffGames[id], opts = document.getElementById(id + '_opts'), res = document.getElementById(id + '_res'); if (!g || !opts) return;
-  const myG = g.guesses[myPeerId];
-  opts.innerHTML = g.statements.map((st, i) => `<button onclick="guessBluffLie('${id}', ${i})" class="w-full text-left p-2 rounded-xl border text-xs ${myG !== undefined ? (i === g.lieIdx ? 'bg-rose-600/30 border-rose-500' : 'bg-emerald-600/20 border-emerald-500') : 'theme-input theme-border'}">${escapeHTML(st)}</button>`).join('');
-  res.innerHTML = Object.values(g.guesses).map(x => `${escapeHTML(x.name)}: ${x.idx === g.lieIdx ? '🎯 Caught!' : '❌ Fooled!'}`).join(' • ');
-}
-
-function addJukeboxTrack() {
-  const inp = document.getElementById('jukeboxUrlInput'), m = inp.value.trim().match(/(?:youtube\.com\/.*v=|youtu\.be\/)([^"&?\/\s]{11})/);
-  if (!m) { alert('Invalid YouTube URL'); return; }
-  inp.value = ''; jukeboxQueue.push({ id: 'trk_' + Date.now(), videoId: m[1], addedBy: myName, votes: 1 });
-  if (!currentJukeboxTrack) playNextJukeboxTrack(true);
-  else { renderJukeboxUI(); broadcastData({ type: 'JUKEBOX_SYNC', queue: jukeboxQueue, current: currentJukeboxTrack }); }
-}
-function playNextJukeboxTrack(b = true) { currentJukeboxTrack = jukeboxQueue.shift() || null; renderJukeboxUI(); if (b) broadcastData({ type: 'JUKEBOX_SYNC', queue: jukeboxQueue, current: currentJukeboxTrack }); }
-function renderJukeboxUI() {
-  const box = document.getElementById('jukeboxPlayerBox'), ifr = document.getElementById('jukeboxIframe');
-  document.getElementById('jukeboxCount').textContent = jukeboxQueue.length;
-  if (currentJukeboxTrack) { box.classList.remove('hidden'); const u = `https://www.youtube.com/embed/${currentJukeboxTrack.videoId}?autoplay=1`; if (ifr.src !== u) ifr.src = u; document.getElementById('jukeboxNowPlaying').textContent = `By ${currentJukeboxTrack.addedBy}`; }
-  else { box.classList.add('hidden'); ifr.src = ''; }
-  document.getElementById('jukeboxQueueList').innerHTML = jukeboxQueue.map((t, i) => `<div class="p-2 rounded-xl theme-input border text-xs flex justify-between"><span>#${i+1} ${t.videoId} (${escapeHTML(t.addedBy)})</span></div>`).join('');
-}
-
-function sendTactilePulse() { triggerTactilePulseEffect(myName, true); broadcastData({ type: 'TACTILE_PULSE', senderName: myName }); }
-function triggerTactilePulseEffect(sender, local) {
-  const b = document.getElementById('tactileHeartBtn'); if (b) { b.classList.remove('pulse-beat'); void b.offsetWidth; b.classList.add('pulse-beat'); }
-  document.getElementById('pulseStatusLabel').textContent = local ? '💓 Sent!' : `💓 From ${sender}`;
-  if (navigator.vibrate) navigator.vibrate(140); playBeatTrackSound(0);
-}
-
-let pongActive = false, pongLoopId = null, pongState = { ballX: 160, ballY: 210, vx: 3.2, vy: 3.6, p1X: 120, p2X: 120, paddleW: 80, paddleH: 10, s1: 0, s2: 0 };
-const pongCanvas = document.getElementById('pongCanvas'), pongCtx = pongCanvas.getContext('2d');
-function openPongModal(b = true) {
-  toggleModal('pongModal', true);
-  pongState = { ballX: 160, ballY: 210, vx: 3.2, vy: 3.6, p1X: 120, p2X: 120, paddleW: 80, paddleH: 10, s1: 0, s2: 0 };
-  pongActive = true; if (b) broadcastData({ type: 'PONG_OPEN' });
-  const loop = () => {
-    if (!pongActive) return;
-    if (isHost) {
-      pongState.ballX += pongState.vx; pongState.ballY += pongState.vy;
-      if (pongState.ballX <= 8 || pongState.ballX >= 312) pongState.vx *= -1;
-      if (pongState.ballY >= 394 && pongState.ballX >= pongState.p1X && pongState.ballX <= pongState.p1X + 80) pongState.vy = -Math.abs(pongState.vy);
-      if (pongState.ballY <= 26 && pongState.ballX >= pongState.p2X && pongState.ballX <= pongState.p2X + 80) pongState.vy = Math.abs(pongState.vy);
-      if (pongState.ballY > 420) { pongState.s2++; pongState.ballX = 160; pongState.ballY = 210; }
-      if (pongState.ballY < 0) { pongState.s1++; pongState.ballX = 160; pongState.ballY = 210; }
-      broadcastData({ type: 'PONG_SYNC', bx: pongState.ballX, by: pongState.ballY, s1: pongState.s1, s2: pongState.s2 });
-    }
-    pongCtx.fillStyle = '#050811'; pongCtx.fillRect(0, 0, 320, 420);
-    pongCtx.fillStyle = '#f43f5e'; pongCtx.fillRect(pongState.p2X, 14, 80, 10);
-    pongCtx.fillStyle = '#6366f1'; pongCtx.fillRect(pongState.p1X, 396, 80, 10);
-    pongCtx.fillStyle = '#34d399'; pongCtx.beginPath(); pongCtx.arc(pongState.ballX, pongState.ballY, 7, 0, Math.PI * 2); pongCtx.fill();
-    document.getElementById('pongScoreBadge').textContent = `${pongState.s1} : ${pongState.s2}`;
-    pongLoopId = requestAnimationFrame(loop);
-  };
-  pongLoopId = requestAnimationFrame(loop);
-}
-function closePongModal(b = true) { toggleModal('pongModal', false); pongActive = false; if (pongLoopId) cancelAnimationFrame(pongLoopId); if (b) broadcastData({ type: 'PONG_CLOSE' }); }
-pongCanvas.addEventListener('pointermove', (e) => {
-  if (!pongActive) return;
-  const r = pongCanvas.getBoundingClientRect(), x = Math.max(0, Math.min(240, ((e.clientX - r.left) / r.width) * 320 - 40));
-  if (isHost) pongState.p1X = x; else pongState.p2X = x;
-  broadcastData({ type: 'PONG_PADDLE', isHostPaddle: isHost, x });
-});
-
-let activePolls = {}, rpsGames = {}, tttGames = {}, triviaGames = {}, storyChains = {}, pendingGameType = 'rps';
-
-function openOpponentSelector(gameType) {
-  pendingGameType = gameType;
-  const candidateMap = new Map();
-  if (Array.isArray(roomRoster)) roomRoster.forEach(m => { if (m.id && m.id !== myPeerId) candidateMap.set(m.id, m.name || 'Partner'); });
-  for (const [peerId, peerObj] of Object.entries(connections)) {
-    if (peerId !== myPeerId && peerObj.conn && peerObj.conn.open && !candidateMap.has(peerId)) candidateMap.set(peerId, peerObj.name || 'Partner');
-  }
-  const others = Array.from(candidateMap.entries()).map(([id, name]) => ({ id, name }));
-  if (others.length === 0) { alert('No connected partner found yet.'); return; }
-
-  document.getElementById('opponentModalTitle').textContent = gameType === 'rps' ? '🎮 Challenge to RPS Duel' : '❌ Challenge to Tic-Tac-Toe';
-  let html = others.map(p => `<button onclick="launchTargetedGame('${p.id}', '${escapeHTML(p.name)}')" class="w-full p-3 rounded-xl theme-input border hover:border-indigo-500 flex items-center justify-between text-xs font-semibold"><span>${escapeHTML(p.name)}</span><span class="text-indigo-400">Challenge →</span></button>`).join('');
-  if (pendingGameType === 'rps') html += `<button onclick="launchTargetedGame('ANY', 'Anyone in Room')" class="w-full p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold mt-1">⚡ Open Challenge</button>`;
-  document.getElementById('opponentListContainer').innerHTML = html;
-  toggleModal('opponentModal', true);
-}
-function launchTargetedGame(targetId, targetName) { toggleModal('opponentModal', false); pendingGameType === 'rps' ? startRPSGame(targetId, targetName) : startTicTacToeGame(targetId, targetName); }
-
-function startRPSGame(targetId, targetName) {
-  const game = { id: 'rps_' + Date.now(), p1Id: myPeerId, p1Name: myName, p2Id: targetId, p2Name: targetName, moves: {} };
-  rpsGames[game.id] = game; broadcastData({ type: 'RPS_START', game }); renderRPSCard(game, true);
-}
-function makeRPSMove(gameId, move) {
-  const game = rpsGames[gameId]; if (!game || game.moves[myPeerId]) return;
-  if (game.p2Id === 'ANY' && myPeerId !== game.p1Id) { game.p2Id = myPeerId; game.p2Name = myName; }
-  if (myPeerId !== game.p1Id && myPeerId !== game.p2Id) return;
-  game.moves[myPeerId] = { name: myName, move }; updateRPSCardUI(gameId); broadcastData({ type: 'RPS_MOVE', gameId, peerId: myPeerId, name: myName, move });
-}
-function renderRPSCard(game, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5 text-center"><div class="text-[10px] font-bold text-amber-400 mb-1">🎮 Rock • Paper • Scissors</div><p class="text-xs font-semibold mb-2">${escapeHTML(game.p1Name)} vs ${escapeHTML(game.p2Name)}</p><div id="${game.id}_body"></div></div>`;
-  c.appendChild(div); updateRPSCardUI(game.id); c.scrollTop = c.scrollHeight;
-}
-function updateRPSCardUI(gameId) {
-  const game = rpsGames[gameId], body = document.getElementById(gameId + '_body'); if (!game || !body) return;
-  const entries = Object.entries(game.moves), amIPlayer = (myPeerId === game.p1Id) || (myPeerId === game.p2Id) || (game.p2Id === 'ANY'), myMove = game.moves[myPeerId];
-  if (entries.length < 2) {
-    if (!amIPlayer) body.innerHTML = `<p class="text-[11px] theme-muted">Spectating (${entries.length}/2)...</p>`;
-    else if (!myMove) body.innerHTML = `<div class="flex justify-center gap-3 my-1"><button onclick="makeRPSMove('${gameId}','🪨')" class="w-12 h-12 rounded-xl theme-input border text-2xl">🪨</button><button onclick="makeRPSMove('${gameId}','📄')" class="w-12 h-12 rounded-xl theme-input border text-2xl">📄</button><button onclick="makeRPSMove('${gameId}','✂️')" class="w-12 h-12 rounded-xl theme-input border text-2xl">✂️</button></div>`;
-    else body.innerHTML = `<p class="text-xs text-emerald-400">Locked ${myMove.move} • Waiting...</p>`;
-  } else {
-    const [p1, p2] = [entries[0][1], entries[1][1]];
-    const res = p1.move === p2.move ? "🤝 Tie!" : (({ '🪨': '✂️', '📄': '🪨', '✂️': '📄' }[p1.move] === p2.move) ? `🏆 ${escapeHTML(p1.name)} Wins!` : `🏆 ${escapeHTML(p2.name)} Wins!`);
-    body.innerHTML = `<div class="flex justify-around py-2 bg-white/5 rounded-xl mb-1"><div><div class="text-3xl">${p1.move}</div><div class="text-[10px]">${escapeHTML(p1.name)}</div></div><div><div class="text-3xl">${p2.move}</div><div class="text-[10px]">${escapeHTML(p2.name)}</div></div></div><div class="text-xs font-bold text-indigo-400">${res}</div>`;
-  }
-}
-
-function startTicTacToeGame(targetId, targetName) {
-  const game = { id: 'ttt_' + Date.now(), xId: myPeerId, xName: myName, oId: targetId, oName: targetName, board: Array(9).fill(''), turnId: myPeerId, winnerText: null };
-  tttGames[game.id] = game; broadcastData({ type: 'TTT_START', game }); renderTTTCard(game, true);
-}
-function playTTTCell(gameId, idx) {
-  const game = tttGames[gameId]; if (!game || game.winnerText || game.board[idx] !== '' || game.turnId !== myPeerId) return;
-  game.board[idx] = myPeerId === game.xId ? '❌' : '⭕'; game.turnId = myPeerId === game.xId ? game.oId : game.xId;
-  const b = game.board, lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  for (const [a, c, d] of lines) { if (b[a] && b[a] === b[c] && b[a] === b[d]) game.winnerText = `🏆 ${escapeHTML(b[a] === '❌' ? game.xName : game.oName)} Wins!`; }
-  if (!game.winnerText && !b.includes('')) game.winnerText = "🤝 Draw!";
-  updateTTTCardUI(gameId); broadcastData({ type: 'TTT_MOVE', gameId, board: game.board, turnId: game.turnId, winnerText: game.winnerText });
-}
-function renderTTTCard(game, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-64 theme-panel border rounded-2xl p-3.5 text-center"><div class="text-[10px] font-bold text-indigo-400 mb-1">❌⭕ Tic-Tac-Toe</div><div id="${game.id}_grid" class="grid grid-cols-3 gap-1.5 w-44 mx-auto my-2"></div><div id="${game.id}_status" class="text-[11px] font-bold"></div></div>`;
-  c.appendChild(div); updateTTTCardUI(game.id); c.scrollTop = c.scrollHeight;
-}
-function updateTTTCardUI(gameId) {
-  const game = tttGames[gameId], grid = document.getElementById(gameId + '_grid'), status = document.getElementById(gameId + '_status'); if (!game || !grid) return;
-  grid.innerHTML = game.board.map((cell, i) => `<button onclick="playTTTCell('${gameId}',${i})" class="h-12 rounded-xl theme-input border text-lg font-bold">${cell}</button>`).join('');
-  status.innerHTML = game.winnerText ? `<span class="text-emerald-400">${game.winnerText}</span>` : (game.turnId === myPeerId ? `<span class="text-amber-400">Your Turn!</span>` : `<span class="theme-muted">Opponent's Turn</span>`);
-}
-
-const triviaBank = [
-  { q: "Which planet has the most moons?", opts: ["Jupiter", "Saturn", "Uranus"], ans: 1 },
-  { q: "What does HTTP stand for?", opts: ["HyperText Transfer Protocol", "High Transfer Text Path", "Host Terminal Protocol"], ans: 0 },
-  { q: "Chemical symbol for Gold?", opts: ["Ag", "Cu", "Au"], ans: 2 },
-  { q: "How many bits in 1 Byte?", opts: ["4", "8", "16"], ans: 1 }
-];
-function launchTriviaQuiz() {
-  const item = triviaBank[Math.floor(Math.random() * triviaBank.length)];
-  const quiz = { id: 'triv_' + Date.now(), q: item.q, opts: item.opts, ans: item.ans, answers: {} };
-  triviaGames[quiz.id] = quiz; broadcastData({ type: 'TRIVIA_START', quiz }); renderTriviaCard(quiz, true);
-}
-function answerTrivia(qId, idx) {
-  const q = triviaGames[qId]; if (!q || q.answers[myPeerId] !== undefined) return;
-  q.answers[myPeerId] = { name: myName, idx }; updateTriviaUI(qId); broadcastData({ type: 'TRIVIA_ANSWER', qId, peerId: myPeerId, name: myName, idx });
-}
-function renderTriviaCard(quiz, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5"><div class="text-[10px] font-bold text-amber-400 mb-1">🧠 Trivia Quiz</div><p class="text-xs font-bold mb-2">${escapeHTML(quiz.q)}</p><div id="${quiz.id}_opts" class="space-y-1.5"></div><div id="${quiz.id}_res" class="text-[10px] theme-muted mt-2"></div></div>`;
-  c.appendChild(div); updateTriviaUI(quiz.id); c.scrollTop = c.scrollHeight;
-}
-function updateTriviaUI(qId) {
-  const q = triviaGames[qId], optsEl = document.getElementById(qId + '_opts'), resEl = document.getElementById(qId + '_res'); if (!q || !optsEl) return;
-  const myAns = q.answers[myPeerId];
-  optsEl.innerHTML = q.opts.map((opt, i) => `<button onclick="answerTrivia('${qId}',${i})" class="w-full text-left p-2 rounded-xl border text-xs ${myAns !== undefined ? (i === q.ans ? 'bg-emerald-600/30 border-emerald-500' : (i === myAns.idx ? 'bg-rose-600/30 border-rose-500' : 'theme-input')) : 'theme-input'}">${escapeHTML(opt)}</button>`).join('');
-  resEl.innerHTML = Object.values(q.answers).map(a => `${escapeHTML(a.name)}: ${a.idx === q.ans ? '✅' : '❌'}`).join(' • ');
-}
-
-function launchSpinWheel() {
-  const title = document.getElementById('wheelTitleInput').value.trim() || 'Decision Wheel', raw = document.getElementById('wheelOptionsInput').value.trim();
-  const items = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : ['Yes', 'No', 'Maybe'];
-  if (items.length < 2) return;
-  const wheel = { id: 'wheel_' + Date.now(), creator: myName, title, items, winnerIdx: Math.floor(Math.random() * items.length) };
-  toggleModal('wheelModal', false); broadcastData({ type: 'SPIN_WHEEL', wheel }); renderSpinWheelCard(wheel, true);
-}
-function renderSpinWheelCard(wheel, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5 text-center"><div class="text-[10px] font-bold text-indigo-400 mb-1">🎡 Spin Wheel • ${escapeHTML(wheel.title)}</div><div id="${wheel.id}_slot" class="py-3 rounded-xl theme-input border text-sm font-bold text-amber-400">Spinning...</div></div>`;
-  c.appendChild(div); c.scrollTop = c.scrollHeight;
-  const slot = document.getElementById(wheel.id + '_slot'); let t = 0;
-  const iv = setInterval(() => { if (slot) slot.textContent = wheel.items[t % wheel.items.length]; t++; if (t >= 20) { clearInterval(iv); if (slot) slot.textContent = `🎉 ${wheel.items[wheel.winnerIdx]} 🎉`; } }, 90);
-}
-
-function launchStoryChain() {
-  const first = document.getElementById('storyChainStartInput').value.trim(); if (!first) return;
-  document.getElementById('storyChainStartInput').value = ''; toggleModal('storyChainModal', false);
-  const chain = { id: 'chain_' + Date.now(), maxLines: 4, entries: [{ author: myName, text: first }] };
-  storyChains[chain.id] = chain; broadcastData({ type: 'STORY_CHAIN_UPDATE', chain }); renderStoryChainCard(chain, true);
-}
-function submitStoryChainLine(id) {
-  const line = document.getElementById(id + '_input')?.value.trim(), chain = storyChains[id];
-  if (!line || !chain || chain.entries.length >= chain.maxLines) return;
-  chain.entries.push({ author: myName, text: line }); updateStoryChainUI(id); broadcastData({ type: 'STORY_CHAIN_UPDATE', chain });
-}
-function renderStoryChainCard(chain, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5"><div class="text-[10px] font-bold text-emerald-400 mb-1">📖 Blind Story Chain</div><div id="${chain.id}_body"></div></div>`;
-  c.appendChild(div); updateStoryChainUI(chain.id); c.scrollTop = c.scrollHeight;
-}
-function updateStoryChainUI(id) {
-  const chain = storyChains[id], body = document.getElementById(id + '_body'); if (!chain || !body) return;
-  if (chain.entries.length < chain.maxLines) {
-    const hint = chain.entries[chain.entries.length - 1].text.split(/\s+/).slice(-3).join(' ');
-    body.innerHTML = `<p class="text-[11px] theme-muted mb-1">Lines: ${chain.entries.length}/${chain.maxLines} • Clue: <b>"...${escapeHTML(hint)}"</b></p><div class="flex gap-1"><input id="${id}_input" class="flex-1 theme-input border rounded-lg px-2 py-1 text-xs" placeholder="Next line..." /><button onclick="submitStoryChainLine('${id}')" class="px-2.5 py-1 rounded-lg theme-accent text-xs">Add</button></div>`;
-  } else {
-    body.innerHTML = `<div class="space-y-1 text-xs">${chain.entries.map(e => `<div><b>${escapeHTML(e.author)}:</b> ${escapeHTML(e.text)}</div>`).join('')}</div>`;
-  }
-}
-
-function launchPoll() {
-  const q = document.getElementById('pollQuestionInput').value.trim(), o1 = document.getElementById('pollOpt1Input').value.trim(), o2 = document.getElementById('pollOpt2Input').value.trim(), o3 = document.getElementById('pollOpt3Input').value.trim();
-  if (!q || !o1 || !o2) return;
-  const opts = [o1, o2]; if (o3) opts.push(o3);
-  const poll = { id: 'poll_' + Date.now(), creator: myName, question: q, options: opts.map(text => ({ text, voters: [] })) };
-  activePolls[poll.id] = poll; toggleModal('pollModal', false); broadcastData({ type: 'NEW_POLL', poll }); renderPollCard(poll, true);
-}
-function castPollVote(id, idx) {
-  const p = activePolls[id]; if (!p) return;
-  p.options.forEach(o => o.voters = o.voters.filter(v => v !== myPeerId)); p.options[idx].voters.push(myPeerId);
-  updatePollCardUI(id); broadcastData({ type: 'POLL_VOTE', pollId: id, optIdx: idx, voterId: myPeerId });
-}
-function renderPollCard(poll, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-72 theme-panel border rounded-2xl p-3.5"><div class="text-[10px] font-bold text-indigo-400 mb-1">📊 Poll by ${escapeHTML(poll.creator)}</div><p class="text-xs font-bold mb-2">${escapeHTML(poll.question)}</p><div id="${poll.id}_opts" class="space-y-1.5"></div></div>`;
-  c.appendChild(div); updatePollCardUI(poll.id); c.scrollTop = c.scrollHeight;
-}
-function updatePollCardUI(id) {
-  const p = activePolls[id], el = document.getElementById(id + '_opts'); if (!p || !el) return;
-  const total = p.options.reduce((s, o) => s + o.voters.length, 0);
-  el.innerHTML = p.options.map((o, i) => `<button onclick="castPollVote('${id}',${i})" class="w-full text-left p-2 rounded-xl theme-input border text-xs flex justify-between"><span>${escapeHTML(o.text)}</span><span>${total ? Math.round((o.voters.length / total) * 100) : 0}% (${o.voters.length})</span></button>`).join('');
-}
-
-const canvas = document.getElementById('sharedCanvas'), ctx = canvas.getContext('2d');
-let isDrawing = false, lastX = 0, lastY = 0, brushColor = '#3b82f6';
-ctx.lineCap = 'round'; ctx.lineWidth = 4;
-function setBrushColor(c) { brushColor = c; }
-function drawSegment(x0, y0, x1, y1, col) { ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
-canvas.addEventListener('pointerdown', (e) => { isDrawing = true; const r = canvas.getBoundingClientRect(); lastX = ((e.clientX - r.left) / r.width) * 640; lastY = ((e.clientY - r.top) / r.height) * 380; });
-canvas.addEventListener('pointermove', (e) => { if (!isDrawing) return; const r = canvas.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 640, y = ((e.clientY - r.top) / r.height) * 380; drawSegment(lastX, lastY, x, y, brushColor); broadcastData({ type: 'DRAW_STROKE', x0: lastX, y0: lastY, x1: x, y1: y, color: brushColor }); lastX = x; lastY = y; });
-window.addEventListener('pointerup', () => isDrawing = false);
-function clearWhiteboard(b) { ctx.clearRect(0, 0, 640, 380); if (b) broadcastData({ type: 'DRAW_CLEAR' }); }
-async function sendCanvasSnapshot() {
-  const url = canvas.toDataURL('image/png'), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  toggleModal('whiteboardModal', false);
-  appendMessage(myName, dataUrlToBlobUrl(url), 'outgoing', time, 'image');
-  await sendChunkedPayload(url, { msgMode: 'image', time });
-}
-
-function launchSharedTimer(s) { toggleModal('timerModal', false); const timer = { id: 'tmr_' + Date.now(), label: document.getElementById('timerLabelInput').value.trim() || 'Timer', seconds: s }; broadcastData({ type: 'SYNC_TIMER', timer }); renderTimerCard(timer, true); }
-function renderTimerCard(timer, isOut) {
-  const c = document.getElementById('messagesContainer'), div = document.createElement('div');
-  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  div.innerHTML = `<div class="w-56 theme-panel border rounded-2xl p-3 text-center"><div class="text-[10px] font-bold text-indigo-400">⏱️ ${escapeHTML(timer.label)}</div><div id="${timer.id}_v" class="text-xl font-mono font-bold text-amber-400">${timer.seconds}s</div></div>`;
-  c.appendChild(div); let r = timer.seconds; const iv = setInterval(() => { r--; const v = document.getElementById(timer.id + '_v'); if (v) v.textContent = r > 0 ? `${r}s` : '⏰ TIME UP!'; if (r <= 0) clearInterval(iv); }, 1000);
-}
-
-let auraAnimId = null;
-function setRoomAura(mode, b = true) {
-  toggleModal('auraModal', false); const amb = document.getElementById('ambientCanvas'), actx = amb.getContext('2d');
-  if (auraAnimId) { cancelAnimationFrame(auraAnimId); auraAnimId = null; }
-  if (mode === 'none') { amb.classList.add('hidden'); return; }
-  amb.classList.remove('hidden'); amb.width = window.innerWidth; amb.height = window.innerHeight;
-  const pts = Array.from({ length: 35 }, () => ({ x: Math.random() * amb.width, y: Math.random() * amb.height, s: 2 + Math.random() * 2 }));
-  const step = () => {
-    actx.clearRect(0, 0, amb.width, amb.height); actx.fillStyle = mode === 'fireflies' ? '#34d399' : '#818cf8';
-    pts.forEach(p => { p.y += p.s; if (p.y > amb.height) p.y = 0; actx.beginPath(); actx.arc(p.x, p.y, 2, 0, Math.PI * 2); actx.fill(); });
-    auraAnimId = requestAnimationFrame(step);
-  };
-  auraAnimId = requestAnimationFrame(step);
-  if (b) broadcastData({ type: 'ROOM_AURA', mode });
-}
-
-function sendScreenNudge() { triggerScreenShake(); playBuzzTone(); broadcastData({ type: 'SCREEN_NUDGE', senderName: myName }); }
-function triggerScreenShake() { const b = document.getElementById('appBody'); b.classList.remove('shake-active'); void b.offsetWidth; b.classList.add('shake-active'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); }
-function triggerSurpriseBlast(emoji) { togglePicker(); spawnEmojiRain(emoji); broadcastData({ type: 'SURPRISE_RAIN', emoji }); }
-function spawnEmojiRain(emoji) { for (let i = 0; i < 20; i++) setTimeout(() => { const d = document.createElement('div'); d.className = 'emoji-drop'; d.textContent = emoji; d.style.left = Math.random() * 92 + 'vw'; d.style.animationDuration = '2.5s'; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }, i * 80); }
-
-const soundscapeNodes = {};
-async function updateSoundscapeChannel(ch, val, b = true) {
-  const num = parseInt(val, 10) || 0;
-  document.getElementById('slider_' + ch).value = num;
-  document.getElementById('volLabel_' + ch).textContent = `${num}%`;
-
-  if (num > 0 || soundscapeNodes.ready) {
-    initAudioContext();
-    if (audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch (e) {}
-    }
-    if (audioCtx.state === 'suspended' && !b) {
-      showToast('🔊 Tap to Enable Room Audio', 'Partner adjusted the ambient soundscape', () => {
-        audioCtx.resume().catch(() => {});
-      });
-    }
-
-    if (!soundscapeNodes.ready) {
-      const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const mk = (type, f) => {
-        const s = audioCtx.createBufferSource(); s.buffer = buf; s.loop = true;
-        const fl = audioCtx.createBiquadFilter(); fl.type = type; fl.frequency.value = f;
-        const g = audioCtx.createGain(); g.gain.value = 0;
-        s.connect(fl); fl.connect(g); g.connect(audioCtx.destination); s.start();
-        return g;
-      };
-      soundscapeNodes.rain = mk('bandpass', 1100);
-      soundscapeNodes.fire = mk('lowpass', 320);
-      soundscapeNodes.ocean = mk('lowpass', 180);
-      soundscapeNodes.vinyl = mk('highpass', 3800);
-      soundscapeNodes.ready = true;
-    }
-    soundscapeNodes[ch].gain.setTargetAtTime((num / 100) * 0.25, audioCtx.currentTime, 0.08);
-  }
-  if (b) broadcastData({ type: 'SOUNDSCAPE_SYNC', channel: ch, val: num });
-}
-function muteAllSoundscapes(b = true) { ['rain', 'fire', 'ocean', 'vinyl'].forEach(c => updateSoundscapeChannel(c, 0, false)); if (b) broadcastData({ type: 'SOUNDSCAPE_MUTE' }); }
-
-let beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false)), beatPlaying = false, beatStep = 0, beatTimer = null;
-function toggleBeatStudio(s) { toggleModal('beatStudioModal', s); if (s) renderSequencerGrid(); }
-function renderSequencerGrid() {
-  const names = ['Kick', 'Snare', 'Hat', 'Synth'];
-  document.getElementById('sequencerGrid').innerHTML = beatMatrix.map((row, r) => `<div class="flex items-center gap-2"><span class="w-10 text-[11px] font-bold">${names[r]}</span><div class="flex-1 grid grid-cols-8 gap-1">${row.map((on, c) => `<button onclick="toggleBeatCell(${r},${c},true)" class="h-7 rounded border ${on ? 'bg-indigo-500 border-white' : 'theme-input theme-border'}"></button>`).join('')}</div></div>`).join('');
-}
-function toggleBeatCell(r, c, b) { beatMatrix[r][c] = !beatMatrix[r][c]; if (beatMatrix[r][c]) playBeatTrackSound(r); renderSequencerGrid(); if (b) broadcastData({ type: 'BEAT_CELL', r, c, val: beatMatrix[r][c] }); }
-function clearBeatGrid(b) { beatMatrix = Array.from({ length: 4 }, () => Array(8).fill(false)); renderSequencerGrid(); if (b) broadcastData({ type: 'BEAT_CLEAR' }); }
-function toggleBeatPlayback(b) {
-  beatPlaying = !beatPlaying;
-  if (beatPlaying) { beatStep = 0; beatTimer = setInterval(() => { for (let r = 0; r < 4; r++) if (beatMatrix[r][beatStep]) playBeatTrackSound(r); beatStep = (beatStep + 1) % 8; }, 260); }
-  else clearInterval(beatTimer);
-  if (b) broadcastData({ type: 'BEAT_STATE', playing: beatPlaying });
-}
-function playBeatTrackSound(r) {
-  if (!soundEnabled) return;
+function playSynthFX(fxId) {
+  const fx = SOUND_FX_BANK.find(x => x.id === fxId) || SOUND_FX_BANK[0];
   try {
-    initAudioContext(); const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.frequency.value = [65, 220, 1200, 440][r]; g.gain.setValueAtTime(0.18, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.16);
+    initAudioContext();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = fx.type;
+    osc.frequency.setValueAtTime(fx.freq, audioCtx.currentTime);
+    if (fxId === 'laser') osc.frequency.exponentialRampToValueAtTime(140, audioCtx.currentTime + fx.dur);
+    if (fxId === 'magic') osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + fx.dur);
+    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + fx.dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + fx.dur + 0.02);
   } catch (e) {}
 }
 
-let dualPreviewStream = null;
-async function openDualSnapModal() {
-  if (Object.keys(connections).length === 0) { alert('Wait for a partner to join first.'); return; }
-  toggleModal('dualSnapModal', true);
-  try { dualPreviewStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); document.getElementById('dualSnapPreview').srcObject = dualPreviewStream; } catch (e) { closeDualSnapModal(); }
-}
-function closeDualSnapModal() { toggleModal('dualSnapModal', false); if (dualPreviewStream) { dualPreviewStream.getTracks().forEach(t => t.stop()); dualPreviewStream = null; } }
-async function executeDualSnapSequence() {
-  const v = document.getElementById('dualSnapPreview'); if (!dualPreviewStream) return;
-  const c = document.createElement('canvas'); c.width = 720; c.height = 540; const ctx = c.getContext('2d');
-  ctx.drawImage(v, 0, 0, 720, 540); dualPreviewStream.getTracks().forEach(t => t.stop());
-  try {
-    dualPreviewStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }); v.srcObject = dualPreviewStream;
-    await new Promise(r => setTimeout(r, 1000));
-    ctx.save(); ctx.beginPath(); ctx.arc(115, 115, 80, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(v, 35, 35, 160, 160); ctx.restore();
-    closeDualSnapModal();
-    const dataUrl = c.toDataURL('image/jpeg', 0.7), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), msgId = 'msg_' + Date.now();
-    appendMessage(myName, dataUrlToBlobUrl(dataUrl), 'outgoing', time, 'photo', msgId, { isDual: true });
-    await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', isDual: true, time });
-  } catch (e) { closeDualSnapModal(); }
+function triggerScreenBuzz(broadcast = true) {
+  playBuzzTone();
+  if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
+  const stage = document.getElementById('mainAppStage');
+  if (stage) {
+    stage.classList.remove('buzz-shake');
+    void stage.offsetWidth;
+    stage.classList.add('buzz-shake');
+  }
+  if (broadcast) {
+    broadcastData({ type: 'GAME_BUZZ', sender: myName });
+    appendSystemNotice('⚡ You buzzed the room!');
+  }
 }
 
-let liveCursorsEnabled = false, remoteCursorEls = {};
-function toggleLiveCursors() { liveCursorsEnabled = !liveCursorsEnabled; document.getElementById('cursorStatusBadge').textContent = liveCursorsEnabled ? 'ON' : 'OFF'; if (!liveCursorsEnabled) { document.getElementById('cursorsLayer').innerHTML = ''; remoteCursorEls = {}; } }
-function cleanupRemoteCursor(id) { if (remoteCursorEls[id]) { remoteCursorEls[id].remove(); delete remoteCursorEls[id]; } }
-window.addEventListener('pointermove', (e) => { if (liveCursorsEnabled && Object.keys(connections).length) broadcastData({ type: 'CURSOR_MOVE', peerId: myPeerId, name: myName, nx: e.clientX / window.innerWidth, ny: e.clientY / window.innerHeight }); });
-function updateRemoteCursor(id, name, nx, ny) {
-  if (!liveCursorsEnabled) return;
-  let el = remoteCursorEls[id];
-  if (!el) { el = document.createElement('div'); el.className = 'remote-cursor px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-bold'; el.textContent = name; document.getElementById('cursorsLayer').appendChild(el); remoteCursorEls[id] = el; }
-  el.style.left = (nx * window.innerWidth) + 'px'; el.style.top = (ny * window.innerHeight) + 'px';
+// ==================== 2. ROCK PAPER SCISSORS (RPS DUEL) ====================
+let myRPSMove = null, partnerRPSMove = null, partnerRPSName = 'Partner';
+
+function openRPSModal() {
+  toggleModal('pickerPopover', false);
+  myRPSMove = null;
+  partnerRPSMove = null;
+  const st = document.getElementById('rpsStatus');
+  if (st) st.textContent = 'Pick your move! Result reveals when both lock in.';
+  toggleModal('rpsModal', true);
 }
 
-function sendTimeCapsule(s) { const t = document.getElementById('capsuleTextInput').value.trim(); if (!t) return; toggleModal('capsuleModal', false); const cap = { id: 'cap_' + Date.now(), sender: myName, text: t, seconds: s }; broadcastData({ type: 'TIME_CAPSULE', capsule: cap }); renderTimeCapsuleCard(cap, true); }
-function renderTimeCapsuleCard(cap, isOut) {
-  const d = document.createElement('div'); d.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
-  d.innerHTML = `<div class="w-64 theme-panel border border-amber-500/40 rounded-2xl p-3 text-center"><div class="text-[10px] font-bold text-amber-400">⏳ Capsule (${cap.seconds}s)</div><div id="${cap.id}_v" class="text-xs font-bold my-2">Locked...</div></div>`;
-  document.getElementById('messagesContainer').appendChild(d);
-  let r = cap.seconds; const iv = setInterval(() => { r--; const v = document.getElementById(cap.id + '_v'); if (r > 0 && v) v.textContent = `${r}s remaining`; else { clearInterval(iv); if (v) v.textContent = cap.text; } }, 1000);
+function playRPS(move) {
+  myRPSMove = move;
+  const st = document.getElementById('rpsStatus');
+  if (st) st.textContent = `You locked ${move}. Waiting for partner...`;
+  broadcastData({ type: 'GAME_RPS_MOVE', move, sender: myName });
+  evaluateRPSRound();
 }
 
-function togglePicker() {
-  const pop = document.getElementById('pickerPopover');
-  if (!pop) return;
-  pop.classList.toggle('hidden');
-  if (!pop.classList.contains('hidden')) initPickersSafely();
+function evaluateRPSRound() {
+  if (!myRPSMove || !partnerRPSMove) return;
+  const m1 = myRPSMove, m2 = partnerRPSMove;
+  myRPSMove = null;
+  partnerRPSMove = null;
+
+  let outcome = "It's a Draw! 🤝";
+  if (
+    (m1 === 'Rock' && m2 === 'Scissors') ||
+    (m1 === 'Paper' && m2 === 'Rock') ||
+    (m1 === 'Scissors' && m2 === 'Paper')
+  ) {
+    outcome = `${myName} Wins! 🏆`;
+  } else if (m1 !== m2) {
+    outcome = `${partnerRPSName} Wins! 🎉`;
+  }
+
+  const st = document.getElementById('rpsStatus');
+  if (st) st.innerHTML = `You: <b>${m1}</b> vs ${escapeHTML(partnerRPSName)}: <b>${m2}</b><br><span class="text-amber-300 font-bold">${outcome}</span>`;
+  appendSystemNotice(`✊✋✌️ RPS Duel: ${myName} (${m1}) vs ${partnerRPSName} (${m2}) → ${outcome}`);
 }
 
-function switchPickerTab(tab) {
-  ['emojis', 'stickers', 'sounds', 'surprises'].forEach(k => {
-    const grid = document.getElementById(k + 'Grid');
-    const btn = document.getElementById('tab' + k[0].toUpperCase() + k.slice(1));
-    if (grid) grid.classList.toggle('hidden', k !== tab);
-    if (btn) btn.className = k === tab ? 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-accent' : 'flex-1 py-1 text-[10px] font-semibold rounded-lg theme-muted';
-  });
+// ==================== 3. TIC-TAC-TOE (SYNCED 3x3 BOARD) ====================
+let tttCells = Array(9).fill(''), myTTTSymbol = 'X', tttTurn = 'X', tttGameOver = false;
+
+function openTTTModal() {
+  toggleModal('pickerPopover', false);
+  buildTTTBoardUI();
+  renderTTTBoard();
+  toggleModal('tttModal', true);
 }
 
-function insertEmoji(e) { document.getElementById('messageInput').value += e; }
-function sendSticker(s) { togglePicker(); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'sticker', senderName: myName, content: s, time }, true); appendMessage(myName, s, 'outgoing', time, 'sticker'); }
-function triggerSoundboard(id, b = true) { playBeatTrackSound(1); if (b) { togglePicker(); broadcastData({ type: 'SOUNDBOARD', soundId: id, senderName: myName }); } }
-function sendScratchCard() { const t = document.getElementById('scratchSecretInput').value.trim(); if (!t) return; toggleModal('scratchModal', false); const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); broadcastData({ type: 'CHAT', msgMode: 'scratch', senderName: myName, content: t, time }, true); appendMessage(myName, t, 'outgoing', time, 'scratch'); }
-function initScratchCanvas(id) { const sc = document.getElementById(id); if (!sc) return; const c = sc.getContext('2d'); c.fillStyle = '#94a3b8'; c.fillRect(0, 0, 240, 80); sc.addEventListener('pointermove', (e) => { const r = sc.getBoundingClientRect(); c.clearRect(((e.clientX - r.left) / r.width) * 240 - 15, ((e.clientY - r.top) / r.height) * 80 - 15, 30, 30); }); }
+function buildTTTBoardUI() {
+  const board = document.getElementById('tttBoard');
+  if (!board || board.children.length === 9) return;
+  board.innerHTML = Array.from({ length: 9 }, (_, i) => `
+    <button type="button" id="tttCell_${i}" onclick="makeTTTMove(${i})"
+      class="h-16 rounded-xl theme-input border text-xl font-extrabold flex items-center justify-center hover:border-indigo-400 transition"></button>
+  `).join('');
+}
 
-function initPickersSafely() {
-  const eGrid = document.getElementById('emojisGrid');
-  if (!eGrid || eGrid.dataset.ready === '1') return;
-  eGrid.dataset.ready = '1';
+function makeTTTMove(idx) {
+  if (tttGameOver || tttCells[idx] !== '') return;
+  // Auto-assign symbol on first move of a round
+  if (tttCells.every(c => c === '')) {
+    myTTTSymbol = 'X';
+    tttTurn = 'X';
+  }
+  if (tttTurn !== myTTTSymbol) {
+    const st = document.getElementById('tttStatus');
+    if (st) st.textContent = `Wait for opponent's move (${tttTurn})...`;
+    return;
+  }
 
-  eGrid.innerHTML = ['😀','😂','🥰','😎','🥳','😭','🔥','💯','❤️','👍','🎉','🚀','⚡','👀']
-    .map(e => `<button type="button" onclick="insertEmoji('${e}')" class="p-1.5 hover:bg-white/10 rounded">${e}</button>`).join('');
+  tttCells[idx] = myTTTSymbol;
+  tttTurn = myTTTSymbol === 'X' ? 'O' : 'X';
+  renderTTTBoard();
+  broadcastData({ type: 'GAME_TTT_MOVE', idx, symbol: myTTTSymbol, sender: myName });
+  checkTTTWinner();
+}
 
-  const stGrid = document.getElementById('stickersGrid');
-  if (stGrid) stGrid.innerHTML = ['🚀','🔥','🎉','❤️','😂','👑','💎','⚡','🏆','🎯','💯','🌟']
-    .map(s => `<button type="button" onclick="sendSticker('${s}')" class="p-2 hover:bg-white/10 rounded">${s}</button>`).join('');
+function renderTTTBoard() {
+  for (let i = 0; i < 9; i++) {
+    const cell = document.getElementById(`tttCell_${i}`);
+    if (!cell) continue;
+    cell.textContent = tttCells[i];
+    cell.className = `h-16 rounded-xl theme-input border text-xl font-extrabold flex items-center justify-center transition ${
+      tttCells[i] === 'X' ? 'text-indigo-400' : tttCells[i] === 'O' ? 'text-rose-400' : 'hover:border-indigo-400'
+    }`;
+  }
+  if (!tttGameOver) {
+    const st = document.getElementById('tttStatus');
+    if (st) st.textContent = tttCells.every(c => c === '')
+      ? 'Tap any square to start as X!'
+      : (tttTurn === myTTTSymbol ? `Your turn (${myTTTSymbol})` : `Partner's turn (${tttTurn})`);
+  }
+}
 
-  const sndGrid = document.getElementById('soundsGrid');
-  if (sndGrid) sndGrid.innerHTML = ['Drumroll', 'Airhorn', 'Laser', 'Power-Up']
-    .map(s => `<button type="button" onclick="triggerSoundboard('${s}')" class="p-2 rounded-xl theme-input border text-xs">${s}</button>`).join('');
+function checkTTTWinner() {
+  const lines = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  for (const [a, b, c] of lines) {
+    if (tttCells[a] && tttCells[a] === tttCells[b] && tttCells[a] === tttCells[c]) {
+      tttGameOver = true;
+      const winSym = tttCells[a];
+      const msg = winSym === myTTTSymbol ? `🎉 You (${winSym}) won Tic-Tac-Toe!` : `🏆 Partner (${winSym}) won Tic-Tac-Toe!`;
+      const st = document.getElementById('tttStatus');
+      if (st) st.innerHTML = `<span class="text-emerald-400 font-bold">${msg}</span>`;
+      appendSystemNotice(`❌⭕ ${msg}`);
+      return;
+    }
+  }
+  if (tttCells.every(c => c !== '')) {
+    tttGameOver = true;
+    const st = document.getElementById('tttStatus');
+    if (st) st.innerHTML = `<span class="text-amber-300 font-bold">🤝 Tic-Tac-Toe Draw!</span>`;
+    appendSystemNotice('❌⭕ Tic-Tac-Toe ended in a Draw!');
+  }
+}
 
-  const appGrid = document.getElementById('surprisesGrid');
-  if (appGrid) appGrid.innerHTML = `
-    <button type="button" onclick="toggleZeroGravity(true);togglePicker()" class="p-2 rounded-xl theme-input border border-indigo-500/40 text-[10px] font-bold">🪐 Zero-G Room</button>
-    <button type="button" onclick="toggleVoiceAura();togglePicker()" class="p-2 rounded-xl theme-input border border-pink-500/40 text-[10px] font-bold">🎙️ Voice Aura</button>
-    <button type="button" onclick="toggleModal('holoModal',true);togglePicker()" class="p-2 rounded-xl theme-input border border-cyan-500/40 text-[10px] font-bold">🪪 3D Hologram</button>
-    <button type="button" onclick="openPixelMosaic();togglePicker()" class="p-2 rounded-xl theme-input border border-emerald-500/40 text-[10px] font-bold">👾 Pixel Mosaic</button>
-    <button type="button" onclick="drawOracleCard();togglePicker()" class="p-2 rounded-xl theme-input border border-amber-500/40 text-[10px] font-bold">🃏 Vibe Oracle</button>
-    <button type="button" onclick="openOpponentSelector('rps');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎮 RPS Duel</button>
-    <button type="button" onclick="openOpponentSelector('ttt');togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">❌ Tic-Tac-Toe</button>
-    <button type="button" onclick="launchTriviaQuiz();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🧠 Trivia Quiz</button>
-    <button type="button" onclick="toggleModal('wheelModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎡 Spin Wheel</button>
-    <button type="button" onclick="toggleModal('storyChainModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📖 Story Chain</button>
-    <button type="button" onclick="toggleModal('pollModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📊 Live Poll</button>
-    <button type="button" onclick="toggleModal('whiteboardModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎨 Whiteboard</button>
-    <button type="button" onclick="toggleModal('timerModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏱️ Sync Timer</button>
-    <button type="button" onclick="toggleModal('auraModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🌌 Weather Aura</button>
-    <button type="button" onclick="toggleModal('telepathyModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🔮 Telepathy</button>
-    <button type="button" onclick="openPongModal(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🏓 Live Pong</button>
-    <button type="button" onclick="toggleModal('jukeboxModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📻 Jukebox</button>
-    <button type="button" onclick="toggleModal('bluffModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎭 2 Truths</button>
-    <button type="button" onclick="toggleModal('pulsePadModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">💓 Pulse Pad</button>
-    <button type="button" onclick="openDualSnapModal();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">📸 Dual Snap</button>
-    <button type="button" onclick="toggleModal('soundscapeModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎧 Soundscape</button>
-    <button type="button" onclick="toggleBeatStudio(true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎹 Beat Studio</button>
-    <button type="button" onclick="toggleModal('capsuleModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⏳ Capsule</button>
-    <button type="button" onclick="toggleModal('scratchModal',true);togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">🎟️ Scratch</button>
-    <button type="button" onclick="sendScreenNudge();togglePicker()" class="p-2 rounded-xl theme-input border text-[10px]">⚡ Buzz Screen</button>
-    <button type="button" onclick="triggerSurpriseBlast('🎉')" class="p-2 rounded-xl theme-input border text-[10px]">🎉 Party Rain</button>
+function resetTTT(broadcast = true) {
+  tttCells = Array(9).fill('');
+  myTTTSymbol = 'X';
+  tttTurn = 'X';
+  tttGameOver = false;
+  renderTTTBoard();
+  if (broadcast) broadcastData({ type: 'GAME_TTT_RESET', sender: myName });
+}
+
+// ==================== 4. BLIND STORY CHAIN ====================
+let storyChainEntries = [];
+
+function openStoryModal() {
+  toggleModal('pickerPopover', false);
+  updateStoryClueUI();
+  toggleModal('storyModal', true);
+}
+
+function updateStoryClueUI() {
+  const clueEl = document.getElementById('storyClueText');
+  if (!clueEl) return;
+  if (storyChainEntries.length === 0) {
+    clueEl.textContent = 'Start the first line of the story!';
+  } else {
+    const last = storyChainEntries[storyChainEntries.length - 1];
+    const words = last.text.split(/\s+/);
+    const hint = words.slice(-3).join(' ');
+    clueEl.innerHTML = `<b>${storyChainEntries.length} lines written.</b> Last clue: <i>"...${escapeHTML(hint)}"</i>`;
+  }
+}
+
+function submitStoryLine() {
+  const input = document.getElementById('storyLineInput');
+  const line = (input?.value || '').trim();
+  if (!line) return;
+  input.value = '';
+  const entry = { author: myName, text: line };
+  storyChainEntries.push(entry);
+  updateStoryClueUI();
+  broadcastData({ type: 'GAME_STORY_ADD', entry });
+  appendSystemNotice(`📖 ${myName} added a secret line to the Story Chain!`);
+}
+
+function revealFullStory() {
+  if (storyChainEntries.length === 0) {
+    alert('Add at least one line to the story first!');
+    return;
+  }
+  const snapshot = [...storyChainEntries];
+  storyChainEntries = [];
+  updateStoryClueUI();
+  toggleModal('storyModal', false);
+  broadcastData({ type: 'GAME_STORY_REVEAL', entries: snapshot });
+  renderStoryRevealCard(snapshot);
+}
+
+function renderStoryRevealCard(entries) {
+  const c = document.getElementById('messagesContainer');
+  if (!c) return;
+  const div = document.createElement('div');
+  div.className = 'flex flex-col items-center my-2';
+  div.innerHTML = `
+    <div class="w-80 theme-panel border border-indigo-400/40 rounded-2xl p-4 shadow-xl">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-300 mb-2">📖 Blind Story Chain Reveal</div>
+      <div class="space-y-1.5 text-xs leading-relaxed">
+        ${entries.map(e => `<p><span class="text-indigo-300 font-bold">${escapeHTML(e.author)}:</span> ${escapeHTML(e.text)}</p>`).join('')}
+      </div>
+    </div>
+  `;
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ==================== 5. TRIVIA QUIZ, SPIN WHEEL, LIVE POLL ====================
+const TRIVIA_BANK = [
+  { q: 'Which planet has the most moons in our solar system?', opts: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], ans: 1 },
+  { q: 'What is the chemical symbol for Gold?', opts: ['Go', 'Gd', 'Au', 'Ag'], ans: 2 },
+  { q: 'Which country invented espresso coffee?', opts: ['France', 'Brazil', 'Italy', 'Spain'], ans: 2 },
+  { q: 'How many bones are in an adult human body?', opts: ['186', '206', '226', '246'], ans: 1 },
+  { q: 'Which ocean is the largest on Earth?', opts: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], ans: 3 },
+  { q: 'What year was the first iPhone released?', opts: ['2005', '2007', '2008', '2010'], ans: 1 }
+];
+
+function openTriviaModal() {
+  toggleModal('pickerPopover', false);
+  startTriviaRound();
+  toggleModal('triviaModal', true);
+}
+
+function startTriviaRound() {
+  const item = TRIVIA_BANK[Math.floor(Math.random() * TRIVIA_BANK.length)];
+  renderTriviaQuestion(item);
+  broadcastData({ type: 'GAME_TRIVIA', item, sender: myName });
+}
+
+function renderTriviaQuestion(item) {
+  const stage = document.getElementById('triviaStage');
+  if (!stage) return;
+  stage.innerHTML = `
+    <div class="font-bold text-white mb-2.5">${escapeHTML(item.q)}</div>
+    <div class="space-y-1.5">
+      ${item.opts.map((opt, idx) => `
+        <button type="button" onclick="answerTrivia(${idx}, ${item.ans}, '${escapeHTML(opt).replace(/'/g, "\\'")}')"
+          class="w-full py-2 px-3 rounded-xl theme-input border hover:border-indigo-400 text-left text-xs transition">${escapeHTML(opt)}</button>
+      `).join('')}
+    </div>
   `;
 }
-initPickersSafely();
-// ==================== SELF-HEALING UI BOOTSTRAP (GUARANTEES APPS & THEMES WORK) ====================
-(function ensureAllAppGridsPopulated() {
-  function hydrate() {
-    if (typeof initPickersSafely === 'function') {
-      try { initPickersSafely(); } catch (e) { console.warn('initPickersSafely notice:', e); }
-    }
 
-    // Fallback: if surprisesGrid is still empty, populate all 26 interactive launchers
-    const surprisesEl = document.getElementById('surprisesGrid');
-    if (surprisesEl && surprisesEl.children.length === 0) {
-      const apps = [
-        ['✊ RPS Duel', "toggleModal('rpsModal',true);togglePicker()"],
-        ['❌⭕ Tic-Tac-Toe', "toggleModal('tttModal',true);togglePicker()"],
-        ['🧠 Trivia Quiz', "toggleModal('triviaModal',true);startTriviaRound();togglePicker()"],
-        ['🎡 Spin Wheel', "toggleModal('spinWheelModal',true);togglePicker()"],
-        ['📖 Story Chain', "toggleModal('storyModal',true);togglePicker()"],
-        ['📊 Live Poll', "toggleModal('pollModal',true);togglePicker()"],
-        ['🎨 Whiteboard', "toggleModal('whiteboardModal',true);togglePicker()"],
-        ['⏱️ Sync Timer', "toggleModal('timerModal',true);togglePicker()"],
-        ['🎵 YT Jukebox', "toggleModal('jukeboxModal',true);togglePicker()"],
-        ['💓 Pulse Pad', "toggleModal('pulsePadModal',true);togglePicker()"],
-        ['🔮 Telepathy', "toggleModal('telepathyModal',true);togglePicker()"],
-        ['🏓 Live Pong', "if(typeof openPongModal==='function')openPongModal();else toggleModal('pongModal',true);togglePicker()"],
-        ['🕵️ 2 Truths 1 Lie', "toggleModal('bluffModal',true);togglePicker()"],
-        ['📸 Dual Snap', "if(typeof openDualSnapModal==='function')openDualSnapModal();else toggleModal('dualSnapModal',true);togglePicker()"],
-        ['🎧 Soundscape', "toggleModal('soundscapeModal',true);togglePicker()"],
-        ['🎹 Beat Studio', "if(typeof toggleBeatStudio==='function')toggleBeatStudio();else toggleModal('beatStudioPanel',true);togglePicker()"],
-        ['⏳ Time Capsule', "toggleModal('capsuleModal',true);togglePicker()"],
-        ['👾 Pixel Art', "toggleModal('pixelArtModal',true);togglePicker()"],
-        ['🧊 3D Hologram', "toggleModal('hologramModal',true);togglePicker()"],
-        ['🪄 Vibe Oracle', "toggleModal('oracleModal',true);togglePicker()"]
-      ];
-      surprisesEl.innerHTML = apps.map(([label, action]) =>
-        `<button type="button" onclick="${action}" class="p-2 rounded-xl theme-input border hover:border-indigo-400/50 text-[10px] font-semibold text-left truncate transition">${label}</button>`
-      ).join('');
-    }
+function answerTrivia(chosen, correct, label) {
+  const isRight = chosen === correct;
+  const stage = document.getElementById('triviaStage');
+  if (stage) {
+    stage.innerHTML += `<div class="mt-2.5 font-bold ${isRight ? 'text-emerald-400' : 'text-rose-400'}">${isRight ? '✅ Correct!' : '❌ Wrong Answer!'}</div>`;
+  }
+  broadcastData({ type: 'GAME_TRIVIA_ANS', sender: myName, label, isRight });
+  appendSystemNotice(`🧠 ${myName} answered "${label}" (${isRight ? 'Correct ✅' : 'Wrong ❌'})`);
+}
 
-    // Fallback: if themeGrid is empty, populate 8 rich themes
-    const themeEl = document.getElementById('themeGrid');
-    if (themeEl && themeEl.children.length === 0) {
-      const presets = [
-        ['Aurora', '#6366f1', '#070b14'],
-        ['Emerald', '#10b981', '#04120e'],
-        ['Rose', '#f43f5e', '#14060b'],
-        ['Amber', '#f59e0b', '#140e04'],
-        ['Cyan', '#06b6d4', '#041116'],
-        ['Violet', '#8b5cf6', '#0d0717'],
-        ['Crimson', '#ef4444', '#140707'],
-        ['Slate', '#64748b', '#0b0f17']
-      ];
-      themeEl.innerHTML = presets.map(([name, accent, bg]) =>
-        `<button type="button" onclick="document.documentElement.style.setProperty('--accent','${accent}');document.documentElement.style.setProperty('--bg-main','${bg}');" class="py-1.5 px-1 rounded-lg theme-input border text-[9px] font-bold truncate" style="border-color:${accent}55">${name}</button>`
-      ).join('');
+function spinDecisionWheel() {
+  const raw = document.getElementById('wheelOptionsInput')?.value || 'Coffee, Pizza, Movie';
+  const items = raw.split(',').map(s => s.trim()).filter(Boolean);
+  if (items.length === 0) return;
+  const winner = items[Math.floor(Math.random() * items.length)];
+  const resEl = document.getElementById('wheelResultText');
+  if (resEl) resEl.textContent = '🎡 Spinning...';
+  setTimeout(() => {
+    if (resEl) resEl.textContent = `🎉 Winner: ${winner}`;
+    broadcastData({ type: 'GAME_WHEEL', winner, sender: myName });
+    appendSystemNotice(`🎡 Decision Wheel landed on: ${winner}`);
+  }, 450);
+}
+
+const activePolls = {};
+function createLivePoll() {
+  const q = document.getElementById('pollQuestionInput')?.value.trim();
+  const optsRaw = document.getElementById('pollOptionsInput')?.value || '';
+  const opts = optsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  if (!q || opts.length < 2) { alert('Enter a question and at least 2 comma-separated options.'); return; }
+  toggleModal('pollModal', false);
+  const poll = { id: 'poll_' + Date.now(), question: q, options: opts, votes: opts.map(() => 0), creator: myName };
+  activePolls[poll.id] = poll;
+  broadcastData({ type: 'GAME_POLL_NEW', poll });
+  renderPollCard(poll);
+}
+
+function renderPollCard(poll) {
+  const c = document.getElementById('messagesContainer');
+  if (!c) return;
+  const div = document.createElement('div');
+  div.id = poll.id;
+  div.className = 'flex flex-col items-center my-2';
+  div.innerHTML = buildPollHTML(poll);
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+function buildPollHTML(poll) {
+  const total = poll.votes.reduce((a, b) => a + b, 0);
+  return `
+    <div class="w-72 theme-panel border border-indigo-400/40 rounded-2xl p-4 shadow-xl">
+      <div class="text-[10px] font-bold text-indigo-300 uppercase mb-1">📊 Live Poll • ${escapeHTML(poll.creator)}</div>
+      <div class="text-xs font-bold text-white mb-2.5">${escapeHTML(poll.question)}</div>
+      <div class="space-y-1.5">
+        ${poll.options.map((opt, idx) => {
+          const pct = total ? Math.round((poll.votes[idx] / total) * 100) : 0;
+          return `
+            <button type="button" onclick="voteInPoll('${poll.id}', ${idx})"
+              class="w-full p-2 rounded-xl theme-input border hover:border-indigo-400 text-left text-xs flex justify-between items-center transition">
+              <span>${escapeHTML(opt)}</span>
+              <span class="text-[10px] font-bold text-indigo-300">${poll.votes[idx]} (${pct}%)</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function voteInPoll(pollId, optIdx) {
+  const poll = activePolls[pollId];
+  if (!poll) return;
+  poll.votes[optIdx]++;
+  const el = document.getElementById(pollId);
+  if (el) el.innerHTML = buildPollHTML(poll);
+  broadcastData({ type: 'GAME_POLL_VOTE', pollId, optIdx });
+}
+
+// ==================== 6. WHITEBOARD, TIMER, JUKEBOX, PULSE, TELEPATHY ====================
+let wbInitialized = false, wbDrawing = false, wbLastX = 0, wbLastY = 0;
+function openWhiteboardModal() {
+  toggleModal('pickerPopover', false);
+  toggleModal('whiteboardModal', true);
+  initWhiteboardCanvas();
+}
+
+function initWhiteboardCanvas() {
+  if (wbInitialized) return;
+  const canvas = document.getElementById('sharedCanvas');
+  if (!canvas) return;
+  wbInitialized = true;
+  const ctx = canvas.getContext('2d');
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 3;
+
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: ((clientX - rect.left) / rect.width) * canvas.width,
+      y: ((clientY - rect.top) / rect.height) * canvas.height
+    };
+  };
+
+  const start = (e) => { wbDrawing = true; const p = getPos(e); wbLastX = p.x; wbLastY = p.y; };
+  const move = (e) => {
+    if (!wbDrawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    const color = document.getElementById('wbColorInput')?.value || '#38bdf8';
+    drawWBSegment(wbLastX, wbLastY, p.x, p.y, color);
+    broadcastData({ type: 'GAME_WB_DRAW', x1: wbLastX, y1: wbLastY, x2: p.x, y2: p.y, color });
+    wbLastX = p.x; wbLastY = p.y;
+  };
+  const stop = () => { wbDrawing = false; };
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', stop);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', stop);
+}
+
+function drawWBSegment(x1, y1, x2, y2, color) {
+  const canvas = document.getElementById('sharedCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function clearWhiteboard(broadcast = true) {
+  const canvas = document.getElementById('sharedCanvas');
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  if (broadcast) broadcastData({ type: 'GAME_WB_CLEAR' });
+}
+
+let syncTimerInterval = null;
+function startSyncedTimer() {
+  const mins = Math.max(1, parseInt(document.getElementById('timerMinutesInput')?.value || '5', 10));
+  toggleModal('timerModal', false);
+  const endAt = Date.now() + mins * 60000;
+  runSyncedTimer(endAt);
+  broadcastData({ type: 'GAME_TIMER', endAt, sender: myName });
+}
+
+function runSyncedTimer(endAt) {
+  toggleModal('syncTimerBar', true);
+  if (syncTimerInterval) clearInterval(syncTimerInterval);
+  const update = () => {
+    const rem = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+    const m = String(Math.floor(rem / 60)).padStart(2, '0');
+    const s = String(rem % 60).padStart(2, '0');
+    const lbl = document.getElementById('syncTimerLabel');
+    if (lbl) lbl.textContent = rem > 0 ? `⏳ Synced Timer: ${m}:${s}` : '🔔 Synced Timer Finished!';
+    if (rem <= 0) {
+      clearInterval(syncTimerInterval);
+      playMessageTone();
     }
+  };
+  update();
+  syncTimerInterval = setInterval(update, 1000);
+}
+
+function extractYouTubeId(url) {
+  const m = String(url).match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : (String(url).trim().length === 11 ? String(url).trim() : null);
+}
+
+function loadJukeboxVideo() {
+  const raw = document.getElementById('ytUrlInput')?.value || '';
+  const vid = extractYouTubeId(raw);
+  if (!vid) { alert('Enter a valid YouTube video URL or 11-character ID.'); return; }
+  embedJukeboxVideo(vid);
+  broadcastData({ type: 'GAME_YT', vid, sender: myName });
+}
+
+function embedJukeboxVideo(vid) {
+  toggleModal('jukeboxModal', true);
+  const box = document.getElementById('jukeboxPlayerContainer');
+  if (box) {
+    box.innerHTML = `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${vid}?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  }
+}
+
+function sendTactilePulse() {
+  if (navigator.vibrate) navigator.vibrate(90);
+  broadcastData({ type: 'GAME_PULSE', sender: myName });
+}
+
+let myTelepathy = '', partnerTelepathy = '';
+function submitTelepathyWord() {
+  const inp = document.getElementById('telepathyWordInput');
+  const word = (inp?.value || '').trim();
+  if (!word) return;
+  inp.value = '';
+  toggleModal('telepathyModal', false);
+  myTelepathy = word;
+  broadcastData({ type: 'GAME_TELEPATHY', word, sender: myName });
+  appendSystemNotice('🔮 You locked in your Telepathy word...');
+  checkTelepathyMatch();
+}
+
+function checkTelepathyMatch() {
+  if (!myTelepathy || !partnerTelepathy) return;
+  const w1 = myTelepathy, w2 = partnerTelepathy;
+  myTelepathy = ''; partnerTelepathy = '';
+  const match = w1.toLowerCase() === w2.toLowerCase();
+  appendSystemNotice(`🔮 Telepathy Reveal: "${w1}" vs "${w2}" → ${match ? '✨ EXACT TELEPATHY MATCH!' : 'Different wavelengths!'}`);
+}
+
+// ==================== 7. LIVE PONG, BLUFF, DUAL SNAP, SOUNDSCAPE, CAPSULE, PIXEL, HOLOGRAM, ORACLE ====================
+let pongLoopId = null, pongBall = { x: 160, y: 110, vx: 2.5, vy: 2 }, pongMyY = 85, pongPeerY = 85;
+function openPongModal() {
+  toggleModal('pickerPopover', false);
+  toggleModal('pongModal', true);
+  const c = document.getElementById('pongCanvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const onMove = (e) => {
+    const rect = c.getBoundingClientRect();
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    pongMyY = Math.max(0, Math.min(170, ((cy - rect.top) / rect.height) * 220 - 25));
+    broadcastData({ type: 'GAME_PONG_Y', y: pongMyY });
+  };
+  c.onmousemove = onMove;
+  c.ontouchmove = onMove;
+
+  if (pongLoopId) clearInterval(pongLoopId);
+  pongLoopId = setInterval(() => {
+    pongBall.x += pongBall.vx;
+    pongBall.y += pongBall.vy;
+    if (pongBall.y <= 6 || pongBall.y >= 214) pongBall.vy *= -1;
+    if (pongBall.x <= 18 && pongBall.y >= pongMyY && pongBall.y <= pongMyY + 50) pongBall.vx = Math.abs(pongBall.vx);
+    if (pongBall.x >= 302 && pongBall.y >= pongPeerY && pongBall.y <= pongPeerY + 50) pongBall.vx = -Math.abs(pongBall.vx);
+    if (pongBall.x < 0 || pongBall.x > 320) { pongBall.x = 160; pongBall.y = 110; }
+
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, 320, 220);
+    ctx.fillStyle = '#818cf8';
+    ctx.fillRect(10, pongMyY, 8, 50);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillRect(302, pongPeerY, 8, 50);
+    ctx.beginPath();
+    ctx.arc(pongBall.x, pongBall.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fill();
+  }, 25);
+}
+
+function closePongModal() {
+  if (pongLoopId) { clearInterval(pongLoopId); pongLoopId = null; }
+  toggleModal('pongModal', false);
+}
+
+function sendBluffRound() {
+  const s1 = document.getElementById('bluff1')?.value.trim();
+  const s2 = document.getElementById('bluff2')?.value.trim();
+  const s3 = document.getElementById('bluff3')?.value.trim();
+  const lieIdx = parseInt(document.getElementById('bluffLieIdx')?.value || '0', 10);
+  if (!s1 || !s2 || !s3) { alert('Fill in all 3 statements.'); return; }
+  toggleModal('bluffModal', false);
+  const round = { id: 'bluff_' + Date.now(), sender: myName, items: [s1, s2, s3], lieIdx };
+  broadcastData({ type: 'GAME_BLUFF', round });
+  renderBluffCard(round, true);
+}
+
+function renderBluffCard(round, isOut) {
+  const c = document.getElementById('messagesContainer');
+  if (!c) return;
+  const div = document.createElement('div');
+  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+  div.innerHTML = `
+    <div class="w-72 theme-panel border border-indigo-400/40 rounded-2xl p-4 shadow-xl">
+      <div class="text-[10px] font-bold text-indigo-300 uppercase mb-1.5">🕵️ Two Truths & A Lie (${escapeHTML(round.sender)})</div>
+      <div class="space-y-1.5">
+        ${round.items.map((txt, i) => `
+          <button type="button" onclick="this.textContent = (${i} === ${round.lieIdx} ? '🎯 LIE: ' : '✅ TRUTH: ') + '${escapeHTML(txt).replace(/'/g, "\\'")}'"
+            class="w-full p-2 rounded-xl theme-input border text-left text-xs hover:border-amber-400 transition">${escapeHTML(txt)}</button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+}
+
+let dualSnapStream = null;
+async function openDualSnapModal() {
+  toggleModal('pickerPopover', false);
+  toggleModal('dualSnapModal', true);
+  try {
+    dualSnapStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 } }, audio: false });
+    const v = document.getElementById('dualSnapPreview');
+    if (v) v.srcObject = dualSnapStream;
+  } catch (e) { alert('Camera unavailable: ' + e.message); }
+}
+
+async function captureDualSnap() {
+  const v = document.getElementById('dualSnapPreview');
+  if (!v || !v.videoWidth) return;
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  const dataUrl = c.toDataURL('image/jpeg', 0.72);
+  closeDualSnapModal();
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msgId = 'msg_' + Date.now();
+  appendMessage(myName, dataUrlToBlobUrl(dataUrl), 'outgoing', time, 'photo', msgId, { isDual: true, rawContent: dataUrl });
+  await sendChunkedPayload(dataUrl, { msgId, msgMode: 'photo', isDual: true, time });
+}
+
+function closeDualSnapModal() {
+  if (dualSnapStream) { dualSnapStream.getTracks().forEach(t => t.stop()); dualSnapStream = null; }
+  toggleModal('dualSnapModal', false);
+}
+
+let ambientNode = null;
+function toggleAmbientScape(mode) {
+  toggleModal('soundscapeModal', false);
+  if (ambientNode) { try { ambientNode.stop(); } catch (e) {} ambientNode = null; }
+  if (mode === 'off') return;
+  try {
+    initAudioContext();
+    const bufSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (mode === 'rain' ? 0.04 : 0.025);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer; src.loop = true;
+    src.connect(audioCtx.destination);
+    src.start();
+    ambientNode = src;
+    appendSystemNotice(`🎧 Ambient ${mode} soundscape started`);
+  } catch (e) {}
+}
+
+function buildBeatStudioUI() {
+  const grid = document.getElementById('beatPadsGrid');
+  if (!grid || grid.children.length > 0) return;
+  const notes = [
+    ['Kick', 95], ['Snare', 220], ['Hi-Hat', 880], ['Bass', 130],
+    ['Chord C', 261.6], ['Chord E', 329.6], ['Chord G', 392], ['Synth', 523.2]
+  ];
+  grid.innerHTML = notes.map(([label, freq]) => `
+    <button type="button" onclick="playBeatPad(${freq}, '${label}', true)"
+      class="py-2.5 rounded-xl theme-input border hover:border-indigo-400 text-[10px] font-bold active:scale-95 transition">${label}</button>
+  `).join('');
+}
+
+function toggleBeatStudio() {
+  toggleModal('pickerPopover', false);
+  buildBeatStudioUI();
+  const p = document.getElementById('beatStudioPanel');
+  if (p) p.classList.toggle('hidden');
+}
+
+function playBeatPad(freq, label, broadcast = false) {
+  try {
+    initAudioContext();
+    const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+    osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+    osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.26);
+  } catch (e) {}
+  if (broadcast) broadcastData({ type: 'GAME_BEAT', freq, label });
+}
+
+function sendTimeCapsule() {
+  const text = document.getElementById('capsuleTextInput')?.value.trim();
+  const secs = Math.max(5, parseInt(document.getElementById('capsuleDelayInput')?.value || '30', 10));
+  if (!text) return;
+  document.getElementById('capsuleTextInput').value = '';
+  toggleModal('capsuleModal', false);
+  const unlockAt = Date.now() + secs * 1000;
+  const cap = { id: 'cap_' + Date.now(), sender: myName, text, unlockAt };
+  broadcastData({ type: 'GAME_CAPSULE', cap });
+  renderTimeCapsuleCard(cap, true);
+}
+
+function renderTimeCapsuleCard(cap, isOut) {
+  const c = document.getElementById('messagesContainer');
+  if (!c) return;
+  const div = document.createElement('div');
+  div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+  div.innerHTML = `
+    <div class="w-64 theme-panel border border-amber-500/40 rounded-2xl p-3.5 shadow-xl">
+      <div class="text-[10px] font-bold text-amber-300 mb-1">⏳ Time Capsule (${escapeHTML(cap.sender)})</div>
+      <div id="${cap.id}_body" class="text-xs italic theme-muted">Locked until timer finishes...</div>
+    </div>
+  `;
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+  const iv = setInterval(() => {
+    const rem = Math.ceil((cap.unlockAt - Date.now()) / 1000);
+    const el = document.getElementById(cap.id + '_body');
+    if (!el) { clearInterval(iv); return; }
+    if (rem > 0) el.textContent = `Unlocks in ${rem}s...`;
+    else { clearInterval(iv); el.className = 'text-xs font-semibold text-white'; el.textContent = cap.text; }
+  }, 1000);
+}
+
+function buildPixelGridUI() {
+  const board = document.getElementById('pixelGridBoard');
+  if (!board || board.children.length > 0) return;
+  board.style.gridTemplateColumns = 'repeat(16, minmax(0, 1fr))';
+  board.innerHTML = Array.from({ length: 256 }, (_, idx) => `
+    <div id="px_${idx}" onclick="paintPixel(${idx}, true)" class="aspect-square bg-slate-900 hover:opacity-80 cursor-pointer"></div>
+  `).join('');
+}
+
+function openPixelArtModal() {
+  toggleModal('pickerPopover', false);
+  buildPixelGridUI();
+  toggleModal('pixelArtModal', true);
+}
+
+function paintPixel(idx, broadcast = false, forcedColor = null) {
+  const cell = document.getElementById(`px_${idx}`);
+  const color = forcedColor || document.getElementById('pixelColorInput')?.value || '#f43f5e';
+  if (cell) cell.style.backgroundColor = color;
+  if (broadcast) broadcastData({ type: 'GAME_PIXEL', idx, color });
+}
+
+function sharePixelArtToChat() {
+  toggleModal('pixelArtModal', false);
+  appendSystemNotice(`👾 ${myName} shared a 16×16 Co-Op Pixel Mosaic update!`);
+}
+
+function sendHologramCipher() {
+  const text = document.getElementById('hologramTextInput')?.value.trim();
+  if (!text) return;
+  document.getElementById('hologramTextInput').value = '';
+  toggleModal('hologramModal', false);
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msgId = 'msg_' + Date.now();
+  broadcastData({ type: 'CHAT', msgId, msgMode: 'secret', senderId: myPeerId, senderName: myName, content: `🧊 HOLOGRAM: ${text}`, time }, true);
+  appendMessage(myName, `🧊 HOLOGRAM: ${text}`, 'outgoing', time, 'secret', msgId);
+}
+
+function consultVibeOracle() {
+  const q = document.getElementById('oracleQuestionInput')?.value.trim();
+  if (!q) return;
+  document.getElementById('oracleQuestionInput').value = '';
+  toggleModal('oracleModal', false);
+  const answers = ['✨ Definitely Yes!', '🔮 Signs point to Yes', '⏳ Ask again after coffee', '🌙 The stars say Maybe', '🔥 100% Guaranteed'];
+  const ans = answers[Math.floor(Math.random() * answers.length)];
+  const msg = `🪄 Vibe Oracle ("${q}") → ${ans}`;
+  broadcastData({ type: 'GAME_ORACLE', msg });
+  appendSystemNotice(msg);
+}
+
+function triggerWeatherAura(kind) {
+  toggleModal('pickerPopover', false);
+  broadcastData({ type: 'GAME_AURA', kind });
+  appendSystemNotice('🌸 Ambient aura activated across the room!');
+}
+
+function triggerZeroGRoom() {
+  toggleModal('pickerPopover', false);
+  document.querySelectorAll('#messagesContainer > div').forEach(el => el.classList.toggle('zero-g-float'));
+  broadcastData({ type: 'GAME_ZEROG' });
+  appendSystemNotice('🚀 Zero-Gravity float toggled!');
+}
+
+function stopAllGamesAndLoops() {
+  if (pongLoopId) { clearInterval(pongLoopId); pongLoopId = null; }
+  if (syncTimerInterval) { clearInterval(syncTimerInterval); syncTimerInterval = null; }
+  if (ambientNode) { try { ambientNode.stop(); } catch (e) {} ambientNode = null; }
+  if (dualSnapStream) { try { dualSnapStream.getTracks().forEach(t => t.stop()); } catch (e) {} dualSnapStream = null; }
+}
+
+// ==================== 8. CENTRAL PACKET ROUTER + HOST RELAY ====================
+window.handleGamePacket = function(conn, data) {
+  if (!data || !data.type) return;
+
+  // Relay all GAME_* packets to other guests when acting as Star-Hub Host
+  if (typeof isHost !== 'undefined' && isHost && data.type.startsWith('GAME_') && typeof relayToOthers === 'function') {
+    relayToOthers(conn.peer, data);
   }
 
-  if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', hydrate);
-  } else {
-    hydrate();
+  switch (data.type) {
+    case 'GAME_FX':
+      playSynthFX(data.fxId);
+      appendSystemNotice(`🔊 ${escapeHTML(data.sender || 'Peer')} played ${escapeHTML(data.fxId || 'FX')} effect`);
+      break;
+    case 'GAME_BUZZ':
+      triggerScreenBuzz(false);
+      appendSystemNotice(`⚡ ${escapeHTML(data.sender || 'Peer')} buzzed your screen!`);
+      break;
+    case 'GAME_RPS_MOVE':
+      partnerRPSMove = data.move;
+      partnerRPSName = data.sender || 'Partner';
+      if (myRPSMove) evaluateRPSRound();
+      else {
+        appendSystemNotice(`✊✋✌️ ${escapeHTML(partnerRPSName)} locked in an RPS Duel move! Open Play & Apps → RPS Duel to respond.`);
+      }
+      break;
+    case 'GAME_TTT_MOVE':
+      tttCells[data.idx] = data.symbol;
+      myTTTSymbol = data.symbol === 'X' ? 'O' : 'X';
+      tttTurn = myTTTSymbol;
+      buildTTTBoardUI();
+      renderTTTBoard();
+      checkTTTWinner();
+      break;
+    case 'GAME_TTT_RESET':
+      resetTTT(false);
+      break;
+    case 'GAME_STORY_ADD':
+      if (data.entry) {
+        storyChainEntries.push(data.entry);
+        updateStoryClueUI();
+        appendSystemNotice(`📖 ${escapeHTML(data.entry.author || 'Partner')} added a line to the Story Chain!`);
+      }
+      break;
+    case 'GAME_STORY_REVEAL':
+      storyChainEntries = [];
+      updateStoryClueUI();
+      if (Array.isArray(data.entries)) renderStoryRevealCard(data.entries);
+      break;
+    case 'GAME_TRIVIA':
+      if (data.item) {
+        renderTriviaQuestion(data.item);
+        toggleModal('triviaModal', true);
+      }
+      break;
+    case 'GAME_TRIVIA_ANS':
+      appendSystemNotice(`🧠 ${escapeHTML(data.sender || 'Partner')} answered "${escapeHTML(data.label)}" (${data.isRight ? 'Correct ✅' : 'Wrong ❌'})`);
+      break;
+    case 'GAME_WHEEL':
+      appendSystemNotice(`🎡 ${escapeHTML(data.sender || 'Partner')} spun Decision Wheel → ${escapeHTML(data.winner)}`);
+      break;
+    case 'GAME_POLL_NEW':
+      if (data.poll) {
+        activePolls[data.poll.id] = data.poll;
+        renderPollCard(data.poll);
+      }
+      break;
+    case 'GAME_POLL_VOTE':
+      if (activePolls[data.pollId]) {
+        activePolls[data.pollId].votes[data.optIdx]++;
+        const el = document.getElementById(data.pollId);
+        if (el) el.innerHTML = buildPollHTML(activePolls[data.pollId]);
+      }
+      break;
+    case 'GAME_WB_DRAW':
+      drawWBSegment(data.x1, data.y1, data.x2, data.y2, data.color);
+      break;
+    case 'GAME_WB_CLEAR':
+      clearWhiteboard(false);
+      break;
+    case 'GAME_TIMER':
+      runSyncedTimer(data.endAt);
+      break;
+    case 'GAME_YT':
+      embedJukeboxVideo(data.vid);
+      break;
+    case 'GAME_PULSE':
+      if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      showToast('💓 Tactile Pulse', `${data.sender || 'Partner'} sent a heartbeat pulse!`);
+      break;
+    case 'GAME_TELEPATHY':
+      partnerTelepathy = data.word || '';
+      if (myTelepathy) checkTelepathyMatch();
+      else appendSystemNotice(`🔮 ${escapeHTML(data.sender || 'Partner')} locked in a Telepathy word! Open Telepathy Sync to match.`);
+      break;
+    case 'GAME_PONG_Y':
+      pongPeerY = data.y;
+      break;
+    case 'GAME_BLUFF':
+      if (data.round) renderBluffCard(data.round, false);
+      break;
+    case 'GAME_BEAT':
+      playBeatPad(data.freq, data.label, false);
+      break;
+    case 'GAME_CAPSULE':
+      if (data.cap) renderTimeCapsuleCard(data.cap, false);
+      break;
+    case 'GAME_PIXEL':
+      buildPixelGridUI();
+      paintPixel(data.idx, false, data.color);
+      break;
+    case 'GAME_ORACLE':
+      appendSystemNotice(escapeHTML(data.msg || ''));
+      break;
+    case 'GAME_ZEROG':
+      document.querySelectorAll('#messagesContainer > div').forEach(el => el.classList.toggle('zero-g-float'));
+      break;
   }
-})();
+};
+
+// Bootstrap pickers & grids immediately on DOMContentLoaded
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initPickersSafely);
+} else {
+  initPickersSafely();
+}
