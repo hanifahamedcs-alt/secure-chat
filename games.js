@@ -883,3 +883,65 @@ function initPickersSafely() {
   `;
 }
 initPickersSafely();
+// ==================== SELF-HEALING UI BOOTSTRAP (GUARANTEES APPS & THEMES WORK) ====================
+(function ensureAllAppGridsPopulated() {
+  function hydrate() {
+    if (typeof initPickersSafely === 'function') {
+      try { initPickersSafely(); } catch (e) { console.warn('initPickersSafely notice:', e); }
+    }
+
+    // Fallback: if surprisesGrid is still empty, populate all 26 interactive launchers
+    const surprisesEl = document.getElementById('surprisesGrid');
+    if (surprisesEl && surprisesEl.children.length === 0) {
+      const apps = [
+        ['✊ RPS Duel', "toggleModal('rpsModal',true);togglePicker()"],
+        ['❌⭕ Tic-Tac-Toe', "toggleModal('tttModal',true);togglePicker()"],
+        ['🧠 Trivia Quiz', "toggleModal('triviaModal',true);startTriviaRound();togglePicker()"],
+        ['🎡 Spin Wheel', "toggleModal('spinWheelModal',true);togglePicker()"],
+        ['📖 Story Chain', "toggleModal('storyModal',true);togglePicker()"],
+        ['📊 Live Poll', "toggleModal('pollModal',true);togglePicker()"],
+        ['🎨 Whiteboard', "toggleModal('whiteboardModal',true);togglePicker()"],
+        ['⏱️ Sync Timer', "toggleModal('timerModal',true);togglePicker()"],
+        ['🎵 YT Jukebox', "toggleModal('jukeboxModal',true);togglePicker()"],
+        ['💓 Pulse Pad', "toggleModal('pulsePadModal',true);togglePicker()"],
+        ['🔮 Telepathy', "toggleModal('telepathyModal',true);togglePicker()"],
+        ['🏓 Live Pong', "if(typeof openPongModal==='function')openPongModal();else toggleModal('pongModal',true);togglePicker()"],
+        ['🕵️ 2 Truths 1 Lie', "toggleModal('bluffModal',true);togglePicker()"],
+        ['📸 Dual Snap', "if(typeof openDualSnapModal==='function')openDualSnapModal();else toggleModal('dualSnapModal',true);togglePicker()"],
+        ['🎧 Soundscape', "toggleModal('soundscapeModal',true);togglePicker()"],
+        ['🎹 Beat Studio', "if(typeof toggleBeatStudio==='function')toggleBeatStudio();else toggleModal('beatStudioPanel',true);togglePicker()"],
+        ['⏳ Time Capsule', "toggleModal('capsuleModal',true);togglePicker()"],
+        ['👾 Pixel Art', "toggleModal('pixelArtModal',true);togglePicker()"],
+        ['🧊 3D Hologram', "toggleModal('hologramModal',true);togglePicker()"],
+        ['🪄 Vibe Oracle', "toggleModal('oracleModal',true);togglePicker()"]
+      ];
+      surprisesEl.innerHTML = apps.map(([label, action]) =>
+        `<button type="button" onclick="${action}" class="p-2 rounded-xl theme-input border hover:border-indigo-400/50 text-[10px] font-semibold text-left truncate transition">${label}</button>`
+      ).join('');
+    }
+
+    // Fallback: if themeGrid is empty, populate 8 rich themes
+    const themeEl = document.getElementById('themeGrid');
+    if (themeEl && themeEl.children.length === 0) {
+      const presets = [
+        ['Aurora', '#6366f1', '#070b14'],
+        ['Emerald', '#10b981', '#04120e'],
+        ['Rose', '#f43f5e', '#14060b'],
+        ['Amber', '#f59e0b', '#140e04'],
+        ['Cyan', '#06b6d4', '#041116'],
+        ['Violet', '#8b5cf6', '#0d0717'],
+        ['Crimson', '#ef4444', '#140707'],
+        ['Slate', '#64748b', '#0b0f17']
+      ];
+      themeEl.innerHTML = presets.map(([name, accent, bg]) =>
+        `<button type="button" onclick="document.documentElement.style.setProperty('--accent','${accent}');document.documentElement.style.setProperty('--bg-main','${bg}');" class="py-1.5 px-1 rounded-lg theme-input border text-[9px] font-bold truncate" style="border-color:${accent}55">${name}</button>`
+      ).join('');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', hydrate);
+  } else {
+    hydrate();
+  }
+})();
