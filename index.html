@@ -10,8 +10,8 @@
   <style>
     :root {
       --bg-main: #070b14;
-      --bg-panel: rgba(15, 23, 42, 0.82);
-      --bg-input: rgba(30, 41, 59, 0.65);
+      --bg-panel: rgba(15, 23, 42, 0.84);
+      --bg-input: rgba(30, 41, 59, 0.68);
       --border-color: rgba(148, 163, 184, 0.16);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
@@ -60,7 +60,7 @@
     }
 
     .onechat-glow-card {
-      background: linear-gradient(165deg, rgba(17, 24, 39, 0.94) 0%, rgba(10, 15, 28, 0.97) 100%);
+      background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(10, 15, 28, 0.98) 100%);
       box-shadow:
         0 25px 60px -15px rgba(0, 0, 0, 0.8),
         0 0 45px -10px rgba(99, 102, 241, 0.28),
@@ -79,58 +79,34 @@
     }
     .onechat-cta:active { transform: translateY(0); }
 
-    .secret-blurred {
-      filter: blur(6px);
-      user-select: none;
-      transition: filter 0.25s ease;
-    }
-
-    .sticker-anim {
-      font-size: 2.5rem;
-      display: inline-block;
-      animation: popIn 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    @keyframes popIn {
-      0% { transform: scale(0.4); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    @keyframes shakeBuzz {
-      0%, 100% { transform: translate(0, 0); }
-      20% { transform: translate(-6px, 4px); }
-      40% { transform: translate(6px, -4px); }
-      60% { transform: translate(-5px, -3px); }
-      80% { transform: translate(5px, 3px); }
-    }
+    .secret-blurred { filter: blur(6px); user-select: none; transition: filter 0.25s ease; }
+    .sticker-anim { font-size: 2.5rem; display: inline-block; animation: popIn 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes shakeBuzz { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-6px, 4px); } 40% { transform: translate(6px, -4px); } 60% { transform: translate(-5px, -3px); } 80% { transform: translate(5px, 3px); } }
     .buzz-shake { animation: shakeBuzz 0.45s ease-in-out; }
-
-    /* Custom subtle scrollbar */
+    .zero-g-float { animation: floatItem 3s ease-in-out infinite alternate; }
+    @keyframes floatItem { 0% { transform: translateY(0px) rotate(-1deg); } 100% { transform: translateY(-8px) rotate(1deg); } }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.22); border-radius: 9999px; }
   </style>
 </head>
 <body class="h-[100dvh] w-screen overflow-hidden flex select-none">
 
   <!-- ==================== ENTRY OVERLAY (ONE CHAT) ==================== -->
   <div id="authOverlay" class="fixed inset-0 z-50 bg-[#050811]/92 backdrop-blur-xl flex items-center justify-center p-4">
-    <!-- Ambient decorative light orbs -->
     <div class="pointer-events-none fixed inset-0 overflow-hidden">
       <div class="absolute -top-24 left-1/4 w-80 h-80 rounded-full bg-indigo-600/20 blur-3xl"></div>
       <div class="absolute -bottom-24 right-1/4 w-80 h-80 rounded-full bg-sky-500/15 blur-3xl"></div>
     </div>
 
     <div class="onechat-glow-card border border-white/10 rounded-3xl max-w-md w-full p-7 md:p-8 relative overflow-hidden">
-      <!-- Top luminous gradient bar -->
       <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-sky-400"></div>
 
-      <!-- Brand Icon -->
       <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/25 via-purple-500/20 to-sky-500/25 border border-indigo-400/30 flex items-center justify-center mx-auto mb-4 shadow-lg">
         <i class="fa-solid fa-comments text-2xl bg-gradient-to-tr from-indigo-300 via-white to-sky-300 bg-clip-text text-transparent"></i>
       </div>
 
-      <!-- Title & Exclusive Subtitle -->
       <div class="text-center mb-6">
         <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-100 to-sky-200 bg-clip-text text-transparent">
           One Chat
@@ -140,49 +116,24 @@
         </p>
       </div>
 
-      <!-- Inputs -->
       <div class="space-y-4">
         <div>
-          <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
-            Your Display Name
-          </label>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Your Display Name</label>
           <div class="relative">
-            <span class="absolute inset-y-0 left-3.5 flex items-center text-slate-400 text-xs">
-              <i class="fa-regular fa-user"></i>
-            </span>
-            <input
-              id="userNameInput"
-              type="text"
-              placeholder="e.g. Raaz"
-              onkeydown="if(event.key==='Enter') enterRoom()"
-              class="w-full theme-input border rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
-            />
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-slate-400 text-xs"><i class="fa-regular fa-user"></i></span>
+            <input id="userNameInput" type="text" placeholder="e.g. Raaz" onkeydown="if(event.key==='Enter') enterRoom()" class="w-full theme-input border rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition" />
           </div>
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
-            Secret Room Code
-          </label>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Secret Room Code</label>
           <div class="relative">
-            <span class="absolute inset-y-0 left-3.5 flex items-center text-slate-400 text-xs">
-              <i class="fa-solid fa-key"></i>
-            </span>
-            <input
-              id="roomNameInput"
-              type="text"
-              placeholder="e.g. squad2026"
-              onkeydown="if(event.key==='Enter') enterRoom()"
-              class="w-full theme-input border rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
-            />
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-slate-400 text-xs"><i class="fa-solid fa-key"></i></span>
+            <input id="roomNameInput" type="text" placeholder="e.g. squad2026" onkeydown="if(event.key==='Enter') enterRoom()" class="w-full theme-input border rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition" />
           </div>
         </div>
 
-        <button
-          type="button"
-          onclick="enterRoom()"
-          class="onechat-cta w-full py-3.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 mt-2 cursor-pointer"
-        >
+        <button type="button" onclick="enterRoom()" class="onechat-cta w-full py-3.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 mt-2 cursor-pointer">
           <i class="fa-solid fa-bolt text-amber-300"></i>
           <span>Enter Private Room</span>
         </button>
@@ -190,7 +141,6 @@
         <p id="authStatus" class="text-center text-xs text-amber-300 font-medium hidden pt-1"></p>
       </div>
 
-      <!-- Bottom Trust Strip -->
       <div class="mt-6 pt-4 border-t border-white/10 flex items-center justify-center gap-3.5 text-[10px] text-slate-400 font-medium">
         <span class="flex items-center gap-1"><i class="fa-solid fa-lock text-emerald-400"></i> Encrypted P2P</span>
         <span>&bull;</span>
@@ -213,7 +163,6 @@
   <!-- ==================== LEFT SIDEBAR ==================== -->
   <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-72 theme-panel border-r flex flex-col justify-between transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-out">
     <div class="p-4 flex-1 overflow-y-auto space-y-4">
-      <!-- Brand Header -->
       <div class="flex items-center justify-between pb-3 border-b border-white/10">
         <div class="flex items-center gap-2.5">
           <div class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center shadow">
@@ -224,12 +173,11 @@
             <span id="connBadge" class="text-[10px] text-amber-400 font-mono block truncate">Always-On • Waiting...</span>
           </div>
         </div>
-        <button onclick="toggleMobileSidebar()" class="md:hidden theme-muted hover:text-white p-1">
+        <button type="button" onclick="toggleMobileSidebar()" class="md:hidden theme-muted hover:text-white p-1">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <!-- Profile Card -->
       <div class="p-3 rounded-2xl theme-input border flex items-center gap-3">
         <div id="myAvatar" class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center font-bold text-sm uppercase shrink-0">?</div>
         <div class="overflow-hidden">
@@ -238,22 +186,19 @@
         </div>
       </div>
 
-      <!-- Theme Switcher -->
       <div>
         <div class="flex items-center justify-between mb-1.5">
           <span class="text-[10px] font-bold uppercase tracking-wider theme-muted">Room Theme</span>
-          <input type="color" id="customAccentInput" value="#6366f1" onchange="applyCustomAccent(this.value)" title="Custom Accent Color" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0" />
+          <input type="color" id="customAccentInput" value="#6366f1" onchange="if(typeof applyCustomAccent==='function') applyCustomAccent(this.value)" title="Custom Accent Color" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0" />
         </div>
         <div id="themeGrid" class="grid grid-cols-4 gap-1.5"></div>
       </div>
 
-      <!-- Sound Alerts Toggle -->
       <div class="flex items-center justify-between p-2.5 rounded-xl theme-input border">
         <span class="text-xs font-medium"><i class="fa-solid fa-bell text-indigo-400 mr-1.5"></i>Sound Alerts</span>
-        <button id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold">ON</button>
+        <button type="button" id="soundToggleBtn" onclick="toggleSoundAlerts()" class="px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold">ON</button>
       </div>
 
-      <!-- Active Participants Roster -->
       <div>
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-bold uppercase tracking-wider theme-muted">In Room (<span id="participantCount">1</span>)</span>
@@ -262,12 +207,11 @@
       </div>
     </div>
 
-    <!-- Sidebar Footer Actions -->
     <div class="p-3 border-t border-white/10 space-y-1.5">
-      <button onclick="clearChat(true)" class="w-full py-2 px-3 rounded-xl theme-input border hover:border-amber-500/40 text-xs font-medium flex items-center justify-center gap-2 transition">
+      <button type="button" onclick="clearChat(true)" class="w-full py-2 px-3 rounded-xl theme-input border hover:border-amber-500/40 text-xs font-medium flex items-center justify-center gap-2 transition">
         <i class="fa-solid fa-broom text-amber-400"></i> Clear Chat &amp; RAM
       </button>
-      <button onclick="logoutRoom()" class="w-full py-2 px-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition">
+      <button type="button" onclick="logoutRoom()" class="w-full py-2 px-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition">
         <i class="fa-solid fa-right-from-bracket"></i> Leave Room
       </button>
     </div>
@@ -275,13 +219,14 @@
 
   <!-- ==================== MAIN CHAT & PLAY STAGE ==================== -->
   <main id="mainAppStage" class="flex-1 flex flex-col h-full relative overflow-hidden">
-    <!-- Ambient Aura Overlay -->
     <div id="weatherAuraOverlay" class="pointer-events-none fixed inset-0 z-10 overflow-hidden"></div>
+    <div id="voiceAuraOverlay" class="pointer-events-none fixed inset-0 z-10 overflow-hidden"></div>
+    <div id="liveCursorsLayer" class="pointer-events-none fixed inset-0 z-20 overflow-hidden"></div>
 
     <!-- Top Header -->
     <header class="h-14 px-3 md:px-5 theme-panel border-b flex items-center justify-between shrink-0 z-20">
       <div class="flex items-center gap-2.5 overflow-hidden">
-        <button onclick="toggleMobileSidebar()" class="md:hidden w-9 h-9 rounded-xl theme-input border flex items-center justify-center text-xs">
+        <button type="button" onclick="toggleMobileSidebar()" class="md:hidden w-9 h-9 rounded-xl theme-input border flex items-center justify-center text-xs">
           <i class="fa-solid fa-bars"></i>
         </button>
         <div class="overflow-hidden">
@@ -292,15 +237,14 @@
         </div>
       </div>
 
-      <!-- Header Controls (Invite Link & Force Reconnect prepend here via connection.js) -->
       <div class="flex items-center gap-1.5">
-        <button id="liveCursorBtn" onclick="toggleLiveCursors()" title="Toggle Live P2P Cursors" class="w-9 h-9 rounded-xl theme-input border hover:text-sky-400 flex items-center justify-center text-xs transition">
+        <button type="button" id="liveCursorBtn" onclick="if(typeof toggleLiveCursors==='function') toggleLiveCursors()" title="Toggle Live P2P Cursors" class="w-9 h-9 rounded-xl theme-input border hover:text-sky-400 flex items-center justify-center text-xs transition">
           <i class="fa-solid fa-arrow-pointer"></i>
         </button>
-        <button onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center text-xs transition">
+        <button type="button" onclick="startCall(false)" title="Voice Call" class="w-9 h-9 rounded-xl theme-input border hover:text-emerald-400 flex items-center justify-center text-xs transition">
           <i class="fa-solid fa-phone"></i>
         </button>
-        <button onclick="startCall(true)" title="Video Call" class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center text-xs shadow transition">
+        <button type="button" onclick="startCall(true)" title="Video Call" class="w-9 h-9 rounded-xl theme-accent flex items-center justify-center text-xs shadow transition">
           <i class="fa-solid fa-video"></i>
         </button>
       </div>
@@ -314,6 +258,12 @@
       <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
         <div id="transferProgressFill" class="h-full bg-gradient-to-r from-indigo-400 to-sky-400 transition-all duration-150" style="width: 0%"></div>
       </div>
+    </div>
+
+    <!-- Synced Countdown Timer Bar -->
+    <div id="syncTimerBar" class="hidden px-4 py-1.5 bg-amber-950/80 border-b border-amber-500/30 flex items-center justify-between text-xs text-amber-200 z-20">
+      <span id="syncTimerLabel">⏳ Synced Timer: 00:00</span>
+      <button type="button" onclick="toggleModal('syncTimerBar', false)" class="text-[10px] underline">Hide</button>
     </div>
 
     <!-- Messages Feed -->
@@ -336,13 +286,22 @@
         <div id="replyTargetSender" class="text-[10px] font-bold text-indigo-300"></div>
         <div id="replyTargetSnippet" class="text-xs theme-muted truncate"></div>
       </div>
-      <button onclick="cancelReply()" class="text-xs theme-muted hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      <button type="button" onclick="cancelReply()" class="text-xs theme-muted hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
     <!-- Secret Self-Destruct Mode Banner -->
     <div id="secretModeBanner" class="hidden mx-3 mb-1 px-3 py-1.5 rounded-xl bg-amber-950/60 border border-amber-500/40 flex items-center justify-between text-[11px] text-amber-200 z-20">
       <span>💣 <b>Burn Mode ON:</b> Messages self-destruct 10s after reading</span>
-      <button onclick="toggleSecretMode()" class="underline font-bold">Off</button>
+      <button type="button" onclick="toggleSecretMode()" class="underline font-bold">Off</button>
+    </div>
+
+    <!-- Co-Op Beat Studio Dock -->
+    <div id="beatStudioPanel" class="hidden mx-3 mb-1.5 p-3 rounded-2xl theme-panel border border-indigo-500/40 z-20">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-[11px] font-bold text-indigo-300">🎹 Co-Op Live Beat Studio</span>
+        <button type="button" onclick="toggleModal('beatStudioPanel', false)" class="text-xs theme-muted"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="beatPadsGrid" class="grid grid-cols-4 gap-1.5"></div>
     </div>
 
     <!-- Picker Popover (Emojis, Stickers, Sounds, Games/Apps) -->
@@ -375,14 +334,7 @@
           <i class="fa-solid fa-bomb"></i>
         </button>
 
-        <input
-          id="messageInput"
-          type="text"
-          oninput="notifyTyping()"
-          placeholder="Message privately..."
-          autocomplete="off"
-          class="flex-1 theme-input border rounded-xl px-3.5 py-2.5 text-xs md:text-sm focus:outline-none transition"
-        />
+        <input id="messageInput" type="text" oninput="notifyTyping()" placeholder="Message privately..." autocomplete="off" class="flex-1 theme-input border rounded-xl px-3.5 py-2.5 text-xs md:text-sm focus:outline-none transition" />
 
         <button id="voiceNoteBtn" type="button" onclick="toggleVoiceRecording()" title="Record Voice Note" class="w-9 h-9 md:w-10 md:h-10 rounded-xl theme-input border hover:text-rose-400 flex items-center justify-center text-sm shrink-0 transition">
           <i class="fa-solid fa-microphone"></i>
@@ -404,8 +356,8 @@
       <h3 id="incomingCallerName" class="text-base font-bold">Partner</h3>
       <p id="incomingCallType" class="text-xs theme-muted mt-1 mb-5">Incoming Call...</p>
       <div class="flex gap-3">
-        <button onclick="rejectIncomingCall()" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold">Decline</button>
-        <button onclick="acceptIncomingCall()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Answer</button>
+        <button type="button" onclick="rejectIncomingCall()" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold">Decline</button>
+        <button type="button" onclick="acceptIncomingCall()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Answer</button>
       </div>
     </div>
   </div>
@@ -424,24 +376,203 @@
     </div>
 
     <div class="flex items-center justify-center gap-4 py-4">
-      <button id="micBtn" onclick="toggleMic()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base">
-        <i class="fa-solid fa-microphone"></i>
-      </button>
-      <button id="camBtn" onclick="toggleCam()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base">
-        <i class="fa-solid fa-video"></i>
-      </button>
-      <button id="screenShareBtn" onclick="toggleScreenShare()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base">
-        <i class="fa-solid fa-display"></i>
-      </button>
-      <button onclick="endCall()" class="w-14 h-12 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center text-base shadow-lg">
-        <i class="fa-solid fa-phone-slash"></i>
-      </button>
+      <button type="button" id="micBtn" onclick="toggleMic()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base"><i class="fa-solid fa-microphone"></i></button>
+      <button type="button" id="camBtn" onclick="toggleCam()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base"><i class="fa-solid fa-video"></i></button>
+      <button type="button" id="screenShareBtn" onclick="toggleScreenShare()" class="w-12 h-12 rounded-full theme-input border text-white flex items-center justify-center text-base"><i class="fa-solid fa-display"></i></button>
+      <button type="button" onclick="endCall()" class="w-14 h-12 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center text-base shadow-lg"><i class="fa-solid fa-phone-slash"></i></button>
     </div>
   </div>
 
   <!-- ==================== IMAGE LIGHTBOX MODAL ==================== -->
   <div id="imageLightbox" onclick="toggleModal('imageLightbox', false)" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4 cursor-zoom-out">
     <img id="lightboxImg" src="" class="max-h-[90vh] max-w-[95vw] rounded-2xl shadow-2xl" />
+  </div>
+
+  <!-- ==================== ALL INTERACTIVE GAME & APP MODALS FOR GAMES.JS ==================== -->
+  <div id="rpsModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">✊✋✌️ RPS Duel</h3><button type="button" onclick="toggleModal('rpsModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="rpsStatus" class="text-xs theme-muted mb-4">Pick your move!</div>
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" onclick="playRPS('Rock')" class="p-3 rounded-xl theme-input border text-xl">✊<div class="text-[10px] mt-1">Rock</div></button>
+        <button type="button" onclick="playRPS('Paper')" class="p-3 rounded-xl theme-input border text-xl">✋<div class="text-[10px] mt-1">Paper</div></button>
+        <button type="button" onclick="playRPS('Scissors')" class="p-3 rounded-xl theme-input border text-xl">✌️<div class="text-[10px] mt-1">Scissors</div></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tttModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">❌⭕ Tic-Tac-Toe</h3><button type="button" onclick="toggleModal('tttModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="tttStatus" class="text-xs theme-muted mb-3">Your turn or wait for peer</div>
+      <div id="tttBoard" class="grid grid-cols-3 gap-2 mb-3"></div>
+      <button type="button" onclick="resetTTT(true)" class="w-full py-2 rounded-xl theme-input border text-xs font-semibold">Reset Board</button>
+    </div>
+  </div>
+
+  <div id="triviaModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🧠 Live Trivia Quiz</h3><button type="button" onclick="toggleModal('triviaModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="triviaStage" class="text-xs"></div>
+      <button type="button" onclick="startTriviaRound()" class="mt-3 w-full py-2 rounded-xl theme-accent text-xs font-bold">New Question</button>
+    </div>
+  </div>
+
+  <div id="spinWheelModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🎡 Decision Spin Wheel</h3><button type="button" onclick="toggleModal('spinWheelModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="wheelOptionsInput" type="text" value="Coffee, Pizza, Movie, Walk, Dessert" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <div id="wheelResultText" class="text-sm font-bold text-amber-300 my-3">Tap Spin!</div>
+      <button type="button" onclick="spinDecisionWheel()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Spin for Room</button>
+    </div>
+  </div>
+
+  <div id="storyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">📖 Blind Story Chain</h3><button type="button" onclick="toggleModal('storyModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="storyClueText" class="text-xs theme-muted mb-2">Start the first line!</div>
+      <input id="storyLineInput" type="text" placeholder="Write next line..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <div class="flex gap-2">
+        <button type="button" onclick="submitStoryLine()" class="flex-1 py-2 rounded-xl theme-accent text-xs font-bold">Add Line</button>
+        <button type="button" onclick="revealFullStory()" class="flex-1 py-2 rounded-xl theme-input border text-xs font-bold">Reveal Story</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pollModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">📊 Create Live Poll</h3><button type="button" onclick="toggleModal('pollModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="pollQuestionInput" type="text" placeholder="Poll question..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+      <input id="pollOptionsInput" type="text" placeholder="Option 1, Option 2, Option 3" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <button type="button" onclick="createLivePoll()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Launch Poll</button>
+    </div>
+  </div>
+
+  <div id="whiteboardModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-md w-full p-4 shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">🎨 Shared Live Whiteboard</h3><button type="button" onclick="toggleModal('whiteboardModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <canvas id="sharedCanvas" width="360" height="240" class="w-full h-60 rounded-xl bg-slate-950 border border-white/10 touch-none cursor-crosshair"></canvas>
+      <div class="flex justify-between items-center mt-2">
+        <input type="color" id="wbColorInput" value="#38bdf8" class="w-7 h-7 rounded bg-transparent border-0" />
+        <button type="button" onclick="clearWhiteboard(true)" class="px-3 py-1.5 rounded-xl theme-input border text-xs">Clear Canvas</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="timerModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">⏱️ Synced Room Timer</h3><button type="button" onclick="toggleModal('timerModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="timerMinutesInput" type="number" value="5" min="1" max="120" class="w-full theme-input border rounded-xl px-3 py-2 text-xs text-center mb-3" />
+      <button type="button" onclick="startSyncedTimer()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Start for Everyone</button>
+    </div>
+  </div>
+
+  <div id="jukeboxModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-md w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🎵 Synced YouTube Jukebox</h3><button type="button" onclick="toggleModal('jukeboxModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="flex gap-2 mb-3">
+        <input id="ytUrlInput" type="text" placeholder="Paste YouTube URL or Video ID..." class="flex-1 theme-input border rounded-xl px-3 py-2 text-xs" />
+        <button type="button" onclick="loadJukeboxVideo()" class="px-3 py-2 rounded-xl theme-accent text-xs font-bold">Play</button>
+      </div>
+      <div id="jukeboxPlayerContainer" class="aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center text-xs theme-muted">No video loaded</div>
+    </div>
+  </div>
+
+  <div id="pulsePadModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">💓 Tactile Pulse Pad</h3><button type="button" onclick="toggleModal('pulsePadModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <button type="button" onmousedown="sendTactilePulse()" ontouchstart="sendTactilePulse()" class="w-32 h-32 rounded-full theme-accent mx-auto flex flex-col items-center justify-center text-2xl shadow-2xl active:scale-95 transition">
+        <i class="fa-solid fa-heart-pulse"></i>
+        <span class="text-[10px] font-bold mt-1">TAP / HOLD</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="telepathyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">🔮 Telepathy Sync</h3><button type="button" onclick="toggleModal('telepathyModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <p class="text-[11px] theme-muted mb-3">Type the exact same word at the same time!</p>
+      <input id="telepathyWordInput" type="text" placeholder="Your secret word..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <button type="button" onclick="submitTelepathyWord()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Lock Word</button>
+    </div>
+  </div>
+
+  <div id="pongModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-4 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">🏓 Live P2P Pong</h3><button type="button" onclick="closePongModal()" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <canvas id="pongCanvas" width="320" height="220" class="w-full rounded-xl bg-slate-950 border border-white/10 touch-none"></canvas>
+    </div>
+  </div>
+
+  <div id="bluffModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🕵️ Two Truths &amp; A Lie</h3><button type="button" onclick="toggleModal('bluffModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="bluff1" type="text" placeholder="Statement 1..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+      <input id="bluff2" type="text" placeholder="Statement 2..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+      <input id="bluff3" type="text" placeholder="Statement 3..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+      <select id="bluffLieIdx" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3">
+        <option value="0">Statement 1 is the Lie</option>
+        <option value="1">Statement 2 is the Lie</option>
+        <option value="2">Statement 3 is the Lie</option>
+      </select>
+      <button type="button" onclick="sendBluffRound()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Challenge Room</button>
+    </div>
+  </div>
+
+  <div id="dualSnapModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">📸 Split-Reality Dual Snap</h3><button type="button" onclick="closeDualSnapModal()" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <video id="dualSnapPreview" autoplay playsinline muted class="w-full h-52 object-cover rounded-xl bg-black mb-3"></video>
+      <button type="button" onclick="captureDualSnap()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Capture Dual Snap</button>
+    </div>
+  </div>
+
+  <div id="soundscapeModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🎧 Ambient Soundscape</h3><button type="button" onclick="toggleModal('soundscapeModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" onclick="toggleAmbientScape('rain')" class="p-3 rounded-xl theme-input border text-xs font-bold">🌧️ Rain</button>
+        <button type="button" onclick="toggleAmbientScape('fire')" class="p-3 rounded-xl theme-input border text-xs font-bold">🔥 Fireplace</button>
+        <button type="button" onclick="toggleAmbientScape('ocean')" class="p-3 rounded-xl theme-input border text-xs font-bold">🌊 Ocean</button>
+        <button type="button" onclick="toggleAmbientScape('off')" class="p-3 rounded-xl bg-rose-600/20 border border-rose-500/30 text-xs font-bold">🔇 Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="capsuleModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">⏳ Time Capsule Message</h3><button type="button" onclick="toggleModal('capsuleModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="capsuleTextInput" type="text" placeholder="Hidden message..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-2" />
+      <input id="capsuleDelayInput" type="number" value="30" min="5" max="3600" placeholder="Unlock in seconds" class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <button type="button" onclick="sendTimeCapsule()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Seal Capsule</button>
+    </div>
+  </div>
+
+  <div id="pixelArtModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-2"><h3 class="text-sm font-bold">👾 16×16 Co-Op Pixel Art</h3><button type="button" onclick="toggleModal('pixelArtModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="pixelGridBoard" class="grid grid-cols-16 gap-0.5 bg-slate-950 p-1.5 rounded-xl mb-3"></div>
+      <div class="flex justify-between items-center">
+        <input type="color" id="pixelColorInput" value="#f43f5e" class="w-7 h-7 rounded bg-transparent border-0" />
+        <button type="button" onclick="sharePixelArtToChat()" class="px-3 py-1.5 rounded-xl theme-accent text-xs font-bold">Post to Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="hologramModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🧊 3D Hologram Cipher</h3><button type="button" onclick="toggleModal('hologramModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="hologramTextInput" type="text" placeholder="Secret cipher text..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <button type="button" onclick="sendHologramCipher()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Transmit Hologram</button>
+    </div>
+  </div>
+
+  <div id="oracleModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="theme-panel border rounded-2xl max-w-xs w-full p-5 text-center shadow-2xl">
+      <div class="flex justify-between items-center mb-3"><h3 class="text-sm font-bold">🪄 Vibe Oracle</h3><button type="button" onclick="toggleModal('oracleModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button></div>
+      <input id="oracleQuestionInput" type="text" placeholder="Ask a yes/no question..." class="w-full theme-input border rounded-xl px-3 py-2 text-xs mb-3" />
+      <button type="button" onclick="consultVibeOracle()" class="w-full py-2.5 rounded-xl theme-accent text-xs font-bold">Ask the Oracle</button>
+    </div>
   </div>
 
   <!-- ==================== MODULAR SCRIPTS (EXACT LOAD ORDER) ==================== -->
