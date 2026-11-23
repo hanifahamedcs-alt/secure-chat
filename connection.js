@@ -22,12 +22,14 @@ const iceServersConfig = [
 
 function toggleModal(id, show) {
   const el = document.getElementById(id);
-  if (el) show ? el.classList.remove('hidden') : el.classList.add('hidden');
+  if (!el) return;
+  if (show) el.classList.remove('hidden');
+  else el.classList.add('hidden');
 }
 
 function toggleMobileSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+  document.getElementById('sidebar')?.classList.toggle('-translate-x-full');
+  document.getElementById('sidebarBackdrop')?.classList.toggle('hidden');
 }
 
 // ==================== PRE-FILL SAVED NAME / INVITE LINK ====================
@@ -37,12 +39,13 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedName = sessionStorage.getItem('cypher_name');
   const savedRoom = urlRoom || sessionStorage.getItem('cypher_room');
 
-  if (savedName) document.getElementById('userNameInput').value = savedName;
-  if (savedRoom) document.getElementById('roomNameInput').value = savedRoom;
+  if (savedName && document.getElementById('userNameInput')) document.getElementById('userNameInput').value = savedName;
+  if (savedRoom && document.getElementById('roomNameInput')) document.getElementById('roomNameInput').value = savedRoom;
 
   const headerControls = document.querySelector('header .flex.items-center.gap-1\\.5');
-  if (headerControls) {
+  if (headerControls && !document.getElementById('copyInviteHeaderBtn')) {
     const inviteBtn = document.createElement('button');
+    inviteBtn.id = 'copyInviteHeaderBtn';
     inviteBtn.type = 'button';
     inviteBtn.title = 'Copy Room Invite Link';
     inviteBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center text-xs transition';
@@ -50,6 +53,7 @@ window.addEventListener('DOMContentLoaded', () => {
     inviteBtn.onclick = copyRoomInviteLink;
 
     const syncBtn = document.createElement('button');
+    syncBtn.id = 'forceSyncHeaderBtn';
     syncBtn.type = 'button';
     syncBtn.title = 'Force Reconnect & Restore Chats';
     syncBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center text-xs transition';
@@ -180,10 +184,12 @@ function restoreLocalCachedHistory() {
 function requestHistoryFromPeers() {
   const openPeers = Object.values(connections).filter(p => p.conn && p.conn.open);
   if (openPeers.length === 0) return;
-  openPeers[0].conn.send({
-    type: 'REQ_HISTORY',
-    knownIds: Array.from(renderedMsgIds)
-  });
+  try {
+    openPeers[0].conn.send({
+      type: 'REQ_HISTORY',
+      knownIds: Array.from(renderedMsgIds)
+    });
+  } catch (e) {}
 }
 
 function applySyncedHistory(historyList, showNotice = true) {
@@ -285,11 +291,15 @@ function startRingtone() {
   ringtoneInterval = setInterval(pulse, 1800);
 }
 
-function stopRingtone() { if (ringtoneInterval) { clearInterval(ringtoneInterval); ringtoneInterval = null; } if (navigator.vibrate) navigator.vibrate(0); }
+function stopRingtone() {
+  if (ringtoneInterval) { clearInterval(ringtoneInterval); ringtoneInterval = null; }
+  if (navigator.vibrate) navigator.vibrate(0);
+}
 
 function toggleSoundAlerts() {
   soundEnabled = !soundEnabled;
   const btn = document.getElementById('soundToggleBtn');
+  if (!btn) return;
   btn.textContent = soundEnabled ? 'ON' : 'OFF';
   btn.className = soundEnabled ? 'px-2.5 py-0.5 rounded-lg theme-accent text-[11px] font-semibold' : 'px-2.5 py-0.5 rounded-lg bg-gray-700 text-gray-300 text-[11px] font-semibold';
 }
@@ -297,6 +307,7 @@ function toggleSoundAlerts() {
 let toastTimeout = null;
 function showToast(title, body, onClickAction = null) {
   const toast = document.getElementById('toastBanner');
+  if (!toast) return;
   document.getElementById('toastTitle').textContent = title;
   document.getElementById('toastBody').textContent = body;
   toast.onclick = () => { if (onClickAction) onClickAction(); toast.classList.add('hidden'); };
@@ -314,7 +325,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE WITH ANDROID ICE & HISTORY SYNC ====================
+// ==================== CONNECTION ENGINE (10-USER STAR HUB) ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -339,8 +350,10 @@ function enterRoom() {
   enableBackgroundPersistence();
 
   const statusEl = document.getElementById('authStatus');
-  statusEl.textContent = 'Connecting to TURN relay...';
-  statusEl.classList.remove('hidden');
+  if (statusEl) {
+    statusEl.textContent = 'Connecting to TURN relay...';
+    statusEl.classList.remove('hidden');
+  }
   tryHostRole();
 }
 
@@ -435,10 +448,15 @@ function joinAsGuest() {
 
 function setupInterface() {
   toggleModal('authOverlay', false);
+  const statusEl = document.getElementById('authStatus');
+  if (statusEl) statusEl.classList.add('hidden');
   document.getElementById('myNameLabel').textContent = myName;
-  document.getElementById('myAvatar').textContent = myName[0].toUpperCase();
+  document.getElementById('myAvatar').textContent = (myName[0] || '?').toUpperCase();
   document.getElementById('roomLabel').textContent = room;
   document.getElementById('headerRoomTitle').textContent = `Room: #${room}`;
+  if (typeof initPickersSafely === 'function') {
+    try { initPickersSafely(); } catch (e) {}
+  }
 }
 
 function registerPeerConnection(conn) {
@@ -447,11 +465,11 @@ function registerPeerConnection(conn) {
     conn.peerConnection.oniceconnectionstatechange = () => {
       const state = conn.peerConnection.iceConnectionState;
       if (state === 'failed') {
-        conn.close();
+        try { conn.close(); } catch (e) {}
       } else if (state === 'disconnected') {
         setTimeout(() => {
           if (conn.peerConnection && conn.peerConnection.iceConnectionState === 'disconnected') {
-            conn.close();
+            try { conn.close(); } catch (e) {}
           }
         }, 3500);
       }
@@ -466,9 +484,11 @@ function registerPeerConnection(conn) {
 
     connections[conn.peer] = { conn, name: conn.metadata?.name || 'Host' };
     lastPeerPongMap[conn.peer] = Date.now();
-    conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
-    if (!isHost) conn.send({ type: 'REQ_ROSTER' });
-    conn.send({ type: 'REQ_HISTORY', knownIds: Array.from(renderedMsgIds) });
+    try {
+      conn.send({ type: 'JOIN', peerId: myPeerId, name: myName });
+      if (!isHost) conn.send({ type: 'REQ_ROSTER' });
+      conn.send({ type: 'REQ_HISTORY', knownIds: Array.from(renderedMsgIds) });
+    } catch (e) {}
 
     updateParticipantsUI();
     flushPendingOutbox();
@@ -478,38 +498,38 @@ function registerPeerConnection(conn) {
     lastPeerPongMap[conn.peer] = Date.now();
 
     if (data.type === 'PING') {
-      if (conn.open) conn.send({ type: 'PONG' });
+      if (conn.open) try { conn.send({ type: 'PONG' }); } catch (e) {}
       return;
     }
-    if (data.type === 'PONG') {
-      return;
-    }
+    if (data.type === 'PONG') return;
 
     if (data.type === 'JOIN') {
       connections[conn.peer] = { conn, name: data.name };
       appendSystemNotice(`${data.name} connected`);
-      playMessageTone(); updateParticipantsUI();
+      playMessageTone();
+      updateParticipantsUI();
       if (isHost) {
         syncRosterToGuests();
         const nameKey = 'name:' + (data.name || '').trim().toLowerCase();
         if (window.hasPermanentProLicense && window.approvedProGuests && (window.approvedProGuests.has(conn.peer) || window.approvedProGuests.has(nameKey))) {
-          conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, targetName: data.name, granted: true });
+          try { conn.send({ type: 'GRANT_GUEST_PRO', targetId: conn.peer, targetName: data.name, granted: true }); } catch (e) {}
         }
       }
-      if (roomChatHistory.length > 0) {
-        conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory });
+      if (roomChatHistory.length > 0 && conn.open) {
+        try { conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory }); } catch (e) {}
       }
       flushPendingOutbox();
     } else if (data.type === 'REQ_HISTORY') {
       if (roomChatHistory.length > 0 && conn.open) {
-        conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory });
+        try { conn.send({ type: 'SYNC_HISTORY', history: roomChatHistory }); } catch (e) {}
       }
     } else if (data.type === 'SYNC_HISTORY') {
       applySyncedHistory(data.history, true);
     } else if (data.type === 'REQ_ROSTER') {
       if (isHost) syncRosterToGuests();
     } else if (data.type === 'ROSTER') {
-      roomRoster = data.members; renderGuestRoster(data.members);
+      roomRoster = data.members;
+      renderGuestRoster(data.members);
     } else if (data.type === 'GRANT_GUEST_PRO') {
       const isMyId = data.targetId && data.targetId === myPeerId;
       const isMyName = data.targetName && myName && data.targetName.trim().toLowerCase() === myName.trim().toLowerCase();
@@ -557,21 +577,23 @@ function registerPeerConnection(conn) {
       hideTransferProgress();
       if (isHost) relayToOthers(conn.peer, data);
     } else if (data.type === 'CHAT') {
-      document.getElementById('typingIndicatorBar').classList.add('hidden');
+      document.getElementById('typingIndicatorBar')?.classList.add('hidden');
       appendMessage(data.senderName, data.content, 'incoming', data.time, data.msgMode || 'text', data.msgId, { quote: data.quote, senderId: data.senderId, ts: data.ts });
       triggerIncomingNotification(data.senderName, data.msgMode === 'secret' ? '💣 Secret message' : data.content, false);
       if (isHost) relayToOthers(conn.peer, data);
     } else if (typeof handleAfterHoursPacket === 'function' && handleAfterHoursPacket(data)) {
       if (isHost) relayToOthers(conn.peer, data);
     } else if (typeof handleGamePacket === 'function') {
-      handleGamePacket(conn, data);
+      try { handleGamePacket(conn, data); } catch (e) {}
     }
   });
 
   conn.on('close', () => {
     const leftName = connections[conn.peer]?.name || 'Peer';
     const wasHostConn = conn.peer === room + '-host';
-    if (typeof cleanupRemoteCursor === 'function') cleanupRemoteCursor(conn.peer);
+    if (typeof cleanupRemoteCursor === 'function') {
+      try { cleanupRemoteCursor(conn.peer); } catch (e) {}
+    }
     if (window.approvedProGuests) window.approvedProGuests.delete(conn.peer);
     delete connections[conn.peer];
     delete lastPeerPongMap[conn.peer];
@@ -596,7 +618,9 @@ function registerPeerConnection(conn) {
 
 function relayToOthers(excludePeerId, data) {
   for (const [id, peerObj] of Object.entries(connections)) {
-    if (id !== excludePeerId && peerObj.conn && peerObj.conn.open) peerObj.conn.send(data);
+    if (id !== excludePeerId && peerObj.conn && peerObj.conn.open) {
+      try { peerObj.conn.send(data); } catch (e) {}
+    }
   }
 }
 
@@ -604,8 +628,10 @@ function broadcastData(payload, queueIfOffline = false) {
   let sentCount = 0;
   for (const peerObj of Object.values(connections)) {
     if (peerObj.conn && peerObj.conn.open) {
-      peerObj.conn.send(payload);
-      sentCount++;
+      try {
+        peerObj.conn.send(payload);
+        sentCount++;
+      } catch (e) {}
     }
   }
   if (sentCount === 0 && queueIfOffline) {
@@ -621,7 +647,7 @@ function flushPendingOutbox() {
 
   while (pendingOutbox.length > 0) {
     const item = pendingOutbox.shift();
-    openPeers.forEach(p => p.conn.send(item));
+    openPeers.forEach(p => { try { p.conn.send(item); } catch (e) {} });
     if (item.msgId) {
       const statusEl = document.getElementById(item.msgId + '_status');
       if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-check-double text-[8px]"></i>';
@@ -635,11 +661,13 @@ function syncRosterToGuests() {
   roomRoster = members;
   for (const [id, peerObj] of Object.entries(connections)) {
     if (peerObj.conn && peerObj.conn.open) {
-      peerObj.conn.send({ type: 'ROSTER', members });
-      const nameKey = 'name:' + (peerObj.name || '').trim().toLowerCase();
-      if (window.hasPermanentProLicense && window.approvedProGuests && (window.approvedProGuests.has(id) || window.approvedProGuests.has(nameKey))) {
-        peerObj.conn.send({ type: 'GRANT_GUEST_PRO', targetId: id, targetName: peerObj.name, granted: true });
-      }
+      try {
+        peerObj.conn.send({ type: 'ROSTER', members });
+        const nameKey = 'name:' + (peerObj.name || '').trim().toLowerCase();
+        if (window.hasPermanentProLicense && window.approvedProGuests && (window.approvedProGuests.has(id) || window.approvedProGuests.has(nameKey))) {
+          peerObj.conn.send({ type: 'GRANT_GUEST_PRO', targetId: id, targetName: peerObj.name, granted: true });
+        }
+      } catch (e) {}
     }
   }
   renderGuestRoster(members);
@@ -648,9 +676,11 @@ function syncRosterToGuests() {
 function updateParticipantsUI() {
   const badge = document.getElementById('connBadge'), countEl = document.getElementById('participantCount');
   const peers = Object.values(connections), total = peers.length + 1;
-  countEl.textContent = total;
-  if (peers.length === 0) { badge.textContent = 'Always-On • Waiting for peers...'; badge.className = 'text-[10px] text-amber-400 font-mono block truncate'; }
-  else { badge.textContent = `${total} Active • TURN Connected`; badge.className = 'text-[10px] text-emerald-400 font-mono block truncate'; }
+  if (countEl) countEl.textContent = total;
+  if (badge) {
+    if (peers.length === 0) { badge.textContent = 'Always-On • Waiting for peers...'; badge.className = 'text-[10px] text-amber-400 font-mono block truncate'; }
+    else { badge.textContent = `${total} Active • TURN Connected`; badge.className = 'text-[10px] text-emerald-400 font-mono block truncate'; }
+  }
 
   if (isHost) syncRosterToGuests();
   else {
@@ -661,10 +691,13 @@ function updateParticipantsUI() {
 }
 
 function renderGuestRoster(members) {
-  document.getElementById('participantCount').textContent = members.length;
-  const canGrantGuests = Boolean(window.hasPermanentProLicense);
+  const countEl = document.getElementById('participantCount');
+  if (countEl) countEl.textContent = members.length;
+  const listEl = document.getElementById('participantsList');
+  if (!listEl) return;
 
-  document.getElementById('participantsList').innerHTML = members.map(m => {
+  const canGrantGuests = Boolean(window.hasPermanentProLicense);
+  listEl.innerHTML = members.map(m => {
     const isMe = m.id === myPeerId;
     const nameKey = 'name:' + (m.name || '').trim().toLowerCase();
     const isApproved = window.approvedProGuests && (window.approvedProGuests.has(m.id) || window.approvedProGuests.has(nameKey));
@@ -710,11 +743,13 @@ async function sendChunkedPayload(dataUrl, meta) {
 }
 
 function showTransferProgress(label, pct) {
+  const bar = document.getElementById('transferProgressBar');
+  if (!bar) return;
   document.getElementById('transferStatusText').textContent = label;
   document.getElementById('transferProgressFill').style.width = pct + '%';
-  document.getElementById('transferProgressBar').classList.remove('hidden');
+  bar.classList.remove('hidden');
 }
-function hideTransferProgress() { setTimeout(() => document.getElementById('transferProgressBar').classList.add('hidden'), 500); }
+function hideTransferProgress() { setTimeout(() => document.getElementById('transferProgressBar')?.classList.add('hidden'), 500); }
 
 async function handleImageUpload(event) {
   const file = event.target.files[0]; if (!file) return; event.target.value = '';
@@ -739,7 +774,7 @@ async function handleImageUpload(event) {
   reader.readAsDataURL(file);
 }
 
-// ==================== CHAT MESSAGING & BOTH-END CLEAR CHAT ====================
+// ==================== CHAT MESSAGING & FAIL-SAFE CLEAR / LEAVE ROOM ====================
 function sendMessage(e) {
   e.preventDefault();
   const input = document.getElementById('messageInput'), text = input.value.trim(); if (!text) return;
@@ -756,7 +791,9 @@ function sendMessage(e) {
 }
 
 function appendMessage(sender, content, direction, time, mode = 'text', msgId = '', meta = {}) {
-  const container = document.getElementById('messagesContainer'), isOut = direction === 'outgoing';
+  const container = document.getElementById('messagesContainer');
+  if (!container) return;
+  const isOut = direction === 'outgoing';
   if (!msgId) msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
 
   if (renderedMsgIds.has(msgId)) return;
@@ -800,7 +837,9 @@ function appendMessage(sender, content, direction, time, mode = 'text', msgId = 
     const scId = 'sc_' + Math.random().toString(36).substr(2, 7);
     msgDiv.innerHTML = `${senderTag}<div class="w-64 p-2.5 rounded-2xl theme-panel border shadow-lg"><div class="text-[10px] font-bold text-amber-400 mb-1.5">🎟️ Scratch Card</div><div class="relative h-20 rounded-xl overflow-hidden bg-indigo-950/60 flex items-center justify-center p-2 text-center"><span class="text-xs font-bold text-white">${escapeHTML(content)}</span><canvas id="${scId}" width="240" height="80" class="absolute inset-0 w-full h-full cursor-pointer touch-none"></canvas></div></div>`;
     container.appendChild(msgDiv); container.scrollTop = container.scrollHeight;
-    if (typeof initScratchCanvas === 'function') initScratchCanvas(scId);
+    if (typeof initScratchCanvas === 'function') {
+      try { initScratchCanvas(scId); } catch (e) {}
+    }
     return;
   } else if (mode === 'audio') {
     msgDiv.innerHTML = `${senderTag}<div class="max-w-[85%] px-3 py-2 rounded-2xl ${isOut ? 'theme-accent rounded-br-none' : 'theme-bubble-in border rounded-bl-none'} shadow"><div class="text-[10px] font-semibold mb-1">🎤 Voice Note</div><audio controls src="${content}" class="h-8 w-52"></audio><div class="text-[9px] opacity-75 text-right mt-1">${time}</div></div>`;
@@ -815,42 +854,66 @@ function appendMessage(sender, content, direction, time, mode = 'text', msgId = 
 }
 
 function clearChat(broadcastToRoom = true, clearedBy = myName) {
-  incomingChunkBuffers = {};
-  pendingOutbox = [];
-  roomChatHistory = [];
-  renderedMsgIds.clear();
-  if (room) {
-    try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
-  }
-  revokeAllBlobUrls();
-  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
-  const label = broadcastToRoom
-    ? '🧹 You cleared chat & RAM for everyone in the room'
-    : `🧹 ${escapeHTML(clearedBy || 'Partner')} cleared chat & RAM for everyone`;
-  document.getElementById('messagesContainer').innerHTML = `<div class="text-center my-2"><span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">${label}</span></div>`;
-  if (broadcastToRoom) {
-    broadcastData({ type: 'CLEAR_ROOM_CHAT', senderName: myName });
+  try {
+    incomingChunkBuffers = {};
+    pendingOutbox = [];
+    roomChatHistory = [];
+    renderedMsgIds.clear();
+    if (room) {
+      try { sessionStorage.removeItem(`cypher_hist_${room}`); } catch (e) {}
+    }
+    revokeAllBlobUrls();
+    if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
+    const label = broadcastToRoom
+      ? '🧹 You cleared chat & RAM for everyone in the room'
+      : `🧹 ${escapeHTML(clearedBy || 'Partner')} cleared chat & RAM for everyone`;
+    const mc = document.getElementById('messagesContainer');
+    if (mc) mc.innerHTML = `<div class="text-center my-2"><span class="text-[10px] theme-muted bg-white/5 px-3 py-1 rounded-full">${label}</span></div>`;
+    if (broadcastToRoom) {
+      broadcastData({ type: 'CLEAR_ROOM_CHAT', senderName: myName });
+    }
+  } catch (err) {
+    console.warn('Clear chat cleanup notice:', err);
   }
 }
 
 function logoutRoom() {
-  intentionalLogout = true;
-  isConnecting = false;
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (hostCheckTimer) clearTimeout(hostCheckTimer);
-  if (failoverTimer) clearTimeout(failoverTimer);
-  if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; }
-  if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
-  if (typeof stopAllGamesAndLoops === 'function') stopAllGamesAndLoops();
-  stopRingtone(); endCall();
-  for (const p of Object.values(connections)) { try { if (p.conn) p.conn.close(); } catch (e) {} }
-  connections = {}; roomRoster = []; incomingChunkBuffers = {}; pendingOutbox = []; lastPeerPongMap = {};
-  safelyDestroyPeer();
-  clearChat(false);
-  room = "";
-  if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
-  if (typeof lockAfterHoursVault === 'function') lockAfterHoursVault();
-  toggleModal('authOverlay', true);
+  try {
+    intentionalLogout = true;
+    isConnecting = false;
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
+    if (failoverTimer) { clearTimeout(failoverTimer); failoverTimer = null; }
+    if (wakeLockSentinel) { try { wakeLockSentinel.release(); } catch (e) {} wakeLockSentinel = null; }
+    if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
+    if (typeof stopAllGamesAndLoops === 'function') {
+      try { stopAllGamesAndLoops(); } catch (e) {}
+    }
+    stopRingtone();
+    endCall();
+    for (const p of Object.values(connections)) {
+      try { if (p.conn) p.conn.close(); } catch (e) {}
+    }
+    connections = {};
+    roomRoster = [];
+    incomingChunkBuffers = {};
+    pendingOutbox = [];
+    lastPeerPongMap = {};
+    safelyDestroyPeer();
+    clearChat(false);
+    room = "";
+    if (typeof revokeSessionGuestPass === 'function') {
+      try { revokeSessionGuestPass(); } catch (e) {}
+    }
+    if (typeof lockAfterHoursVault === 'function') {
+      try { lockAfterHoursVault(); } catch (e) {}
+    }
+  } finally {
+    // Always close mobile drawer and show entry screen no matter what
+    document.getElementById('sidebar')?.classList.add('-translate-x-full');
+    document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+    toggleModal('authOverlay', true);
+  }
 }
 
 // ==================== SAFE PICKER TOGGLE & TAB SWITCHER ====================
@@ -859,7 +922,7 @@ function togglePicker() {
   if (!pop) return;
   pop.classList.toggle('hidden');
   if (!pop.classList.contains('hidden') && typeof initPickersSafely === 'function') {
-    initPickersSafely();
+    try { initPickersSafely(); } catch (e) {}
   }
 }
 
@@ -883,12 +946,12 @@ function switchPickerTab(tab) {
 // ==================== HELPERS, ANDROID PING WATCHDOG & CALLS ====================
 function setReplyQuote(sender, snippet) { activeReplyContext = { sender, text: snippet.slice(0, 80) }; document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`; document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text; toggleModal('replyPreviewBanner', true); }
 function cancelReply() { activeReplyContext = null; toggleModal('replyPreviewBanner', false); }
-function toggleSecretMode() { isSecretMode = !isSecretMode; toggleModal('secretModeBanner', isSecretMode); document.getElementById('secretBtn').classList.toggle('text-amber-400', isSecretMode); }
+function toggleSecretMode() { isSecretMode = !isSecretMode; toggleModal('secretModeBanner', isSecretMode); document.getElementById('secretBtn')?.classList.toggle('text-amber-400', isSecretMode); }
 function notifyTyping() { const now = Date.now(); if (now - lastTypingSent > 1800) { lastTypingSent = now; broadcastData({ type: 'TYPING', senderName: myName }); } }
 function showRemoteTyping(name) { document.getElementById('typingUserText').textContent = `${name} is typing...`; toggleModal('typingIndicatorBar', true); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => toggleModal('typingIndicatorBar', false), 2200); }
 function revealSecret(id) { const el = document.getElementById(id + '_text'); if (el && el.classList.contains('secret-blurred')) { el.classList.remove('secret-blurred'); startSelfDestruct(id); } }
 function startSelfDestruct(id) { let s = 10; const t = document.getElementById(id + '_timer'), b = document.getElementById(id); const iv = setInterval(() => { s--; if (t) t.textContent = `${s}s...`; if (s <= 0) { clearInterval(iv); if (b) b.innerHTML = `<span class="text-[11px] italic opacity-60">💥 Burned</span>`; } }, 1000); }
-function appendSystemNotice(text) { const c = document.getElementById('messagesContainer'), d = document.createElement('div'); d.className = 'text-center my-1.5'; d.innerHTML = `<span class="text-[10px] theme-muted bg-white/5 px-2.5 py-0.5 rounded-full">${text}</span>`; c.appendChild(d); c.scrollTop = c.scrollHeight; }
+function appendSystemNotice(text) { const c = document.getElementById('messagesContainer'); if (!c) return; const d = document.createElement('div'); d.className = 'text-center my-1.5'; d.innerHTML = `<span class="text-[10px] theme-muted bg-white/5 px-2.5 py-0.5 rounded-full">${text}</span>`; c.appendChild(d); c.scrollTop = c.scrollHeight; }
 function escapeHTML(str) { return String(str).replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t])); }
 function openLightbox(src) { document.getElementById('lightboxImg').src = src; toggleModal('imageLightbox', true); }
 
@@ -909,11 +972,11 @@ async function toggleVoiceRecording() {
         };
         reader.readAsDataURL(new Blob(audioChunks, { type: 'audio/webm' }));
       };
-      mediaRecorder.start(); isRecordingVoice = true; btn.classList.add('bg-rose-600', 'text-white', 'animate-pulse');
+      mediaRecorder.start(); isRecordingVoice = true; btn?.classList.add('bg-rose-600', 'text-white', 'animate-pulse');
     } catch (err) { alert('Mic error: ' + err.message); }
   } else {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    isRecordingVoice = false; btn.classList.remove('bg-rose-600', 'text-white', 'animate-pulse');
+    isRecordingVoice = false; btn?.classList.remove('bg-rose-600', 'text-white', 'animate-pulse');
   }
 }
 
@@ -946,7 +1009,7 @@ async function enableBackgroundPersistence() {
     }
 
     if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
-      peer.socket.send({ type: 'HEARTBEAT' });
+      try { peer.socket.send({ type: 'HEARTBEAT' }); } catch (e) {}
     }
   }, 5000);
 }
@@ -973,10 +1036,10 @@ async function acceptIncomingCall() {
     toggleModal('callOverlay', true); document.getElementById('localVideo').srcObject = localStream;
     toggleModal('localVideo', isVideo); toggleModal('remoteVideo', isVideo); toggleModal('audioIndicator', !isVideo);
     call.answer(localStream); handleStream(call);
-  } catch (e) { call.close(); }
+  } catch (e) { try { call.close(); } catch (err) {} }
 }
 
-function rejectIncomingCall() { stopRingtone(); toggleModal('incomingCallModal', false); if (pendingIncomingCall) { pendingIncomingCall.close(); pendingIncomingCall = null; } }
+function rejectIncomingCall() { stopRingtone(); toggleModal('incomingCallModal', false); if (pendingIncomingCall) { try { pendingIncomingCall.close(); } catch (e) {} pendingIncomingCall = null; } }
 
 async function startCall(isVideo) {
   const peerIds = Object.keys(connections); if (peerIds.length === 0) { alert('No peers in room yet.'); return; }
@@ -1002,8 +1065,8 @@ function handleStream(call) {
   call.on('close', () => endCall());
 }
 
-function toggleMic() { if (!localStream) return; isMicMuted = !isMicMuted; localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted); document.getElementById('micBtn').classList.toggle('bg-rose-600', isMicMuted); }
-function toggleCam() { if (!localStream) return; isCamDisabled = !isCamDisabled; localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled); document.getElementById('camBtn').classList.toggle('bg-rose-600', isCamDisabled); }
+function toggleMic() { if (!localStream) return; isMicMuted = !isMicMuted; localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted); document.getElementById('micBtn')?.classList.toggle('bg-rose-600', isMicMuted); }
+function toggleCam() { if (!localStream) return; isCamDisabled = !isCamDisabled; localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled); document.getElementById('camBtn')?.classList.toggle('bg-rose-600', isCamDisabled); }
 
 async function toggleScreenShare() {
   if (!activeCall) { alert('Start a Voice or Video call first.'); return; }
@@ -1019,7 +1082,7 @@ async function toggleScreenShare() {
       toggleModal('remoteVideo', true);
       toggleModal('audioIndicator', false);
       isScreenSharing = true;
-      btn.classList.add('bg-emerald-600');
+      btn?.classList.add('bg-emerald-600');
       track.onended = () => { if (isScreenSharing) toggleScreenShare(); };
     } catch (e) {}
   } else {
@@ -1029,14 +1092,15 @@ async function toggleScreenShare() {
       document.getElementById('localVideo').srcObject = localStream;
     }
     isScreenSharing = false;
-    btn.classList.remove('bg-emerald-600');
+    btn?.classList.remove('bg-emerald-600');
   }
 }
 
 function endCall() {
-  stopRingtone(); isScreenSharing = false;
-  document.getElementById('screenShareBtn').classList.remove('bg-emerald-600');
-  if (activeCall) activeCall.close();
-  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  stopRingtone();
+  isScreenSharing = false;
+  document.getElementById('screenShareBtn')?.classList.remove('bg-emerald-600');
+  if (activeCall) { try { activeCall.close(); } catch (e) {} activeCall = null; }
+  if (localStream) { try { localStream.getTracks().forEach(t => t.stop()); } catch (e) {} localStream = null; }
   toggleModal('callOverlay', false);
 }
