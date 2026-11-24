@@ -1,4 +1,4 @@
-// ==================== ONE CHAT — BILINGUAL ENGINE (ENGLISH / தமிழ்) ====================
+// ==================== ONE CHAT — BILINGUAL ENGINE (V2 — ZERO-WIPE & 5-USER HARDENED) ====================
 // Translates Home Screen, Core UI, All 26 Games, and Couples Vault while keeping license.js strictly in English.
 
 window.currentAppLang = localStorage.getItem('onechat_lang') || 'en';
@@ -154,7 +154,16 @@ const I18N_DICT = {
   }
 };
 
-// Tamil Couples Decks & Trivia Overrides
+// Build Reverse Dictionary (Tamil -> English) so toggling back to English works cleanly without clearing HTML
+const REVERSE_I18N_DICT = {};
+for (const [en, ta] of Object.entries(I18N_DICT.ta)) {
+  REVERSE_I18N_DICT[ta] = en;
+}
+
+// Store original English couples decks for clean switching
+let EN_COUPLES_TOD_BACKUP = null;
+let EN_DESIRE_DECK_BACKUP = null;
+
 const TA_COUPLES_TOD = {
   flirty: {
     TRUTH: [
@@ -234,12 +243,6 @@ const TA_DESIRE_DECK = [
   "இரவு முழுவதும் ஒருவரின் முழு கட்டுப்பாட்டில் இருத்தல்"
 ];
 
-function tStr(text) {
-  if (window.currentAppLang !== 'ta') return text;
-  const trimmed = String(text).trim();
-  return I18N_DICT.ta[trimmed] || text;
-}
-
 // Inject Home Screen Language Switcher Pill
 function injectHomeLanguageSwitcher() {
   const authCard = document.querySelector('#authOverlay > div');
@@ -274,100 +277,104 @@ window.setAppLanguage = function(lang) {
   localStorage.setItem('onechat_lang', window.currentAppLang);
   updateLangPillStyles();
 
-  // Swap Tamil decks in couples.js if loaded
-  if (window.currentAppLang === 'ta') {
-    if (typeof todVaultBank !== 'undefined') Object.assign(todVaultBank, TA_COUPLES_TOD);
-    if (typeof desireDeck !== 'undefined') {
-      desireDeck.length = 0;
-      desireDeck.push(...TA_DESIRE_DECK);
-    }
+  // Backup original English couples decks once, then swap cleanly
+  if (typeof todVaultBank !== 'undefined') {
+    if (!EN_COUPLES_TOD_BACKUP) EN_COUPLES_TOD_BACKUP = JSON.parse(JSON.stringify(todVaultBank));
+    Object.assign(todVaultBank, window.currentAppLang === 'ta' ? TA_COUPLES_TOD : EN_COUPLES_TOD_BACKUP);
+  }
+  if (typeof desireDeck !== 'undefined') {
+    if (!EN_DESIRE_DECK_BACKUP) EN_DESIRE_DECK_BACKUP = [...desireDeck];
+    desireDeck.length = 0;
+    desireDeck.push(...(window.currentAppLang === 'ta' ? TA_DESIRE_DECK : EN_DESIRE_DECK_BACKUP));
   }
 
-  // Re-render dynamic grids if open
-  if (typeof initPickersSafely === 'function') {
-    ['soundsGrid', 'surprisesGrid'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '';
-    });
-    try { initPickersSafely(); } catch (e) {}
-  }
-
-  applyDOMTranslations(document.body);
+  // Translate DOM text in-place WITHOUT clearing any existing game buttons
+  applyDOMTranslations(document.body, window.currentAppLang);
 };
 
-// Safe DOM Tree Translator (Strictly skips #licenseModal and license buttons)
-function applyDOMTranslations(root) {
-  if (!root || window.currentAppLang !== 'ta') return;
+// Safe In-Place DOM Translator (Strictly skips #licenseModal and never wipes grids)
+let isApplyingTranslation = false;
+function applyDOMTranslations(root, targetLang = window.currentAppLang) {
+  if (!root || isApplyingTranslation) return;
+  isApplyingTranslation = true;
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      const parent = node.parentElement;
-      if (!parent) return NodeFilter.FILTER_REJECT;
-      // Strictly exclude license.js UI & scripts
-      if (parent.closest('#licenseModal, #openLicenseModalBtn, script, style')) {
-        return NodeFilter.FILTER_REJECT;
+  try {
+    const dict = targetLang === 'ta' ? I18N_DICT.ta : REVERSE_I18N_DICT;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (parent.closest('#licenseModal, #openLicenseModalBtn, script, style')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const txt = node.nodeValue.trim();
+        if (!txt) return NodeFilter.FILTER_REJECT;
+        return dict[txt] ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       }
-      const txt = node.nodeValue.trim();
-      if (!txt) return NodeFilter.FILTER_REJECT;
-      return I18N_DICT.ta[txt] ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-    }
-  });
+    });
 
-  const nodesToUpdate = [];
-  while (walker.nextNode()) nodesToUpdate.push(walker.currentNode);
-  for (const n of nodesToUpdate) {
-    const raw = n.nodeValue;
-    const trimmed = raw.trim();
-    if (I18N_DICT.ta[trimmed]) {
-      n.nodeValue = raw.replace(trimmed, I18N_DICT.ta[trimmed]);
+    const nodesToUpdate = [];
+    while (walker.nextNode()) nodesToUpdate.push(walker.currentNode);
+    for (const n of nodesToUpdate) {
+      const raw = n.nodeValue;
+      const trimmed = raw.trim();
+      if (dict[trimmed]) {
+        n.nodeValue = raw.replace(trimmed, dict[trimmed]);
+      }
     }
+
+    root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(el => {
+      if (el.closest('#licenseModal')) return;
+      const ph = el.getAttribute('placeholder')?.trim();
+      if (ph && dict[ph]) {
+        el.setAttribute('placeholder', dict[ph]);
+      }
+    });
+  } finally {
+    isApplyingTranslation = false;
   }
-
-  // Translate input/textarea placeholders (excluding license modal)
-  root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(el => {
-    if (el.closest('#licenseModal')) return;
-    const ph = el.getAttribute('placeholder')?.trim();
-    if (ph && I18N_DICT.ta[ph]) {
-      el.setAttribute('placeholder', I18N_DICT.ta[ph]);
-    }
-  });
 }
 
-// Observe dynamically appended chat cards & modals and translate automatically when Tamil is active
+// Observe newly added nodes (e.g., Couples Vault tab or incoming cards) safely
 const i18nObserver = new MutationObserver((mutations) => {
-  if (window.currentAppLang !== 'ta') return;
+  if (window.currentAppLang !== 'ta' || isApplyingTranslation) return;
   for (const m of mutations) {
     for (const node of m.addedNodes) {
       if (node.nodeType === 1 && !node.closest('#licenseModal')) {
-        applyDOMTranslations(node);
+        applyDOMTranslations(node, 'ta');
       }
     }
   }
 });
 
-// Override Intimacy Dice roll in Tamil mode
-const _origRollIntimacyDice = window.rollIntimacyDice;
-window.rollIntimacyDice = function() {
-  if (window.currentAppLang !== 'ta') {
-    return typeof _origRollIntimacyDice === 'function' ? _origRollIntimacyDice() : null;
+// Hook Intimacy Dice roll cleanly when Tamil is selected
+window.addEventListener('load', () => {
+  const origRoll = window.rollIntimacyDice;
+  if (typeof origRoll === 'function') {
+    window.rollIntimacyDice = function() {
+      if (window.currentAppLang !== 'ta') return origRoll.apply(this, arguments);
+      const pick = TA_DICE_TARGETS[Math.floor(Math.random() * TA_DICE_TARGETS.length)];
+      const roll = {
+        id: 'dice_' + Date.now(),
+        action: TA_DICE_ACTIONS[Math.floor(Math.random() * TA_DICE_ACTIONS.length)],
+        target: pick.label,
+        secs: pick.secs,
+        roller: myName
+      };
+      broadcastData({ type: 'AH_DICE_ROLL', roll });
+      if (typeof renderIntimacyDiceCard === 'function') renderIntimacyDiceCard(roll, true);
+    };
   }
-  const pick = TA_DICE_TARGETS[Math.floor(Math.random() * TA_DICE_TARGETS.length)];
-  const roll = {
-    id: 'dice_' + Date.now(),
-    action: TA_DICE_ACTIONS[Math.floor(Math.random() * TA_DICE_ACTIONS.length)],
-    target: pick.label,
-    secs: pick.secs,
-    roller: myName
-  };
-  broadcastData({ type: 'AH_DICE_ROLL', roll });
-  if (typeof renderIntimacyDiceCard === 'function') renderIntimacyDiceCard(roll, true);
-};
+});
 
-// Bootstrap on load
+// Bootstrap safely after games.js & couples.js have populated their grids
 window.addEventListener('DOMContentLoaded', () => {
   injectHomeLanguageSwitcher();
   i18nObserver.observe(document.body, { childList: true, subtree: true });
-  if (window.currentAppLang === 'ta') {
-    setAppLanguage('ta');
-  }
+  setTimeout(() => {
+    if (window.currentAppLang === 'ta') {
+      setAppLanguage('ta');
+    }
+  }, 150);
 });
