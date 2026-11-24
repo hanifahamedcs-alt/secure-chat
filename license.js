@@ -159,7 +159,7 @@ window.revokeSessionGuestPass = function() {
 // Capture-phase interceptor (only blocks unlicensed users)
 document.addEventListener('click', (e) => {
   if (window.isProUnlocked || window.hasPermanentProLicense) return;
-  if (e.target.closest('#participantsList, #licenseModal, #openLicenseModalBtn')) return;
+  if (e.target.closest('#participantsList, #licenseModal, #openLicenseModalBtn, #afterHoursGrid, #tabAfterHours, #stripConfessionModal, #todVaultModal, #desireMatchModal, #loveCouponModal')) return;
 
   const lockedTarget = e.target.closest('[data-pro-locked="1"]');
   const appGridBtn = e.target.closest('#surprisesGrid button, #soundsGrid button');
