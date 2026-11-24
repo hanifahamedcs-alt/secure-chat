@@ -1,6 +1,4 @@
-// ==================== ONE CHAT — BILINGUAL ENGINE (V2 — ZERO-WIPE & 5-USER HARDENED) ====================
-// Translates Home Screen, Core UI, All 26 Games, and Couples Vault while keeping license.js strictly in English.
-
+// ==================== ONE CHAT — BILINGUAL ENGINE (V3 — COMPLETE WITH 5-LOCK STRIP CONFESSION) ====================
 window.currentAppLang = localStorage.getItem('onechat_lang') || 'en';
 
 const I18N_DICT = {
@@ -128,7 +126,20 @@ const I18N_DICT = {
     "🪄 Vibe Oracle": "🪄 அதிர்ஷ்ட குறி மேடை",
     "Ask the Oracle": "குறி கேளுங்கள்",
 
-    // Couples Vault (couples.js)
+    // Couples Vault & 5-Lock Strip Confession
+    "🔓 5-Lock Strip Confession": "🔓 5-பூட்டு ரகசிய சவால்",
+    "Your Locks": "உங்கள் பூட்டுகள்",
+    "Partner Locks": "துணையின் பூட்டுகள்",
+    "🔥 Confession Prompt": "🔥 ரகசிய கேள்வி",
+    "Shuffle Prompt": "வேறு கேள்வி",
+    "1. Your Honest Secret Answer": "1. உங்கள் உண்மையான ரகசிய பதில்",
+    "Type your unfiltered answer...": "உங்கள் பதிலை வெளிப்படையாக எழுதுங்கள்...",
+    "2. Guess What Your Partner Will Say": "2. உங்கள் துணை என்ன சொல்வார் என கணிக்கவும்",
+    "Wrong guess = 1 Lock breaks (remove 1 item)...": "தவறான கணிப்பு = 1 பூட்டு உடையும் (1 ஆடையை குறைக்கவும்)...",
+    "🔐 Lock In Confession & Guess": "🔐 பதிலையும் கணிப்பையும் பூட்டு",
+    "Ask your own bold question...": "உங்கள் சொந்த துணிச்சலான கேள்வியை கேளுங்கள்...",
+    "Set": "அமை",
+    "Reset All 5 Locks": "5 பூட்டுகளையும் புதிதாக்கு",
     "🔥 Truth or Dare": "🔥 உண்மையா சவாலா",
     "🎲 Intimacy Dice": "🎲 காதல் பகடை",
     "❤️‍🔥 Desire Match": "❤️‍🔥 விருப்பப் பொருத்தம்",
@@ -154,13 +165,6 @@ const I18N_DICT = {
   }
 };
 
-// Build Reverse Dictionary (Tamil -> English) so toggling back to English works cleanly without clearing HTML
-const REVERSE_I18N_DICT = {};
-for (const [en, ta] of Object.entries(I18N_DICT.ta)) {
-  REVERSE_I18N_DICT[ta] = en;
-}
-
-// Store original English couples decks for clean switching
 let EN_COUPLES_TOD_BACKUP = null;
 let EN_DESIRE_DECK_BACKUP = null;
 
@@ -243,7 +247,6 @@ const TA_DESIRE_DECK = [
   "இரவு முழுவதும் ஒருவரின் முழு கட்டுப்பாட்டில் இருத்தல்"
 ];
 
-// Inject Home Screen Language Switcher Pill
 function injectHomeLanguageSwitcher() {
   const authCard = document.querySelector('#authOverlay > div');
   if (!authCard || document.getElementById('langSwitcherBar')) return;
@@ -277,7 +280,6 @@ window.setAppLanguage = function(lang) {
   localStorage.setItem('onechat_lang', window.currentAppLang);
   updateLangPillStyles();
 
-  // Backup original English couples decks once, then swap cleanly
   if (typeof todVaultBank !== 'undefined') {
     if (!EN_COUPLES_TOD_BACKUP) EN_COUPLES_TOD_BACKUP = JSON.parse(JSON.stringify(todVaultBank));
     Object.assign(todVaultBank, window.currentAppLang === 'ta' ? TA_COUPLES_TOD : EN_COUPLES_TOD_BACKUP);
@@ -288,18 +290,23 @@ window.setAppLanguage = function(lang) {
     desireDeck.push(...(window.currentAppLang === 'ta' ? TA_DESIRE_DECK : EN_DESIRE_DECK_BACKUP));
   }
 
-  // Translate DOM text in-place WITHOUT clearing any existing game buttons
   applyDOMTranslations(document.body, window.currentAppLang);
 };
 
-// Safe In-Place DOM Translator (Strictly skips #licenseModal and never wipes grids)
 let isApplyingTranslation = false;
 function applyDOMTranslations(root, targetLang = window.currentAppLang) {
   if (!root || isApplyingTranslation) return;
   isApplyingTranslation = true;
 
   try {
-    const dict = targetLang === 'ta' ? I18N_DICT.ta : REVERSE_I18N_DICT;
+    const dict = {};
+    if (targetLang === 'ta') {
+      Object.assign(dict, I18N_DICT.ta);
+    } else {
+      for (const [en, ta] of Object.entries(I18N_DICT.ta)) {
+        dict[ta] = en;
+      }
+    }
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -336,7 +343,6 @@ function applyDOMTranslations(root, targetLang = window.currentAppLang) {
   }
 }
 
-// Observe newly added nodes (e.g., Couples Vault tab or incoming cards) safely
 const i18nObserver = new MutationObserver((mutations) => {
   if (window.currentAppLang !== 'ta' || isApplyingTranslation) return;
   for (const m of mutations) {
@@ -348,7 +354,6 @@ const i18nObserver = new MutationObserver((mutations) => {
   }
 });
 
-// Hook Intimacy Dice roll cleanly when Tamil is selected
 window.addEventListener('load', () => {
   const origRoll = window.rollIntimacyDice;
   if (typeof origRoll === 'function') {
@@ -368,7 +373,6 @@ window.addEventListener('load', () => {
   }
 });
 
-// Bootstrap safely after games.js & couples.js have populated their grids
 window.addEventListener('DOMContentLoaded', () => {
   injectHomeLanguageSwitcher();
   i18nObserver.observe(document.body, { childList: true, subtree: true });
