@@ -17,6 +17,9 @@ const I18N_DICT = {
     "No History Stored": "வரலாறு சேமிக்கப்படாது",
     "Live Arcade": "நேரலை விளையாட்டுகள்",
     "Connecting to TURN relay...": "பாதுகாப்பான இணைப்பு ஏற்படுத்தப்படுகிறது...",
+    "Invite Link Copied!": "அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது!",
+    "Reconnecting...": "மீண்டும் இணைக்கப்படுகிறது...",
+    "Waiting for partner to confirm 18+ mutual consent...": "18+ சம்மதத்தை துணை உறுதிப்படுத்தும் வரை காத்திருக்கிறது...",
 
     // Sidebar & Header
     "Always-On • Waiting...": "தயார் நிலை • நண்பர்களுக்காக காத்திருக்கிறது...",
