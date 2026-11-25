@@ -514,7 +514,10 @@ function registerPeerConnection(conn) {
     if (data.type === 'PONG') return;
 
     if (data.type === 'ROOM_FULL') {
-      alert(`Room #${room} has reached its ${data.max || MAX_ROOM_PEERS}-user capacity for optimal speed. Please enter a private room code (e.g. ${room}2).`);
+      const isTa = window.currentAppLang === 'ta';
+      alert(isTa
+        ? `#${room} அறையில் அதிகபட்சமாக ${data.max || MAX_ROOM_PEERS} பயனர்கள் இணைந்துள்ளனர். தனியாக பேச புதிய அறை குறியீட்டை (எ.கா. ${room}2) பயன்படுத்தவும்.`
+        : `Room #${room} has reached its ${data.max || MAX_ROOM_PEERS}-user capacity for optimal speed. Please enter a private room code (e.g. ${room}2).`);
       logoutRoom();
       return;
     }
@@ -1007,133 +1010,4 @@ async function toggleVoiceRecording() {
 }
 
 async function enableBackgroundPersistence() {
-  if ('wakeLock' in navigator) { try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (e) {} }
-  try {
-    initAudioContext();
-    if (!silentKeepAliveOsc) {
-      silentKeepAliveOsc = audioCtx.createOscillator(); const g = audioCtx.createGain(); g.gain.value = 0.0001;
-      silentKeepAliveOsc.frequency.value = 20; silentKeepAliveOsc.connect(g); g.connect(audioCtx.destination); silentKeepAliveOsc.start();
-    }
-  } catch (e) {}
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-
-  heartbeatTimer = setInterval(() => {
-    if (intentionalLogout || !room) return;
-    const now = Date.now();
-
-    for (const [txId, buf] of Object.entries(incomingChunkBuffers)) {
-      if (now - buf.createdAt > 30000) delete incomingChunkBuffers[txId];
-    }
-
-    for (const [peerId, peerObj] of Object.entries(connections)) {
-      if (peerObj.conn && peerObj.conn.open) {
-        try { peerObj.conn.send({ type: 'PING' }); } catch (e) {}
-        if (lastPeerPongMap[peerId] && (now - lastPeerPongMap[peerId] > 16000)) {
-          try { peerObj.conn.close(); } catch (e) {}
-        }
-      }
-    }
-
-    if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
-      try { peer.socket.send({ type: 'HEARTBEAT' }); } catch (e) {}
-    }
-  }, 6000);
-}
-
-function setupCallHandler(activePeerInstance) {
-  const targetPeer = activePeerInstance || peer;
-  if (!targetPeer) return;
-  targetPeer.on('call', (call) => {
-    pendingIncomingCall = call;
-    const isVideo = call.metadata?.video !== false;
-    document.getElementById('incomingCallerName').textContent = call.metadata?.callerName || 'Peer';
-    document.getElementById('incomingCallType').textContent = isVideo ? 'Incoming Video Call...' : 'Incoming Voice Call...';
-    toggleModal('incomingCallModal', true);
-    triggerIncomingNotification('Incoming Call', 'Tap to answer', true);
-    call.on('close', () => { stopRingtone(); toggleModal('incomingCallModal', false); pendingIncomingCall = null; });
-  });
-}
-
-async function acceptIncomingCall() {
-  stopRingtone(); toggleModal('incomingCallModal', false); if (!pendingIncomingCall) return;
-  const call = pendingIncomingCall; pendingIncomingCall = null; const isVideo = call.metadata?.video !== false;
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo ? { facingMode: 'user', width: { ideal: 640 } } : false });
-    toggleModal('callOverlay', true); document.getElementById('localVideo').srcObject = localStream;
-    toggleModal('localVideo', isVideo); toggleModal('remoteVideo', isVideo); toggleModal('audioIndicator', !isVideo);
-    call.answer(localStream); handleStream(call);
-  } catch (e) { try { call.close(); } catch (err) {} }
-}
-
-function rejectIncomingCall() { stopRingtone(); toggleModal('incomingCallModal', false); if (pendingIncomingCall) { try { pendingIncomingCall.close(); } catch (e) {} pendingIncomingCall = null; } }
-
-async function startCall(isVideo, targetPeerId = null) {
-  // Support direct 1-on-1 calling of any user in roomRoster or default first connected peer
-  let dialId = targetPeerId;
-  if (!dialId) {
-    const others = (roomRoster || []).filter(m => m.id !== myPeerId);
-    dialId = others.length > 0 ? others[0].id : Object.keys(connections)[0];
-  }
-  if (!dialId) { alert('No peers in room yet.'); return; }
-
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo ? { facingMode: 'user', width: { ideal: 640 } } : false });
-    toggleModal('callOverlay', true); document.getElementById('localVideo').srcObject = localStream;
-    toggleModal('localVideo', isVideo); toggleModal('remoteVideo', isVideo); toggleModal('audioIndicator', !isVideo);
-    handleStream(peer.call(dialId, localStream, { metadata: { video: isVideo, callerName: myName } }));
-  } catch (err) { alert('Media error: ' + err.message); }
-}
-
-function handleStream(call) {
-  activeCall = call;
-  call.on('stream', async (stream) => {
-    const v = document.getElementById('remoteVideo');
-    v.srcObject = stream;
-    if (stream.getVideoTracks().length > 0) {
-      toggleModal('remoteVideo', true);
-      toggleModal('audioIndicator', false);
-    }
-    try { await v.play(); } catch (e) {}
-  });
-  call.on('close', () => endCall());
-}
-
-function toggleMic() { if (!localStream) return; isMicMuted = !isMicMuted; localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted); document.getElementById('micBtn')?.classList.toggle('bg-rose-600', isMicMuted); }
-function toggleCam() { if (!localStream) return; isCamDisabled = !isCamDisabled; localStream.getVideoTracks().forEach(t => t.enabled = !isCamDisabled); document.getElementById('camBtn')?.classList.toggle('bg-rose-600', isCamDisabled); }
-
-async function toggleScreenShare() {
-  if (!activeCall) { alert('Start a Voice or Video call first.'); return; }
-  const btn = document.getElementById('screenShareBtn');
-  if (!isScreenSharing) {
-    try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: true }), track = s.getVideoTracks()[0];
-      const sender = activeCall.peerConnection.getSenders().find(x => x.track && x.track.kind === 'video');
-      if (sender) await sender.replaceTrack(track);
-      else activeCall.peerConnection.addTrack(track, s);
-      document.getElementById('localVideo').srcObject = s;
-      toggleModal('localVideo', true);
-      toggleModal('remoteVideo', true);
-      toggleModal('audioIndicator', false);
-      isScreenSharing = true;
-      btn?.classList.add('bg-emerald-600');
-      track.onended = () => { if (isScreenSharing) toggleScreenShare(); };
-    } catch (e) {}
-  } else {
-    if (localStream && localStream.getVideoTracks()[0]) {
-      const sender = activeCall.peerConnection.getSenders().find(x => x.track && x.track.kind === 'video');
-      if (sender) await sender.replaceTrack(localStream.getVideoTracks()[0]);
-      document.getElementById('localVideo').srcObject = localStream;
-    }
-    isScreenSharing = false;
-    btn?.classList.remove('bg-emerald-600');
-  }
-}
-
-function endCall() {
-  stopRingtone();
-  isScreenSharing = false;
-  document.getElementById('screenShareBtn')?.classList.remove('bg-emerald-600');
-  if (activeCall) { try { activeCall.close(); } catch (e) {} activeCall = null; }
-  if (localStream) { try { localStream.getTracks().forEach(t => t.stop()); } catch (e) {} localStream = null; }
-  toggleModal('callOverlay', false);
-}
+  if ('wakeLock' in navigator) { try {
