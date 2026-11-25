@@ -1,9 +1,73 @@
-// ==================== ONE CHAT — PWA INSTALLER, SPLASH & FULLSCREEN MOBILE FIX ====================
+// ==================== ONE CHAT — PWA INSTALLER, iOS PNG ICON & FULLSCREEN FIX ====================
 (function initOneChatPWA() {
   let deferredInstallPrompt = null;
   const isTa = () => window.currentAppLang === 'ta';
   const isStandalone = () =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  // Generate a real 512x512 PNG data URL so iOS Safari displays the Home Screen icon properly
+  function generatePngAppIcon(size = 512) {
+    try {
+      const c = document.createElement('canvas');
+      c.width = size;
+      c.height = size;
+      const ctx = c.getContext('2d');
+
+      // Deep luxury night background
+      const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+      bgGrad.addColorStop(0, '#1e113e');
+      bgGrad.addColorStop(1, '#0c0618');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, size, size);
+
+      // Neon prism chat bubble
+      const prismGrad = ctx.createLinearGradient(size * 0.2, size * 0.2, size * 0.8, size * 0.8);
+      prismGrad.addColorStop(0, '#f43f5e');
+      prismGrad.addColorStop(0.5, '#d946ef');
+      prismGrad.addColorStop(1, '#f59e0b');
+      ctx.fillStyle = prismGrad;
+
+      const x = size * 0.22, y = size * 0.22, w = size * 0.56, h = size * 0.44, r = size * 0.11;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + w * 0.45, y + h);
+      ctx.lineTo(x + w * 0.22, y + h + size * 0.11);
+      ctx.lineTo(x + w * 0.22, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Three glowing white dots inside bubble
+      ctx.fillStyle = '#ffffff';
+      [0.39, 0.5, 0.61].forEach((cxRatio) => {
+        ctx.beginPath();
+        ctx.arc(size * cxRatio, size * 0.44, size * 0.032, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      return c.toDataURL('image/png');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function applyAppleTouchPngIcon() {
+    const pngUrl = generatePngAppIcon(512);
+    if (!pngUrl) return;
+    document.querySelectorAll('link[rel="apple-touch-icon"]').forEach((el) => el.remove());
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.sizes = '512x512';
+    link.href = pngUrl;
+    document.head.appendChild(link);
+  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -12,7 +76,8 @@
   }
 
   window.addEventListener('DOMContentLoaded', () => {
-    // Ensure viewport-fit=cover is active so env(safe-area-inset-top) works on Android & iPhone notches
+    applyAppleTouchPngIcon();
+
     const vp = document.querySelector('meta[name="viewport"]');
     if (vp && !vp.content.includes('viewport-fit=cover')) {
       vp.content = vp.content + ', viewport-fit=cover';
@@ -23,28 +88,29 @@
       style.id = 'pwaMobileFixStyle';
       style.textContent = `
         header {
-          padding-top: max(0.65rem, env(safe-area-inset-top)) !important;
-          min-height: calc(3.5rem + env(safe-area-inset-top)) !important;
+          padding-top: max(0.75rem, env(safe-area-inset-top)) !important;
+          min-height: calc(3.75rem + env(safe-area-inset-top)) !important;
           position: relative;
-          z-index: 30;
+          z-index: 40;
         }
         #sidebar {
-          padding-top: max(1rem, env(safe-area-inset-top)) !important;
+          padding-top: max(1.1rem, env(safe-area-inset-top)) !important;
           padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-          z-index: 60 !important;
+          z-index: 70 !important;
         }
         #sidebarBackdrop {
-          z-index: 55 !important;
+          z-index: 65 !important;
         }
         header button[onclick*="toggleMobileSidebar"] {
           display: flex !important;
           align-items: center;
           justify-content: center;
           flex-shrink: 0 !important;
-          min-width: 36px !important;
-          min-height: 36px !important;
+          min-width: 38px !important;
+          min-height: 38px !important;
+          touch-action: manipulation;
           position: relative;
-          z-index: 35;
+          z-index: 45;
         }
         @media (max-width: 430px) {
           header .flex.items-center.gap-1\\.5 {
@@ -80,7 +146,7 @@
       setTimeout(() => {
         splash.style.opacity = '0';
         setTimeout(() => splash.remove(), 420);
-      }, 650);
+      }, 600);
     }
 
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
