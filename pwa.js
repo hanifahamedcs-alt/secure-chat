@@ -1,25 +1,71 @@
-// ==================== ONE CHAT — PWA INSTALLER & BRANDED SPLASH ====================
+// ==================== ONE CHAT — PWA INSTALLER, SPLASH & FULLSCREEN MOBILE FIX ====================
 (function initOneChatPWA() {
   let deferredInstallPrompt = null;
   const isTa = () => window.currentAppLang === 'ta';
   const isStandalone = () =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-  // 1. Register Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
   }
 
-  // 2. Branded Luxury Launch Splash Overlay (Auto-fades cleanly)
   window.addEventListener('DOMContentLoaded', () => {
+    // Ensure viewport-fit=cover is active so env(safe-area-inset-top) works on Android & iPhone notches
+    const vp = document.querySelector('meta[name="viewport"]');
+    if (vp && !vp.content.includes('viewport-fit=cover')) {
+      vp.content = vp.content + ', viewport-fit=cover';
+    }
+
+    if (!document.getElementById('pwaMobileFixStyle')) {
+      const style = document.createElement('style');
+      style.id = 'pwaMobileFixStyle';
+      style.textContent = `
+        header {
+          padding-top: max(0.65rem, env(safe-area-inset-top)) !important;
+          min-height: calc(3.5rem + env(safe-area-inset-top)) !important;
+          position: relative;
+          z-index: 30;
+        }
+        #sidebar {
+          padding-top: max(1rem, env(safe-area-inset-top)) !important;
+          padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+          z-index: 60 !important;
+        }
+        #sidebarBackdrop {
+          z-index: 55 !important;
+        }
+        header button[onclick*="toggleMobileSidebar"] {
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0 !important;
+          min-width: 36px !important;
+          min-height: 36px !important;
+          position: relative;
+          z-index: 35;
+        }
+        @media (max-width: 430px) {
+          header .flex.items-center.gap-1\\.5 {
+            gap: 0.25rem !important;
+          }
+          header .flex.items-center.gap-1\\.5 > button {
+            width: 30px !important;
+            height: 30px !important;
+            font-size: 11px !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     if (!document.getElementById('oneChatBootSplash')) {
       const splash = document.createElement('div');
       splash.id = 'oneChatBootSplash';
       splash.style.cssText =
         'position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-        'background:radial-gradient(circle at top,#230f48,#0c0618);transition:opacity 0.45s ease;';
+        'background:radial-gradient(circle at top,#230f48,#0c0618);transition:opacity 0.4s ease;';
       splash.innerHTML = `
         <div style="width:76px;height:76px;border-radius:22px;background:linear-gradient(135deg,#f43f5e,#d946ef,#f59e0b);
           display:flex;align-items:center;justify-content:center;box-shadow:0 16px 40px rgba(236,72,153,0.5);margin-bottom:14px;">
@@ -33,18 +79,16 @@
       document.body.appendChild(splash);
       setTimeout(() => {
         splash.style.opacity = '0';
-        setTimeout(() => splash.remove(), 480);
-      }, 750);
+        setTimeout(() => splash.remove(), 420);
+      }, 650);
     }
 
-    // Inject iOS Safari "Add to Home Screen" hint if on iPhone/iPad and not yet installed
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     if (isIOS && !isStandalone()) {
       injectHomeInstallCard(true);
     }
   });
 
-  // 3. Capture Android / Desktop Chrome Install Prompt
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
