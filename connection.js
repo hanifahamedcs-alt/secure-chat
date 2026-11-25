@@ -9,13 +9,15 @@ let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
 let roomChatHistory = [], renderedMsgIds = new Set();
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
-let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
+let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, guestRetryTimer = null, audioCtx = null;
 let lastPeerPongMap = {}, rosterRenderTimer = null;
 
-// Fast-Connect Metered TURN Servers (UDP 80 + Encrypted TCP 443 for instant mobile handshake)
+// Full 5-Route Metered TURN Servers (UDP 80 + TCP 80 + UDP 443 + TLS 443 for Indian 4G/5G & Symmetric NATs)
 const iceServersConfig = [
   { urls: "stun:stun.relay.metered.ca:80" },
   { urls: "turn:global.relay.metered.ca:80", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
+  { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
+  { urls: "turn:global.relay.metered.ca:443", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
   { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" }
 ];
 
@@ -110,7 +112,7 @@ function handleAppResume() {
       }
     }, 2000);
   } else if (activePeers.length === 0 && !isHost) {
-    forceRoomReconnect(false);
+    dialRoomHost();
   } else {
     requestHistoryFromPeers();
   }
@@ -134,6 +136,7 @@ if (navigator.connection) {
 }
 
 function safelyDestroyPeer() {
+  if (guestRetryTimer) { clearInterval(guestRetryTimer); guestRetryTimer = null; }
   if (peer) {
     try {
       peer.removeAllListeners();
@@ -337,7 +340,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE (FAST ICE HANDSHAKE + CAPACITY GUARD) ====================
+// ==================== CONNECTION ENGINE (RELIABLE HOST/GUEST DIALER + 5-ROUTE TURN) ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -381,7 +384,7 @@ function tryHostRole() {
   isConnecting = true;
   safelyDestroyPeer();
 
-  const activePeer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 1 } });
+  const activePeer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 4 } });
   peer = activePeer;
 
   activePeer.on('open', (id) => {
@@ -413,8 +416,24 @@ function tryHostRole() {
         statusEl.textContent = `Relay notice (${err.type}) — retrying...`;
         statusEl.classList.remove('hidden');
       }
+      setTimeout(() => {
+        if (!intentionalLogout && room && !isConnecting) tryHostRole();
+      }, 1500);
     }
   });
+}
+
+function dialRoomHost() {
+  if (!peer || peer.destroyed || isHost || intentionalLogout || !room) return;
+  const hostId = room + '-host';
+  const existing = connections[hostId];
+  if (existing && existing.conn && existing.conn.open) return;
+
+  try {
+    if (existing && existing.conn) { try { existing.conn.close(); } catch (e) {} }
+    const conn = peer.connect(hostId, { reliable: true, metadata: { name: myName } });
+    if (conn) registerPeerConnection(conn);
+  } catch (e) {}
 }
 
 function joinAsGuest() {
@@ -423,7 +442,7 @@ function joinAsGuest() {
   safelyDestroyPeer();
 
   const guestId = room + '-guest-' + Math.floor(1000 + Math.random() * 9000);
-  const activePeer = new Peer(guestId, { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 1 } });
+  const activePeer = new Peer(guestId, { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 4 } });
   peer = activePeer;
 
   activePeer.on('open', (id) => {
@@ -435,15 +454,35 @@ function joinAsGuest() {
     restoreLocalCachedHistory();
     updateParticipantsUI();
 
-    const conn = activePeer.connect(room + '-host', { reliable: true, metadata: { name: myName } });
-    registerPeerConnection(conn);
     activePeer.on('connection', (c) => registerPeerConnection(c));
     setupCallHandler(activePeer);
 
-    if (hostCheckTimer) clearTimeout(hostCheckTimer);
-    hostCheckTimer = setTimeout(() => {
-      if (!intentionalLogout && room && Object.keys(connections).length === 0 && !isConnecting) {
-        tryHostRole();
+    dialRoomHost();
+
+    // Auto-retry dialing Host every 3.5s until DataChannel opens (fixes symmetric 4G/iOS ICE delays)
+    if (guestRetryTimer) clearInterval(guestRetryTimer);
+    let attempts = 0;
+    guestRetryTimer = setInterval(() => {
+      if (intentionalLogout || !room || isHost) {
+        clearInterval(guestRetryTimer);
+        guestRetryTimer = null;
+        return;
+      }
+      const openHost = connections[room + '-host'];
+      if (openHost && openHost.conn && openHost.conn.open) {
+        clearInterval(guestRetryTimer);
+        guestRetryTimer = null;
+        return;
+      }
+      attempts++;
+      if (attempts <= 4) {
+        dialRoomHost();
+      } else {
+        clearInterval(guestRetryTimer);
+        guestRetryTimer = null;
+        if (Object.keys(connections).length === 0 && !isConnecting) {
+          tryHostRole();
+        }
       }
     }, 3500);
   });
@@ -457,9 +496,14 @@ function joinAsGuest() {
   activePeer.on('error', (err) => {
     if (peer !== activePeer) return;
     isConnecting = false;
+    if (err.type === 'peer-unavailable') {
+      // Host just left — promote self to Host immediately
+      tryHostRole();
+      return;
+    }
     const statusEl = document.getElementById('authStatus');
     if (statusEl) {
-      statusEl.textContent = `Connection issue (${err.type}) — tap Connect again`;
+      statusEl.textContent = `Connection issue (${err.type}) — retrying...`;
       statusEl.classList.remove('hidden');
     }
   });
@@ -479,6 +523,7 @@ function setupInterface() {
 }
 
 function registerPeerConnection(conn) {
+  if (!conn) return;
   if (isHost && Object.keys(connections).length >= MAX_ROOM_PEERS && !connections[conn.peer]) {
     conn.on('open', () => {
       try { conn.send({ type: 'ROOM_FULL', max: MAX_ROOM_PEERS }); } catch (e) {}
@@ -498,7 +543,7 @@ function registerPeerConnection(conn) {
           if (conn.peerConnection && conn.peerConnection.iceConnectionState === 'disconnected') {
             try { conn.close(); } catch (e) {}
           }
-        }, 3000);
+        }, 3500);
       }
     };
   };
@@ -508,6 +553,7 @@ function registerPeerConnection(conn) {
   conn.on('open', () => {
     if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
     if (failoverTimer) { clearTimeout(failoverTimer); failoverTimer = null; }
+    if (guestRetryTimer) { clearInterval(guestRetryTimer); guestRetryTimer = null; }
 
     connections[conn.peer] = { conn, name: conn.metadata?.name || 'Host' };
     lastPeerPongMap[conn.peer] = Date.now();
@@ -930,6 +976,7 @@ function logoutRoom() {
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
     if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
     if (failoverTimer) { clearTimeout(failoverTimer); failoverTimer = null; }
+    if (guestRetryTimer) { clearInterval(guestRetryTimer); guestRetryTimer = null; }
     if (wakeLockSentinel) { try { wakeLockSentinel.release(); } catch (e) {} wakeLockSentinel = null; }
     if (silentKeepAliveOsc) { try { silentKeepAliveOsc.stop(); } catch (e) {} silentKeepAliveOsc = null; }
     if (typeof stopAllGamesAndLoops === 'function') {
