@@ -12,12 +12,10 @@ let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks 
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
 let lastPeerPongMap = {}, rosterRenderTimer = null;
 
-// Dedicated Metered TURN Servers (UDP + TCP + TLS 443)
+// Fast-Connect Metered TURN Servers (UDP 80 + Encrypted TCP 443 for instant mobile handshake)
 const iceServersConfig = [
   { urls: "stun:stun.relay.metered.ca:80" },
   { urls: "turn:global.relay.metered.ca:80", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
-  { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
-  { urls: "turn:global.relay.metered.ca:443", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" },
   { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "8d48358ef1172e5a21330cc9", credential: "3YwSHB1bbUMRfcnJ" }
 ];
 
@@ -29,8 +27,19 @@ function toggleModal(id, show) {
 }
 
 function toggleMobileSidebar() {
-  document.getElementById('sidebar')?.classList.toggle('-translate-x-full');
-  document.getElementById('sidebarBackdrop')?.classList.toggle('hidden');
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebarBackdrop');
+  if (!sb) return;
+  const isClosed = sb.classList.contains('-translate-x-full');
+  if (isClosed) {
+    sb.classList.remove('-translate-x-full');
+    sb.style.transform = 'translateX(0)';
+    if (bd) bd.classList.remove('hidden');
+  } else {
+    sb.classList.add('-translate-x-full');
+    sb.style.transform = '';
+    if (bd) bd.classList.add('hidden');
+  }
 }
 
 // ==================== PRE-FILL SAVED NAME / INVITE LINK ====================
@@ -49,7 +58,7 @@ window.addEventListener('DOMContentLoaded', () => {
     inviteBtn.id = 'copyInviteHeaderBtn';
     inviteBtn.type = 'button';
     inviteBtn.title = 'Copy Room Invite Link';
-    inviteBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center text-xs transition';
+    inviteBtn.className = 'w-8 h-8 shrink-0 rounded-xl theme-input border hover:text-indigo-400 flex items-center justify-center text-xs transition';
     inviteBtn.innerHTML = '<i class="fa-solid fa-link"></i>';
     inviteBtn.onclick = copyRoomInviteLink;
 
@@ -57,7 +66,7 @@ window.addEventListener('DOMContentLoaded', () => {
     syncBtn.id = 'forceSyncHeaderBtn';
     syncBtn.type = 'button';
     syncBtn.title = 'Force Reconnect & Restore Chats';
-    syncBtn.className = 'w-9 h-9 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center text-xs transition';
+    syncBtn.className = 'w-8 h-8 shrink-0 rounded-xl theme-input border hover:text-amber-400 flex items-center justify-center text-xs transition';
     syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>';
     syncBtn.onclick = () => forceRoomReconnect(true);
 
@@ -99,7 +108,7 @@ function handleAppResume() {
       if (!intentionalLogout && room && nowOpen.length === 0 && !isConnecting) {
         forceRoomReconnect(false);
       }
-    }, 2500);
+    }, 2000);
   } else if (activePeers.length === 0 && !isHost) {
     forceRoomReconnect(false);
   } else {
@@ -113,13 +122,13 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('online', () => {
   if (!intentionalLogout && room) {
     appendSystemNotice('📶 Network restored — reconnecting & syncing chats...');
-    setTimeout(() => forceRoomReconnect(false), 1000);
+    setTimeout(() => forceRoomReconnect(false), 800);
   }
 });
 if (navigator.connection) {
   navigator.connection.addEventListener('change', () => {
     if (!intentionalLogout && room) {
-      setTimeout(() => handleAppResume(), 1200);
+      setTimeout(() => handleAppResume(), 1000);
     }
   });
 }
@@ -328,7 +337,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE (HARDENED STAR HUB + CAPACITY GUARD) ====================
+// ==================== CONNECTION ENGINE (FAST ICE HANDSHAKE + CAPACITY GUARD) ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -372,7 +381,7 @@ function tryHostRole() {
   isConnecting = true;
   safelyDestroyPeer();
 
-  const activePeer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  const activePeer = new Peer(room + '-host', { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 1 } });
   peer = activePeer;
 
   activePeer.on('open', (id) => {
@@ -389,7 +398,7 @@ function tryHostRole() {
 
   activePeer.on('disconnected', () => {
     if (!intentionalLogout && room) {
-      setTimeout(() => handleAppResume(), 800);
+      setTimeout(() => handleAppResume(), 600);
     }
   });
 
@@ -414,7 +423,7 @@ function joinAsGuest() {
   safelyDestroyPeer();
 
   const guestId = room + '-guest-' + Math.floor(1000 + Math.random() * 9000);
-  const activePeer = new Peer(guestId, { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 10 } });
+  const activePeer = new Peer(guestId, { debug: 1, config: { iceServers: iceServersConfig, iceCandidatePoolSize: 1 } });
   peer = activePeer;
 
   activePeer.on('open', (id) => {
@@ -436,12 +445,12 @@ function joinAsGuest() {
       if (!intentionalLogout && room && Object.keys(connections).length === 0 && !isConnecting) {
         tryHostRole();
       }
-    }, 5000);
+    }, 3500);
   });
 
   activePeer.on('disconnected', () => {
     if (!intentionalLogout && room) {
-      setTimeout(() => handleAppResume(), 800);
+      setTimeout(() => handleAppResume(), 600);
     }
   });
 
@@ -489,12 +498,12 @@ function registerPeerConnection(conn) {
           if (conn.peerConnection && conn.peerConnection.iceConnectionState === 'disconnected') {
             try { conn.close(); } catch (e) {}
           }
-        }, 3500);
+        }, 3000);
       }
     };
   };
   attachIceWatcher();
-  setTimeout(attachIceWatcher, 500);
+  setTimeout(attachIceWatcher, 300);
 
   conn.on('open', () => {
     if (hostCheckTimer) { clearTimeout(hostCheckTimer); hostCheckTimer = null; }
@@ -633,7 +642,7 @@ function registerPeerConnection(conn) {
       if (typeof revokeSessionGuestPass === 'function') revokeSessionGuestPass();
       appendSystemNotice('Reconnecting to room...');
       if (failoverTimer) clearTimeout(failoverTimer);
-      const jitter = 1500 + Math.floor(Math.random() * 1000);
+      const jitter = 1200 + Math.floor(Math.random() * 800);
       failoverTimer = setTimeout(() => {
         if (!intentionalLogout && room && Object.keys(connections).length === 0 && !isConnecting) {
           tryHostRole();
@@ -946,7 +955,11 @@ function logoutRoom() {
       try { lockAfterHoursVault(); } catch (e) {}
     }
   } finally {
-    document.getElementById('sidebar')?.classList.add('-translate-x-full');
+    const sb = document.getElementById('sidebar');
+    if (sb) {
+      sb.classList.add('-translate-x-full');
+      sb.style.transform = '';
+    }
     document.getElementById('sidebarBackdrop')?.classList.add('hidden');
     toggleModal('authOverlay', true);
   }
