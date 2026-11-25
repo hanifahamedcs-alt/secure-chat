@@ -4,7 +4,7 @@ let isMicMuted = false, isCamDisabled = false, isScreenSharing = false, soundEna
 let ringtoneInterval = null, unreadCount = 0;
 const originalTitle = document.title;
 
-const MAX_ROOM_PEERS = 25; // Protects mobile/desktop Host from WebRTC socket exhaustion
+const MAX_ROOM_PEERS = 25;
 let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
 let roomChatHistory = [], renderedMsgIds = new Set();
 let activeReplyContext = null, isSecretMode = false;
@@ -68,10 +68,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function copyRoomInviteLink() {
   if (!room) return;
+  const isTa = window.currentAppLang === 'ta';
   const shareUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showToast('🔗 Invite Link Copied!', `Share link for #${room}`);
+      showToast(isTa ? '🔗 அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது!' : '🔗 Invite Link Copied!', `#${room}`);
     }).catch(() => prompt('Copy this room link:', shareUrl));
   } else {
     prompt('Copy this room link:', shareUrl);
@@ -136,7 +137,8 @@ function safelyDestroyPeer() {
 function forceRoomReconnect(notifyUser = true) {
   if (!room || intentionalLogout) return;
   isConnecting = false;
-  if (notifyUser) showToast('🔄 Reconnecting...', 'Restoring TURN link & chat history');
+  const isTa = window.currentAppLang === 'ta';
+  if (notifyUser) showToast(isTa ? '🔄 மீண்டும் இணைக்கப்படுகிறது...' : '🔄 Reconnecting...', 'Restoring TURN link & chat history');
 
   restoreLocalCachedHistory();
 
@@ -330,11 +332,18 @@ function triggerIncomingNotification(title, body, isCall = false) {
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
+  const isTa = window.currentAppLang === 'ta';
   myName = document.getElementById('userNameInput').value.trim();
   const rawRoom = document.getElementById('roomNameInput').value.trim();
-  if (!myName || !rawRoom) { alert('Enter both your name and room code.'); return; }
+  if (!myName || !rawRoom) {
+    alert(isTa ? 'உங்கள் பெயரையும் ரகசிய அறை குறியீட்டையும் உள்ளிடவும்.' : 'Enter both your name and room code.');
+    return;
+  }
   const nextRoom = sanitize(rawRoom);
-  if (!nextRoom) { alert('Room code must contain letters or numbers.'); return; }
+  if (!nextRoom) {
+    alert(isTa ? 'அறை குறியீட்டில் எழுத்துக்கள் அல்லது எண்கள் இருக்க வேண்டும்.' : 'Room code must contain letters or numbers.');
+    return;
+  }
 
   if (room && room !== nextRoom) {
     roomChatHistory = [];
@@ -352,7 +361,7 @@ function enterRoom() {
 
   const statusEl = document.getElementById('authStatus');
   if (statusEl) {
-    statusEl.textContent = 'Connecting to TURN relay...';
+    statusEl.textContent = isTa ? 'பாதுகாப்பான இணைப்பு ஏற்படுத்தப்படுகிறது...' : 'Connecting to TURN relay...';
     statusEl.classList.remove('hidden');
   }
   tryHostRole();
@@ -461,7 +470,6 @@ function setupInterface() {
 }
 
 function registerPeerConnection(conn) {
-  // Star-hub capacity guard: protect Host browser from socket overload past 25 peers
   if (isHost && Object.keys(connections).length >= MAX_ROOM_PEERS && !connections[conn.peer]) {
     conn.on('open', () => {
       try { conn.send({ type: 'ROOM_FULL', max: MAX_ROOM_PEERS }); } catch (e) {}
@@ -709,7 +717,6 @@ function updateParticipantsUI() {
   }
 }
 
-// Debounced Roster Renderer with Direct 1-on-1 Call Buttons for Every User
 function renderGuestRoster(members) {
   if (rosterRenderTimer) clearTimeout(rosterRenderTimer);
   rosterRenderTimer = setTimeout(() => {
@@ -1010,8 +1017,6 @@ async function toggleVoiceRecording() {
 }
 
 async function enableBackgroundPersistence() {
-  if ('wakeLock' in navigator) { try {
-    async function enableBackgroundPersistence() {
   if ('wakeLock' in navigator) { try { wakeLockSentinel = await navigator.wakeLock.request('screen'); } catch (e) {} }
   try {
     initAudioContext();
