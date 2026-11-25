@@ -1,9 +1,11 @@
-// ==================== STEALTH AFTER-HOURS COUPLES VAULT (V5 — WITH 5-LOCK STRIP CONFESSION) ====================
+// ==================== STEALTH AFTER-HOURS COUPLES VAULT (V6 — PARTNER-SCOPED & 100-USER SAFE) ====================
 window.afterHoursState = {
   localConsented: false,
   partnerConsented: false,
   unlocked: false,
-  panicActive: false
+  panicActive: false,
+  activePartnerId: null,
+  activePartnerName: 'Partner'
 };
 
 // 1. Forgiving Stealth Command Interceptor
@@ -40,7 +42,6 @@ document.addEventListener('submit', (e) => {
   }
 })();
 
-// Press Escape twice quickly to trigger Panic Shield on desktop
 let lastEscTime = 0;
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && window.afterHoursState?.unlocked && !window.afterHoursState?.panicActive) {
@@ -49,6 +50,24 @@ document.addEventListener('keydown', (e) => {
     lastEscTime = now;
   }
 });
+
+// Helper: Send packet targeted specifically to your paired 18+ partner
+function sendToAfterHoursPartner(payload) {
+  const enriched = {
+    ...payload,
+    senderId: myPeerId,
+    targetId: window.afterHoursState.activePartnerId || null
+  };
+  if (typeof broadcastData === 'function') broadcastData(enriched);
+}
+
+function isPacketForMyAfterHoursPair(data) {
+  if (data.targetId && data.targetId !== myPeerId) return false;
+  if (window.afterHoursState.activePartnerId && data.senderId && data.senderId !== window.afterHoursState.activePartnerId) {
+    return false;
+  }
+  return true;
+}
 
 // 3. Inject Hidden Modals & Panic Decoy Screen
 (function injectStealthVaultUI() {
@@ -91,7 +110,6 @@ document.addEventListener('keydown', (e) => {
           <button type="button" onclick="toggleModal('stripConfessionModal', false)" class="theme-muted"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- 5-Lock Strip Status Meter -->
         <div class="grid grid-cols-2 gap-2 mb-3 p-2.5 rounded-xl bg-rose-950/45 border border-rose-500/30 text-xs">
           <div>
             <div class="text-[10px] uppercase font-bold text-rose-300 mb-0.5">Your Locks</div>
@@ -103,7 +121,6 @@ document.addEventListener('keydown', (e) => {
           </div>
         </div>
 
-        <!-- Active Confession Prompt -->
         <div class="p-3 rounded-xl bg-black/45 border border-white/10 mb-3 text-left">
           <div class="flex justify-between items-center mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-amber-300">🔥 Confession Prompt</span>
@@ -112,7 +129,6 @@ document.addEventListener('keydown', (e) => {
           <p id="scPromptText" class="text-xs font-bold text-white leading-snug"></p>
         </div>
 
-        <!-- Secret Dual Inputs -->
         <div class="space-y-2 mb-3 text-left">
           <div>
             <label class="block text-[10px] font-bold uppercase text-rose-300 mb-1">1. Your Honest Secret Answer</label>
@@ -130,7 +146,6 @@ document.addEventListener('keydown', (e) => {
 
         <div id="scStatusBanner" class="text-[11px] text-rose-200 min-h-[18px] mb-1"></div>
 
-        <!-- Custom Prompt Setter -->
         <div class="border-t border-white/10 pt-2 mt-2 flex gap-1.5">
           <input id="scCustomQuestionInput" type="text" placeholder="Ask your own bold question..." class="flex-1 theme-input border rounded-lg px-2.5 py-1.5 text-[11px]" />
           <button type="button" onclick="setCustomStripQuestion()" class="px-2.5 py-1.5 rounded-lg bg-rose-500/25 border border-rose-400/40 text-[10px] font-bold text-rose-200">Set</button>
@@ -208,16 +223,14 @@ document.addEventListener('keydown', (e) => {
   document.body.insertAdjacentHTML('beforeend', html);
 })();
 
-// 4. Mutual Dual-Consent Handshake
+// 4. Mutual Dual-Consent Handshake (Partner-Scoped)
 function initiateAfterHoursHandshake() {
   if (Object.keys(connections || {}).length === 0) {
     if (typeof showToast === 'function') showToast('🔒 Private Room Required', 'Invite your partner into the room before unlocking After-Hours');
     return;
   }
   window.afterHoursState.localConsented = true;
-  if (typeof broadcastData === 'function') {
-    broadcastData({ type: 'AH_CONSENT_REQ', sender: myName });
-  }
+  sendToAfterHoursPartner({ type: 'AH_CONSENT_REQ', sender: myName });
   if (window.afterHoursState.partnerConsented) {
     unlockAfterHoursVault();
   } else {
@@ -225,26 +238,29 @@ function initiateAfterHoursHandshake() {
   }
 }
 
-function confirmAfterHoursConsent() {
+function confirmAfterHoursConsent(requesterId = null, requesterName = 'Partner') {
   window.afterHoursState.localConsented = true;
-  if (typeof broadcastData === 'function') {
-    broadcastData({ type: 'AH_CONSENT_ACK', sender: myName });
+  if (requesterId) {
+    window.afterHoursState.activePartnerId = requesterId;
+    window.afterHoursState.activePartnerName = requesterName;
   }
+  sendToAfterHoursPartner({ type: 'AH_CONSENT_ACK', sender: myName });
   if (window.afterHoursState.partnerConsented) {
     unlockAfterHoursVault();
   }
 }
 
-function renderAfterHoursInviteCard(sender, isOut) {
+function renderAfterHoursInviteCard(sender, isOut, senderId = '') {
   const c = document.getElementById('messagesContainer');
   if (!c) return;
   const div = document.createElement('div');
   div.className = `flex flex-col ${isOut ? 'items-end' : 'items-start'}`;
+  const safeSender = escapeHTML(sender || 'Partner').replace(/'/g, "\\'");
   div.innerHTML = `
     <div class="w-72 theme-panel border border-rose-500/40 rounded-2xl p-4 text-center shadow-xl">
       <div class="text-[10px] font-bold uppercase tracking-wider text-rose-400 mb-1">🔐 Private 18+ Vault Request</div>
       <p class="text-xs mb-3">${isOut ? 'Waiting for partner to confirm 18+ mutual consent...' : `<b>${escapeHTML(sender)}</b> invited you to unlock the hidden After-Hours Vault.`}</p>
-      ${!isOut ? `<button type="button" onclick="confirmAfterHoursConsent(); this.disabled=true; this.textContent='Confirmed ✓';" class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold">Confirm 18+ & Enter Vault</button>` : ''}
+      ${!isOut ? `<button type="button" onclick="confirmAfterHoursConsent('${senderId}', '${safeSender}'); this.disabled=true; this.textContent='Confirmed ✓';" class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold">Confirm 18+ & Enter Vault</button>` : ''}
     </div>
   `;
   c.appendChild(div);
@@ -311,7 +327,7 @@ function switchAfterHoursTab() {
 }
 
 window.lockAfterHoursVault = function() {
-  window.afterHoursState = { localConsented: false, partnerConsented: false, unlocked: false, panicActive: false };
+  window.afterHoursState = { localConsented: false, partnerConsented: false, unlocked: false, panicActive: false, activePartnerId: null, activePartnerName: 'Partner' };
   document.getElementById('panicShieldBtn')?.remove();
   document.getElementById('tabAfterHours')?.remove();
   document.getElementById('afterHoursGrid')?.remove();
@@ -405,7 +421,7 @@ function nextStripConfessionPrompt(broadcast = true) {
   if (st) st.textContent = '';
   updateStripConfessionUI();
   if (broadcast) {
-    broadcastData({ type: 'AH_SC_PROMPT', prompt: scState.currentPrompt, sender: myName });
+    sendToAfterHoursPartner({ type: 'AH_SC_PROMPT', prompt: scState.currentPrompt, sender: myName });
   }
 }
 
@@ -420,7 +436,7 @@ function setCustomStripQuestion() {
   const st = document.getElementById('scStatusBanner');
   if (st) st.textContent = '';
   updateStripConfessionUI();
-  broadcastData({ type: 'AH_SC_PROMPT', prompt: q, sender: myName });
+  sendToAfterHoursPartner({ type: 'AH_SC_PROMPT', prompt: q, sender: myName });
 }
 
 function submitStripConfessionRound() {
@@ -443,7 +459,7 @@ function submitStripConfessionRound() {
       : '🔐 Locked in! Waiting for partner to lock their confession...';
   }
 
-  broadcastData({ type: 'AH_SC_SUBMIT', answer: ans, guess, sender: myName });
+  sendToAfterHoursPartner({ type: 'AH_SC_SUBMIT', answer: ans, guess, sender: myName });
   checkStripConfessionReveal();
 }
 
@@ -526,7 +542,7 @@ window.breakMyConfessionLock = function(btn) {
     btn.disabled = true;
     btn.textContent = isTa ? `🔓 உடைக்கப்பட்டது (${scState.myLocks}/5 மீதம்)` : `🔓 Broken (${scState.myLocks}/5 Left)`;
   }
-  broadcastData({ type: 'AH_SC_LOCK_BROKEN', remainingLocks: scState.myLocks, sender: myName });
+  sendToAfterHoursPartner({ type: 'AH_SC_LOCK_BROKEN', remainingLocks: scState.myLocks, sender: myName });
 
   if (scState.myLocks === 0) {
     appendSystemNotice(isTa
@@ -542,7 +558,7 @@ window.breakMyConfessionLock = function(btn) {
 function resetStripConfession(broadcast = true) {
   scState = { myLocks: 5, partnerLocks: 5, currentPrompt: '', mySubmission: null, partnerSubmission: null, partnerName: scState.partnerName };
   nextStripConfessionPrompt(false);
-  if (broadcast) broadcastData({ type: 'AH_SC_RESET' });
+  if (broadcast) sendToAfterHoursPartner({ type: 'AH_SC_RESET' });
 }
 
 // ==================== 7. TRUTH OR DARE, INTIMACY DICE, DESIRE MATCH & COUPONS ====================
@@ -628,7 +644,7 @@ function drawAfterHoursTOD(kind) {
     prompt,
     isCustom: false
   };
-  broadcastData({ type: 'AH_TOD_CARD', card });
+  sendToAfterHoursPartner({ type: 'AH_TOD_CARD', card });
   renderTODVaultCard(card, true);
 }
 
@@ -649,7 +665,7 @@ window.sendCustomAfterHoursTOD = function(kind) {
     prompt: text,
     isCustom: true
   };
-  broadcastData({ type: 'AH_TOD_CARD', card });
+  sendToAfterHoursPartner({ type: 'AH_TOD_CARD', card });
   renderTODVaultCard(card, true);
 };
 
@@ -699,7 +715,7 @@ function rollIntimacyDice() {
     secs: pick.secs,
     roller: myName
   };
-  broadcastData({ type: 'AH_DICE_ROLL', roll });
+  sendToAfterHoursPartner({ type: 'AH_DICE_ROLL', roll });
   renderIntimacyDiceCard(roll, true);
 }
 
@@ -764,7 +780,7 @@ function openDesireMatcher(incomingRoundId = null) {
   myDesireYes = new Set();
   if (!incomingRoundId) {
     partnerDesireSubmission = null;
-    broadcastData({ type: 'AH_DESIRE_INVITE', roundId: targetRound, sender: myName });
+    sendToAfterHoursPartner({ type: 'AH_DESIRE_INVITE', roundId: targetRound, sender: myName });
   }
   document.getElementById('desireSwipeBtns').classList.remove('hidden');
   renderCurrentDesireCard();
@@ -778,7 +794,7 @@ function renderCurrentDesireCard() {
   } else {
     document.getElementById('desireSwipeBtns').classList.add('hidden');
     stage.innerHTML = `<div class="text-xs text-emerald-400 font-bold">✓ Swipes Locked! Waiting for partner...</div>`;
-    broadcastData({ type: 'AH_DESIRE_DONE', roundId: desireRoundId, yesIndices: Array.from(myDesireYes) });
+    sendToAfterHoursPartner({ type: 'AH_DESIRE_DONE', roundId: desireRoundId, yesIndices: Array.from(myDesireYes) });
     checkDesireMatches();
   }
 }
@@ -821,20 +837,27 @@ function sendAfterHoursCoupon() {
   appendMessage(myName, `🎟️ LOVE COUPON: ${text}`, 'outgoing', time, 'scratch', msgId, { ts });
 }
 
-// 8. Packet Handler Hook for After-Hours Events (Including 5-Lock Strip Confession)
+// 8. Packet Handler Hook for After-Hours Events (Partner-Scoped)
 window.handleAfterHoursPacket = function(data) {
+  if (!data || !data.type || !data.type.startsWith('AH_')) return false;
+  if (!isPacketForMyAfterHoursPair(data)) return true; // Ignore other couples' packets in large rooms
+
   switch (data.type) {
     case 'AH_CONSENT_REQ':
       window.afterHoursState.partnerConsented = true;
+      window.afterHoursState.activePartnerId = data.senderId || window.afterHoursState.activePartnerId;
+      window.afterHoursState.activePartnerName = data.sender || 'Partner';
       if (window.afterHoursState.localConsented) {
-        broadcastData({ type: 'AH_CONSENT_ACK', sender: myName });
+        sendToAfterHoursPartner({ type: 'AH_CONSENT_ACK', sender: myName });
         unlockAfterHoursVault();
       } else {
-        renderAfterHoursInviteCard(data.sender, false);
+        renderAfterHoursInviteCard(data.sender, false, data.senderId || '');
       }
       return true;
     case 'AH_CONSENT_ACK':
       window.afterHoursState.partnerConsented = true;
+      window.afterHoursState.activePartnerId = data.senderId || window.afterHoursState.activePartnerId;
+      window.afterHoursState.activePartnerName = data.sender || 'Partner';
       if (window.afterHoursState.localConsented) unlockAfterHoursVault();
       return true;
     case 'AH_SC_PROMPT':
