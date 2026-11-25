@@ -8,7 +8,6 @@ window.afterHoursState = {
   activePartnerName: 'Partner'
 };
 
-// 1. Forgiving Stealth Command Interceptor
 document.addEventListener('submit', (e) => {
   if (!e.target || e.target.getAttribute('onsubmit') !== 'sendMessage(event)') return;
   const input = document.getElementById('messageInput');
@@ -24,7 +23,6 @@ document.addEventListener('submit', (e) => {
   }
 }, true);
 
-// 2. Silence all notification sounds, toasts, and vibrations while Panic Shield is active
 (function patchNotificationsForPanic() {
   const origToast = window.showToast;
   if (typeof origToast === 'function') {
@@ -51,7 +49,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Helper: Send packet targeted specifically to your paired 18+ partner
 function sendToAfterHoursPartner(payload) {
   const enriched = {
     ...payload,
@@ -69,7 +66,6 @@ function isPacketForMyAfterHoursPair(data) {
   return true;
 }
 
-// 3. Inject Hidden Modals & Panic Decoy Screen
 (function injectStealthVaultUI() {
   if (document.getElementById('afterHoursInjected')) return;
   const marker = document.createElement('div');
@@ -77,7 +73,6 @@ function isPacketForMyAfterHoursPair(data) {
   document.body.appendChild(marker);
 
   const html = `
-    <!-- PANIC SHIELD DECOY SCREEN (WEATHER FORECAST) -->
     <div id="panicShieldOverlay" class="fixed inset-0 z-[9999] bg-slate-900 text-white hidden flex flex-col justify-between p-6 select-none">
       <div class="flex justify-between items-center">
         <div onclick="handlePanicUnlockTap()" class="flex items-center gap-2.5 cursor-pointer p-2 -m-2 rounded-xl active:bg-slate-800">
@@ -102,7 +97,6 @@ function isPacketForMyAfterHoursPair(data) {
       <div class="text-center text-[10px] text-slate-500">Meteorological Data Service • Tap top-left weather icon 3× to return</div>
     </div>
 
-    <!-- INTENSE 18+ GAME: 5-LOCK STRIP CONFESSION -->
     <div id="stripConfessionModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
       <div class="theme-panel border border-rose-500/50 rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
         <div class="flex justify-between items-center mb-2">
@@ -155,7 +149,6 @@ function isPacketForMyAfterHoursPair(data) {
       </div>
     </div>
 
-    <!-- TRUTH OR DARE MODAL -->
     <div id="todVaultModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
       <div class="theme-panel border border-rose-500/40 rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
         <div class="flex justify-between items-center mb-3">
@@ -185,7 +178,6 @@ function isPacketForMyAfterHoursPair(data) {
       </div>
     </div>
 
-    <!-- BLIND DESIRE MATCHER MODAL -->
     <div id="desireMatchModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
       <div class="theme-panel border border-rose-500/40 rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
         <div class="flex justify-between items-center mb-2">
@@ -201,7 +193,6 @@ function isPacketForMyAfterHoursPair(data) {
       </div>
     </div>
 
-    <!-- LOVE COUPON GENERATOR MODAL -->
     <div id="loveCouponModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
       <div class="theme-panel border border-amber-500/40 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
         <div class="flex justify-between items-center mb-3">
@@ -223,7 +214,6 @@ function isPacketForMyAfterHoursPair(data) {
   document.body.insertAdjacentHTML('beforeend', html);
 })();
 
-// 4. Mutual Dual-Consent Handshake (Partner-Scoped)
 function initiateAfterHoursHandshake() {
   if (Object.keys(connections || {}).length === 0) {
     if (typeof showToast === 'function') showToast('🔒 Private Room Required', 'Invite your partner into the room before unlocking After-Hours');
@@ -271,7 +261,6 @@ function unlockAfterHoursVault() {
   if (window.afterHoursState.unlocked) return;
   window.afterHoursState.unlocked = true;
 
-  // Keep mobile hamburger menu pinned and visible when extra header icons are injected
   const menuBtn = document.querySelector('header button[onclick*="toggleMobileSidebar"]');
   if (menuBtn) {
     menuBtn.classList.add('shrink-0', 'z-30');
@@ -342,7 +331,6 @@ window.lockAfterHoursVault = function() {
   document.getElementById('panicShieldOverlay')?.classList.add('hidden');
 };
 
-// 5. Panic Shield Disguise & 3-Tap Recovery
 let panicTapCount = 0, panicTapTimer = null;
 function activatePanicShield() {
   window.afterHoursState.panicActive = true;
@@ -359,7 +347,6 @@ function handlePanicUnlockTap() {
   }
 }
 
-// ==================== 6. INTENSE 18+ GAME: 5-LOCK STRIP CONFESSION ====================
 window.stripConfessionPrompts = {
   en: [
     "Which part of my body are you craving to touch or kiss right this second?",
@@ -569,7 +556,6 @@ function resetStripConfession(broadcast = true) {
   if (broadcast) sendToAfterHoursPartner({ type: 'AH_SC_RESET' });
 }
 
-// ==================== 7. TRUTH OR DARE, INTIMACY DICE, DESIRE MATCH & COUPONS ====================
 const todVaultBank = {
   flirty: {
     TRUTH: [
@@ -845,7 +831,6 @@ function sendAfterHoursCoupon() {
   appendMessage(myName, `🎟️ LOVE COUPON: ${text}`, 'outgoing', time, 'scratch', msgId, { ts });
 }
 
-// 8. Packet Handler Hook for After-Hours Events (Partner-Scoped)
 window.handleAfterHoursPacket = function(data) {
   if (!data || !data.type || !data.type.startsWith('AH_')) return false;
   if (!isPacketForMyAfterHoursPair(data)) return true;
