@@ -1,5 +1,5 @@
-// ==================== ONE CHAT — SERVICE WORKER (V3 — ZERO SIGNALING DELAY) ====================
-const CACHE_NAME = 'onechat-pwa-v3';
+// ==================== ONE CHAT — SERVICE WORKER (V4 — FRESH CACHE TAKEOVER) ====================
+const CACHE_NAME = 'onechat-pwa-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
