@@ -1,4 +1,4 @@
-// ==================== STEALTH AFTER-HOURS COUPLES VAULT (V6 — PARTNER-SCOPED & 100-USER SAFE) ====================
+// ==================== STEALTH AFTER-HOURS COUPLES VAULT (V7 — SIDEBAR PIN + DIRECT LEAVE ROOM) ====================
 window.afterHoursState = {
   localConsented: false,
   partnerConsented: false,
@@ -271,16 +271,23 @@ function unlockAfterHoursVault() {
   if (window.afterHoursState.unlocked) return;
   window.afterHoursState.unlocked = true;
 
+  // Keep mobile hamburger menu pinned and visible when extra header icons are injected
+  const menuBtn = document.querySelector('header button[onclick*="toggleMobileSidebar"]');
+  if (menuBtn) {
+    menuBtn.classList.add('shrink-0', 'z-30');
+    menuBtn.style.display = 'flex';
+  }
+
   const headerControls = document.querySelector('header .flex.items-center.gap-1\\.5');
   if (headerControls && !document.getElementById('panicShieldBtn')) {
     const btn = document.createElement('button');
     btn.id = 'panicShieldBtn';
     btn.type = 'button';
     btn.title = 'Panic Shield (Instant Disguise)';
-    btn.className = 'w-9 h-9 rounded-xl bg-rose-600/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-xs';
+    btn.className = 'w-8 h-8 shrink-0 rounded-xl bg-rose-600/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-xs';
     btn.innerHTML = '<i class="fa-solid fa-shield-cat"></i>';
     btn.onclick = activatePanicShield;
-    headerControls.prepend(btn);
+    headerControls.appendChild(btn);
   }
 
   const tabBar = document.querySelector('#pickerPopover .flex.gap-1');
@@ -303,7 +310,8 @@ function unlockAfterHoursVault() {
       <button type="button" onclick="rollIntimacyDice();togglePicker()" class="p-2 rounded-xl theme-input border border-rose-500/40 text-[10px] font-bold text-rose-300">🎲 Intimacy Dice</button>
       <button type="button" onclick="openDesireMatcher();togglePicker()" class="p-2 rounded-xl theme-input border border-rose-500/40 text-[10px] font-bold text-rose-300">❤️‍🔥 Desire Match</button>
       <button type="button" onclick="toggleModal('loveCouponModal',true);togglePicker()" class="p-2 rounded-xl theme-input border border-amber-500/40 text-[10px] font-bold text-amber-300">🎟️ Love Coupon</button>
-      <button type="button" onclick="activatePanicShield();togglePicker()" class="col-span-2 p-2 rounded-xl bg-rose-600/20 border border-rose-500/40 text-[10px] font-bold text-rose-300">🛡️ Activate Panic Shield</button>
+      <button type="button" onclick="activatePanicShield();togglePicker()" class="p-2 rounded-xl bg-rose-600/20 border border-rose-500/40 text-[10px] font-bold text-rose-300">🛡️ Panic Shield</button>
+      <button type="button" onclick="togglePicker();logoutRoom();" class="p-2 rounded-xl bg-red-600/25 border border-red-500/50 text-[10px] font-bold text-red-200">🚪 Leave Room</button>
     `;
     pop.appendChild(grid);
   }
@@ -840,7 +848,7 @@ function sendAfterHoursCoupon() {
 // 8. Packet Handler Hook for After-Hours Events (Partner-Scoped)
 window.handleAfterHoursPacket = function(data) {
   if (!data || !data.type || !data.type.startsWith('AH_')) return false;
-  if (!isPacketForMyAfterHoursPair(data)) return true; // Ignore other couples' packets in large rooms
+  if (!isPacketForMyAfterHoursPair(data)) return true;
 
   switch (data.type) {
     case 'AH_CONSENT_REQ':
