@@ -4,12 +4,13 @@ let isMicMuted = false, isCamDisabled = false, isScreenSharing = false, soundEna
 let ringtoneInterval = null, unreadCount = 0;
 const originalTitle = document.title;
 
+const MAX_ROOM_PEERS = 25; // Protects mobile/desktop Host from WebRTC socket exhaustion
 let incomingChunkBuffers = {}, pendingOutbox = [], activeBlobUrls = new Set();
 let roomChatHistory = [], renderedMsgIds = new Set();
 let activeReplyContext = null, isSecretMode = false;
 let typingTimeout = null, lastTypingSent = 0, mediaRecorder = null, audioChunks = [], isRecordingVoice = false;
 let wakeLockSentinel = null, silentKeepAliveOsc = null, heartbeatTimer = null, hostCheckTimer = null, failoverTimer = null, audioCtx = null;
-let lastPeerPongMap = {};
+let lastPeerPongMap = {}, rosterRenderTimer = null;
 
 // Dedicated Metered TURN Servers (UDP + TCP + TLS 443)
 const iceServersConfig = [
@@ -325,7 +326,7 @@ function triggerIncomingNotification(title, body, isCall = false) {
   }
 }
 
-// ==================== CONNECTION ENGINE (10-USER STAR HUB) ====================
+// ==================== CONNECTION ENGINE (HARDENED STAR HUB + CAPACITY GUARD) ====================
 function sanitize(str) { return str.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function enterRoom() {
@@ -460,6 +461,15 @@ function setupInterface() {
 }
 
 function registerPeerConnection(conn) {
+  // Star-hub capacity guard: protect Host browser from socket overload past 25 peers
+  if (isHost && Object.keys(connections).length >= MAX_ROOM_PEERS && !connections[conn.peer]) {
+    conn.on('open', () => {
+      try { conn.send({ type: 'ROOM_FULL', max: MAX_ROOM_PEERS }); } catch (e) {}
+      setTimeout(() => { try { conn.close(); } catch (e) {} }, 300);
+    });
+    return;
+  }
+
   const attachIceWatcher = () => {
     if (!conn.peerConnection) return;
     conn.peerConnection.oniceconnectionstatechange = () => {
@@ -502,6 +512,12 @@ function registerPeerConnection(conn) {
       return;
     }
     if (data.type === 'PONG') return;
+
+    if (data.type === 'ROOM_FULL') {
+      alert(`Room #${room} has reached its ${data.max || MAX_ROOM_PEERS}-user capacity for optimal speed. Please enter a private room code (e.g. ${room}2).`);
+      logoutRoom();
+      return;
+    }
 
     if (data.type === 'JOIN') {
       connections[conn.peer] = { conn, name: data.name };
@@ -679,7 +695,7 @@ function updateParticipantsUI() {
   if (countEl) countEl.textContent = total;
   if (badge) {
     if (peers.length === 0) { badge.textContent = 'Always-On • Waiting for peers...'; badge.className = 'text-[10px] text-amber-400 font-mono block truncate'; }
-    else { badge.textContent = `${total} Active • TURN Connected`; badge.className = 'text-[10px] text-emerald-400 font-mono block truncate'; }
+    else { badge.textContent = `${total}/${MAX_ROOM_PEERS} Active • TURN Connected`; badge.className = 'text-[10px] text-emerald-400 font-mono block truncate'; }
   }
 
   if (isHost) syncRosterToGuests();
@@ -690,36 +706,49 @@ function updateParticipantsUI() {
   }
 }
 
+// Debounced Roster Renderer with Direct 1-on-1 Call Buttons for Every User
 function renderGuestRoster(members) {
-  const countEl = document.getElementById('participantCount');
-  if (countEl) countEl.textContent = members.length;
-  const listEl = document.getElementById('participantsList');
-  if (!listEl) return;
+  if (rosterRenderTimer) clearTimeout(rosterRenderTimer);
+  rosterRenderTimer = setTimeout(() => {
+    const countEl = document.getElementById('participantCount');
+    if (countEl) countEl.textContent = members.length;
+    const listEl = document.getElementById('participantsList');
+    if (!listEl) return;
 
-  const canGrantGuests = Boolean(window.hasPermanentProLicense);
-  listEl.innerHTML = members.map(m => {
-    const isMe = m.id === myPeerId;
-    const nameKey = 'name:' + (m.name || '').trim().toLowerCase();
-    const isApproved = window.approvedProGuests && (window.approvedProGuests.has(m.id) || window.approvedProGuests.has(nameKey));
-    const safeNameAttr = escapeHTML(m.name || '').replace(/'/g, "\\'");
-    const grantBtn = (!isMe && canGrantGuests)
-      ? `<button type="button" onclick="event.stopPropagation(); toggleSpecificGuestPro('${m.id}', '${safeNameAttr}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
-          isApproved
-            ? 'bg-emerald-600 text-white shadow'
-            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
-        }">${isApproved ? '👑 Pro ON' : 'Grant Pro'}</button>`
-      : '';
+    const canGrantGuests = Boolean(window.hasPermanentProLicense);
+    listEl.innerHTML = members.map(m => {
+      const isMe = m.id === myPeerId;
+      const nameKey = 'name:' + (m.name || '').trim().toLowerCase();
+      const isApproved = window.approvedProGuests && (window.approvedProGuests.has(m.id) || window.approvedProGuests.has(nameKey));
+      const safeNameAttr = escapeHTML(m.name || '').replace(/'/g, "\\'");
 
-    return `
-      <div class="flex items-center justify-between gap-2 p-2 rounded-xl theme-input border">
-        <div class="flex items-center gap-2 overflow-hidden">
-          <div class="w-7 h-7 rounded-lg ${isMe ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">${escapeHTML(m.name[0] || '?')}</div>
-          <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${isMe ? '(You)' : ''}</span>
+      const callBtns = !isMe ? `
+        <button type="button" onclick="event.stopPropagation(); startCall(false, '${m.id}')" title="Voice Call ${safeNameAttr}" class="w-6 h-6 rounded-lg theme-input border hover:text-emerald-400 flex items-center justify-center text-[10px] shrink-0"><i class="fa-solid fa-phone"></i></button>
+        <button type="button" onclick="event.stopPropagation(); startCall(true, '${m.id}')" title="Video Call ${safeNameAttr}" class="w-6 h-6 rounded-lg theme-input border hover:text-sky-400 flex items-center justify-center text-[10px] shrink-0"><i class="fa-solid fa-video"></i></button>
+      ` : '';
+
+      const grantBtn = (!isMe && canGrantGuests)
+        ? `<button type="button" onclick="event.stopPropagation(); toggleSpecificGuestPro('${m.id}', '${safeNameAttr}')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 transition ${
+            isApproved
+              ? 'bg-emerald-600 text-white shadow'
+              : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+          }">${isApproved ? '👑 Pro' : 'Grant'}</button>`
+        : '';
+
+      return `
+        <div class="flex items-center justify-between gap-1.5 p-2 rounded-xl theme-input border">
+          <div class="flex items-center gap-2 overflow-hidden">
+            <div class="w-7 h-7 rounded-lg ${isMe ? 'theme-accent' : 'bg-emerald-600 text-white'} flex items-center justify-center font-bold text-xs uppercase shrink-0">${escapeHTML(m.name[0] || '?')}</div>
+            <span class="text-xs font-medium truncate">${escapeHTML(m.name)} ${isMe ? '(You)' : ''}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            ${callBtns}
+            ${grantBtn}
+          </div>
         </div>
-        ${grantBtn}
-      </div>
-    `;
-  }).join('');
+      `;
+    }).join('');
+  }, 80);
 }
 
 // ==================== 16 KB CHUNKED TRANSFER ====================
@@ -872,9 +901,7 @@ function clearChat(broadcastToRoom = true, clearedBy = myName) {
     if (broadcastToRoom) {
       broadcastData({ type: 'CLEAR_ROOM_CHAT', senderName: myName });
     }
-  } catch (err) {
-    console.warn('Clear chat cleanup notice:', err);
-  }
+  } catch (err) {}
 }
 
 function logoutRoom() {
@@ -909,7 +936,6 @@ function logoutRoom() {
       try { lockAfterHoursVault(); } catch (e) {}
     }
   } finally {
-    // Always close mobile drawer and show entry screen no matter what
     document.getElementById('sidebar')?.classList.add('-translate-x-full');
     document.getElementById('sidebarBackdrop')?.classList.add('hidden');
     toggleModal('authOverlay', true);
@@ -943,7 +969,7 @@ function switchPickerTab(tab) {
   if (ahBtn) ahBtn.className = 'flex-1 py-1 text-[10px] font-bold rounded-lg text-rose-400';
 }
 
-// ==================== HELPERS, ANDROID PING WATCHDOG & CALLS ====================
+// ==================== HELPERS, WATCHDOG & DIRECT 1-ON-1 CALLS ====================
 function setReplyQuote(sender, snippet) { activeReplyContext = { sender, text: snippet.slice(0, 80) }; document.getElementById('replyTargetSender').textContent = `Replying to ${sender}`; document.getElementById('replyTargetSnippet').textContent = activeReplyContext.text; toggleModal('replyPreviewBanner', true); }
 function cancelReply() { activeReplyContext = null; toggleModal('replyPreviewBanner', false); }
 function toggleSecretMode() { isSecretMode = !isSecretMode; toggleModal('secretModeBanner', isSecretMode); document.getElementById('secretBtn')?.classList.toggle('text-amber-400', isSecretMode); }
@@ -1002,7 +1028,7 @@ async function enableBackgroundPersistence() {
     for (const [peerId, peerObj] of Object.entries(connections)) {
       if (peerObj.conn && peerObj.conn.open) {
         try { peerObj.conn.send({ type: 'PING' }); } catch (e) {}
-        if (lastPeerPongMap[peerId] && (now - lastPeerPongMap[peerId] > 14000)) {
+        if (lastPeerPongMap[peerId] && (now - lastPeerPongMap[peerId] > 16000)) {
           try { peerObj.conn.close(); } catch (e) {}
         }
       }
@@ -1011,7 +1037,7 @@ async function enableBackgroundPersistence() {
     if (peer && !peer.destroyed && peer.socket && peer.socket._open) {
       try { peer.socket.send({ type: 'HEARTBEAT' }); } catch (e) {}
     }
-  }, 5000);
+  }, 6000);
 }
 
 function setupCallHandler(activePeerInstance) {
@@ -1041,13 +1067,20 @@ async function acceptIncomingCall() {
 
 function rejectIncomingCall() { stopRingtone(); toggleModal('incomingCallModal', false); if (pendingIncomingCall) { try { pendingIncomingCall.close(); } catch (e) {} pendingIncomingCall = null; } }
 
-async function startCall(isVideo) {
-  const peerIds = Object.keys(connections); if (peerIds.length === 0) { alert('No peers in room yet.'); return; }
+async function startCall(isVideo, targetPeerId = null) {
+  // Support direct 1-on-1 calling of any user in roomRoster or default first connected peer
+  let dialId = targetPeerId;
+  if (!dialId) {
+    const others = (roomRoster || []).filter(m => m.id !== myPeerId);
+    dialId = others.length > 0 ? others[0].id : Object.keys(connections)[0];
+  }
+  if (!dialId) { alert('No peers in room yet.'); return; }
+
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo ? { facingMode: 'user', width: { ideal: 640 } } : false });
     toggleModal('callOverlay', true); document.getElementById('localVideo').srcObject = localStream;
     toggleModal('localVideo', isVideo); toggleModal('remoteVideo', isVideo); toggleModal('audioIndicator', !isVideo);
-    handleStream(peer.call(peerIds[0], localStream, { metadata: { video: isVideo, callerName: myName } }));
+    handleStream(peer.call(dialId, localStream, { metadata: { video: isVideo, callerName: myName } }));
   } catch (err) { alert('Media error: ' + err.message); }
 }
 
