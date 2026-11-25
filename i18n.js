@@ -1,4 +1,4 @@
-// ==================== ONE CHAT — BILINGUAL ENGINE (V3 — COMPLETE WITH 5-LOCK STRIP CONFESSION) ====================
+// ==================== ONE CHAT — BILINGUAL ENGINE (V4 — COMPLETE ENGLISH / தமிழ்) ====================
 window.currentAppLang = localStorage.getItem('onechat_lang') || 'en';
 
 const I18N_DICT = {
@@ -17,11 +17,8 @@ const I18N_DICT = {
     "No History Stored": "வரலாறு சேமிக்கப்படாது",
     "Live Arcade": "நேரலை விளையாட்டுகள்",
     "Connecting to TURN relay...": "பாதுகாப்பான இணைப்பு ஏற்படுத்தப்படுகிறது...",
-    "Invite Link Copied!": "அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது!",
-    "Reconnecting...": "மீண்டும் இணைக்கப்படுகிறது...",
-    "Waiting for partner to confirm 18+ mutual consent...": "18+ சம்மதத்தை துணை உறுதிப்படுத்தும் வரை காத்திருக்கிறது...",
 
-    // Sidebar & Header
+    // Sidebar, Header & Room Controls
     "Always-On • Waiting...": "தயார் நிலை • நண்பர்களுக்காக காத்திருக்கிறது...",
     "Always-On • Waiting for peers...": "தயார் நிலை • நண்பர்களுக்காக காத்திருக்கிறது...",
     "Room Theme": "அறை தீம் (Theme)",
@@ -31,6 +28,8 @@ const I18N_DICT = {
     "End-to-End Encrypted": "முழுமையான மறைகுறியாக்கம்",
     "Message privately...": "தனிப்பட்ட செய்தி அனுப்பவும்...",
     "Partner is typing...": "நண்பர் தட்டச்சு செய்கிறார்...",
+    "Invite Link Copied!": "அழைப்பு இணைப்பு நகலெடுக்கப்பட்டது!",
+    "Reconnecting...": "மீண்டும் இணைக்கப்படுகிறது...",
     "Burn Mode ON:": "ரகசிய அழிப்பு முறை:",
     "Messages self-destruct 10s after reading": "படித்த 10 வினாடிகளில் செய்தி தானாக அழியும்",
     "Off": "நிறுத்து",
@@ -130,6 +129,7 @@ const I18N_DICT = {
     "Ask the Oracle": "குறி கேளுங்கள்",
 
     // Couples Vault & 5-Lock Strip Confession
+    "Waiting for partner to confirm 18+ mutual consent...": "18+ சம்மதத்தை துணை உறுதிப்படுத்தும் வரை காத்திருக்கிறது...",
     "🔓 5-Lock Strip Confession": "🔓 5-பூட்டு ரகசிய சவால்",
     "Your Locks": "உங்கள் பூட்டுகள்",
     "Partner Locks": "துணையின் பூட்டுகள்",
@@ -370,7 +370,8 @@ window.addEventListener('load', () => {
         secs: pick.secs,
         roller: myName
       };
-      broadcastData({ type: 'AH_DICE_ROLL', roll });
+      if (typeof sendToAfterHoursPartner === 'function') sendToAfterHoursPartner({ type: 'AH_DICE_ROLL', roll });
+      else broadcastData({ type: 'AH_DICE_ROLL', roll });
       if (typeof renderIntimacyDiceCard === 'function') renderIntimacyDiceCard(roll, true);
     };
   }
