@@ -56,7 +56,7 @@
   });
 
   function injectCheckoutCards() {
-    // 1. Add sleek "👑 Upgrade to Pro • ₹99" pill on Home Screen if not yet Pro
+    // 1. Add sleek "👑 Upgrade to Pro • ₹999" pill on Home Screen if not yet Pro
     const authCard = document.querySelector('#authOverlay > div');
     if (authCard && !window.hasPermanentProLicense && !document.getElementById('homeGoProBtn')) {
       const proPill = document.createElement('button');
@@ -68,7 +68,7 @@
         'border border-amber-400/45 flex items-center justify-between text-left hover:border-amber-300 transition';
       proPill.innerHTML = `
         <div>
-          <div class="text-[11px] font-extrabold text-amber-300">👑 ${isTa() ? 'Pro Host ஆகுங்கள் • ₹99' : 'Upgrade to Pro Host • ₹99'}</div>
+          <div class="text-[11px] font-extrabold text-amber-300">👑 ${isTa() ? 'Pro Host ஆகுங்கள் • ₹999' : 'Upgrade to Pro Host • ₹999'}</div>
           <div class="text-[10px] text-purple-200">${isTa() ? 'UPI / GPay மூலம் உடனடி Key • நண்பர்களுக்கு இலவச Pro Pass' : 'Instant UPI / GPay unlock • Grant free Pro to room guests'}</div>
         </div>
         <span class="px-2.5 py-1 rounded-lg bg-amber-400 text-black text-[10px] font-extrabold shrink-0">UPI ⚡</span>
@@ -89,12 +89,12 @@
         <div class="grid grid-cols-2 gap-2 mb-2">
           <button type="button" onclick="startRazorpayCheckout('pro_personal')" class="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/25 to-rose-500/25 border border-amber-400/50 text-left hover:border-amber-300 transition">
             <div class="text-xs font-extrabold text-white">👑 Personal Pro</div>
-            <div class="text-[11px] font-bold text-amber-300">₹99 <span class="text-[9px] opacity-75">Lifetime</span></div>
+            <div class="text-[11px] font-bold text-amber-300">₹999 <span class="text-[9px] opacity-75">Lifetime</span></div>
             <div class="text-[9px] text-purple-200 mt-0.5">Host + Guest Pro Passes</div>
           </button>
           <button type="button" onclick="startRazorpayCheckout('pro_cafe')" class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/25 to-cyan-500/25 border border-cyan-400/45 text-left hover:border-cyan-300 transition">
             <div class="text-xs font-extrabold text-white">☕ Cafe / Venue</div>
-            <div class="text-[11px] font-bold text-cyan-300">₹499 <span class="text-[9px] opacity-75">Venue Pass</span></div>
+            <div class="text-[11px] font-bold text-cyan-300">₹4999 <span class="text-[9px] opacity-75">Venue Pass</span></div>
             <div class="text-[9px] text-purple-200 mt-0.5">25-Seat Table QR Hosting</div>
           </button>
         </div>
