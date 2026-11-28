@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   try {
     const { planId, deviceId } = req.body || {};
     const plans = {
-      pro_personal: { amount: 9900, label: 'One Chat Pro Host (Lifetime)' },   // ₹99.00
-      pro_cafe:     { amount: 49900, label: 'One Chat Cafe / Lounge Venue Pass' } // ₹499.00
+      pro_personal: { amount: 99900, label: 'One Chat Pro Host (Lifetime)' },   // ₹999.00
+      pro_cafe:     { amount: 499900, label: 'One Chat Cafe / Lounge Venue Pass' } // ₹4999.00
     };
 
     const selected = plans[planId] || plans.pro_personal;
